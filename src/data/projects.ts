@@ -47,11 +47,11 @@ export interface Project {
 }
 
 export const IMAGES = {
-  heroMeals: '/src/assets/images/hero_community_meals_1790672974684.jpg',
-  schoolNutrition: '/src/assets/images/project_school_nutrition_1790672995041.jpg',
-  emergencyRelief: '/src/assets/images/project_emergency_relief_1790673011442.jpg',
-  communityKitchen: '/src/assets/images/project_community_kitchen_1790673027388.jpg',
-  womenSupport: '/src/assets/images/about_women_family_support_1790673047027.jpg',
+  heroMeals: '/images/hero_community_meals_1790672974684.jpg',
+  schoolNutrition: '/images/project_school_nutrition_1790672995041.jpg',
+  emergencyRelief: '/images/project_emergency_relief_1790673011442.jpg',
+  communityKitchen: '/images/project_community_kitchen_1790673027388.jpg',
+  womenSupport: '/images/about_women_family_support_1790673047027.jpg',
 };
 
 export const PROJECTS: Project[] = [
