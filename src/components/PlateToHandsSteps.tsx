@@ -62,9 +62,6 @@ const STEPS: StepCardItem[] = [
   },
 ];
 
-/**
- * 18-Point Geometric Starburst SVG matching the reference header icon
- */
 const StarburstBadge: React.FC<{ className?: string }> = ({ className }) => {
   const points = 18;
   const outerRadius = 24;
@@ -94,14 +91,13 @@ const StarburstBadge: React.FC<{ className?: string }> = ({ className }) => {
 
 export const PlateToHandsSteps: React.FC = () => {
   return (
-    <div className="bg-[#122023] text-white rounded-2xl sm:rounded-[24px] px-4 sm:px-10 lg:px-14 py-12 sm:py-20 lg:py-22 shadow-2xl overflow-hidden">
-      {/* =====================================================================
-          TOP HEADER ROW: LEFT CONDENSED DISPLAY TITLE + RIGHT STARBURST & COPY
-      ====================================================================== */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-8 items-start mb-10 sm:mb-16">
-        {/* Left 7 Columns: Eyebrow + Condensed Uppercase Headline */}
+    /* Changed overflow-hidden to overflow-visible so characters don't get clipped at the top */
+    <div className="bg-brand-slate text-white rounded-2xl sm:rounded-3xl px-4 sm:px-10 lg:px-14 py-12 sm:py-20 lg:py-22 shadow-2xl overflow-visible">
+      
+      {/* TOP HEADER ROW */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-8 items-start mb-16 sm:mb-24">
         <ScrollReveal className="lg:col-span-7">
-          <span className="text-xs sm:text-sm font-medium text-[#49E619] tracking-tight block mb-3">
+          <span className="text-xs sm:text-sm font-medium text-brand-green tracking-tight block mb-3">
             From your plate to a child’s hands
           </span>
 
@@ -112,7 +108,6 @@ export const PlateToHandsSteps: React.FC = () => {
           </h3>
         </ScrollReveal>
 
-        {/* Right 5 Columns: White Starburst Icon + Editorial Explanation */}
         <ScrollReveal
           delay={0.1}
           className="lg:col-span-5 lg:pl-6 flex flex-col items-start"
@@ -128,7 +123,7 @@ export const PlateToHandsSteps: React.FC = () => {
 
           <Link
             to="/track-meal?token=ZH-2026-A8F42K"
-            className="mt-4 inline-flex items-center gap-1.5 text-xs font-mono-tabular uppercase tracking-widest text-[#49E619] hover:text-white transition-colors"
+            className="mt-4 inline-flex items-center gap-1.5 text-xs font-mono-tabular uppercase tracking-widest text-brand-green hover:text-white transition-colors"
           >
             <span>Inspect Live Token (ZH-2026-A8F42K)</span>
             <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
@@ -136,31 +131,51 @@ export const PlateToHandsSteps: React.FC = () => {
         </ScrollReveal>
       </div>
 
-      {/* =====================================================================
-          2×3 BENTO GRID OF OVERSIZED NUMBERED CARDS (1 TO 6)
-      ====================================================================== */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
+      {/* BENTO GRID OF STEPS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-15 sm:gap-3 pt-6 sm:pt-8">
         {STEPS.map((step, index) => (
-          <ScrollReveal key={step.number} delay={0.05 * index}>
+          <ScrollReveal
+            key={step.number}
+            delay={0.05 * index}
+            className="relative mt-8 sm:mt-16"
+          >
+            {/* Cartoon Character for Card 1 */}
+            {step.number === '1' && (
+              <img
+                src="/images/NumCharacter1.png"
+                alt="Character pointing at step 1"
+                className="absolute -top-21 md:-top-26 sm:-top-45 lg:-top-45 left-6 sm:left-10 md:-left-5 lg:left-5 w-43 sm:w-48 md:w-52 lg:w-90 object-contain z-30 pointer-events-none select-none"
+              />
+            )}
+
+            {/* Cartoon Character for Card 2 */}
+            {step.number === '2' && (
+              <img
+                src="/images/NumCharacter2.png"
+                alt="Character leaning on step 2"
+                className="absolute -top-21 md:-top-29 sm:-top-43 lg:-top-43 right-6 sm:right-10 md:-right-5 lg:right-5 w-36 sm:w-48 md:w-48 lg:w-70 object-contain z-30 pointer-events-none select-none"
+              />
+            )}
+
             <Link
               to={step.href}
-              className={`${step.bgClass} group relative rounded-[14px] sm:rounded-[16px] min-h-[190px] sm:min-h-[240px] lg:min-h-[265px] overflow-hidden grid grid-cols-12 items-center transition-transform duration-300 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white`}
+              className={`${step.bgClass} group relative rounded-[14px] sm:rounded-2xl min-h-47.5 sm:min-h-60 lg:min-h-66.25 overflow-hidden grid grid-cols-12 items-center transition-transform duration-300 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white`}
             >
               {/* Left Column: Oversized Cropped Numeral (1–6) */}
               <div className="col-span-4 sm:col-span-5 h-full flex items-end pl-2 sm:pl-5 lg:pl-6 pt-6 pointer-events-none select-none overflow-hidden">
-                <span className="font-display-sans font-black text-[#122023] text-[120px] sm:text-[185px] md:text-[165px] lg:text-[225px] leading-[0.74] tracking-[-0.06em] -mb-2 sm:-mb-4 block">
+                <span className="font-display-sans font-black text-brand-slate text-[120px] sm:text-[185px] md:text-[165px] lg:text-[225px] leading-[0.74] tracking-[-0.06em] -mb-2 sm:-mb-4 block">
                   {step.number}
                 </span>
               </div>
 
               {/* Right Column: Bold Condensed Uppercase Heading + Description */}
               <div className="col-span-8 sm:col-span-7 pr-4 sm:pr-7 lg:pr-10 py-5 sm:py-8 flex flex-col justify-center">
-                <h4 className="font-display-sans uppercase text-[#122023] text-lg sm:text-2xl md:text-xl lg:text-[28px] font-black leading-[0.94] tracking-[-0.035em]">
+                <h4 className="font-display-sans uppercase text-brand-slate text-lg sm:text-2xl md:text-xl lg:text-[28px] font-black leading-[0.94] tracking-[-0.035em]">
                   <span className="block">{step.titleLines[0]}</span>
                   <span className="block">{step.titleLines[1]}</span>
                 </h4>
 
-                <p className="mt-2.5 sm:mt-4 text-xs sm:text-[13px] text-[#122023]/85 font-medium leading-[1.45] max-w-[270px]">
+                <p className="mt-2.5 sm:mt-4 text-xs sm:text-[13px] text-brand-slate/85 font-medium leading-[1.45] max-w-67.5">
                   {step.description}
                 </p>
               </div>
