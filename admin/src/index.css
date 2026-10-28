@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+/**
+ * Zero Hunger Admin — Global Styles
+ * Uses the same brand colour tokens as the customer website (frontend/src/index.css)
+ * so that the admin dashboard stays visually consistent.
+ */
+
+@theme {
+  /* ── Brand colours (mirrored from frontend) ── */
+  --color-brand-white:     #FFFFFF;
+  --color-brand-alabaster: #F2F4F3;
+  --color-brand-slate:     #122023;
+  --color-brand-black:     #080808;
+  --color-brand-charcoal:  #111111;
+  --color-brand-green:     #49E619;
+  --color-brand-lime:      #B9FF2C;
+  --color-brand-cyan:      #4EDBE2;
+  --color-brand-emerald:   #188D44;
+  --color-brand-gray:      #6F6F6F;
+
+  /* ── Admin-specific sidebar colour ── */
+  --color-admin-sidebar:   #0D1719;
+  --color-admin-surface:   #122023;
+  --color-admin-border:    rgba(255,255,255,0.08);
+
+  /* ── Typography ── */
+  --font-display-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono-tabular: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    font-family: var(--font-display-sans);
+    color: #FFFFFF;
+    background-color: #080808;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background-color: #080808;
+    color: #FFFFFF;
+  }
+}
+
+@utility font-display-sans {
+  font-family: var(--font-display-sans);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+@utility font-mono-tabular {
+  font-family: var(--font-mono-tabular);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
