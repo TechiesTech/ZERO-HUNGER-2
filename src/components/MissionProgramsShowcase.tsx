@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, ArrowUpRight } from 'lucide-react';
-import { IMAGES } from '../data/projects';
-import { MEAL_IMAGES } from '../data/mealProgram';
-import { EditorialImage } from './EditorialImage';
-import { ScrollReveal } from './ScrollReveal';
-import { SupportTab } from './SupportModal';
+import React, { useState } from "react";
+import { Link } from "react-router-dom";
+import { ArrowLeft, ArrowRight, ArrowUpRight } from "lucide-react";
+import { IMAGES } from "../data/projects";
+import { MEAL_IMAGES } from "../data/mealProgram";
+import { EditorialImage } from "./EditorialImage";
+import { ScrollReveal } from "./ScrollReveal";
+import { SupportTab } from "./SupportModal";
+import { motion } from "framer-motion";
 
 interface MissionProgramsShowcaseProps {
   onOpenSupport?: (tab?: SupportTab, projectSlug?: string) => void;
@@ -23,64 +24,64 @@ interface MissionProgramCard {
 
 const MISSION_PROGRAMS: MissionProgramCard[] = [
   {
-    id: 'camp-meal-box',
-    title: 'BUY 1 · GIVE 1 MEAL BOX',
+    id: "camp-meal-box",
+    title: "BUY 1 · GIVE 1 MEAL BOX",
     description:
-      'Part daily kitchen, part child nutrition engine — every ₹150 meal you order funds and tracks a hot meal for a child in need.',
+      "Part daily kitchen, part child nutrition engine — every ₹150 meal you order funds and tracks a hot meal for a child in need.",
     image: MEAL_IMAGES.proteinPower,
-    exploreHref: '/meal-box',
-    learnHref: '/track-meal?token=ZH-2026-A8F42K',
-    projectSlug: 'community-meal-program',
+    exploreHref: "/meal-box",
+    learnHref: "/track-meal?token=ZH-2026-A8F42K",
+    projectSlug: "community-meal-program",
   },
   {
-    id: 'youth-school-nutrition',
-    title: 'SCHOOL NUTRITION FELLOWSHIP',
+    id: "youth-school-nutrition",
+    title: "SCHOOL NUTRITION FELLOWSHIP",
     description:
-      'A daily midday meal initiative giving 3,800+ rural students the iron-rich nourishment, energy, and dignity to thrive in school.',
+      "A daily midday meal initiative giving 3,800+ rural students the iron-rich nourishment, energy, and dignity to thrive in school.",
     image: IMAGES.schoolNutrition,
-    exploreHref: '/projects/school-nutrition-initiative',
-    learnHref: '/impact',
-    projectSlug: 'school-nutrition-initiative',
+    exploreHref: "/projects/school-nutrition-initiative",
+    learnHref: "/impact",
+    projectSlug: "school-nutrition-initiative",
   },
   {
-    id: 'launch-dawn-kitchen',
-    title: 'DAWN KITCHEN CORPS',
+    id: "launch-dawn-kitchen",
+    title: "DAWN KITCHEN CORPS",
     description:
-      'A high-impact morning culinary operation in Secunderabad where volunteers and chefs prepare 4,500+ fresh zero-waste meals daily.',
+      "A high-impact morning culinary operation in Secunderabad where volunteers and chefs prepare 4,500+ fresh zero-waste meals daily.",
     image: IMAGES.communityKitchen,
-    exploreHref: '/projects/central-community-kitchen',
-    learnHref: '/about',
-    projectSlug: 'central-community-kitchen',
+    exploreHref: "/projects/central-community-kitchen",
+    learnHref: "/about",
+    projectSlug: "central-community-kitchen",
   },
   {
-    id: 'emergency-reliefcorps',
-    title: 'RAPID FLOOD & GRAIN RELIEF',
+    id: "emergency-reliefcorps",
+    title: "RAPID FLOOD & GRAIN RELIEF",
     description:
-      'A 24-hour emergency mobilization unit dispatching dry-ration kits and clean water to families impacted by seasonal crises.',
+      "A 24-hour emergency mobilization unit dispatching dry-ration kits and clean water to families impacted by seasonal crises.",
     image: IMAGES.emergencyRelief,
-    exploreHref: '/projects/emergency-food-relief-corps',
-    learnHref: '/impact',
-    projectSlug: 'emergency-food-relief-corps',
+    exploreHref: "/projects/emergency-food-relief-corps",
+    learnHref: "/impact",
+    projectSlug: "emergency-food-relief-corps",
   },
   {
-    id: 'women-growers-coop',
-    title: 'WOMEN GROWERS COLLECTIVE',
+    id: "women-growers-coop",
+    title: "WOMEN GROWERS COLLECTIVE",
     description:
-      'Partnering with smallholder women farmers across Telangana to supply organic greens directly to our urban community tables.',
+      "Partnering with smallholder women farmers across Telangana to supply organic greens directly to our urban community tables.",
     image: IMAGES.womenSupport,
-    exploreHref: '/projects/women-and-family-food-sovereignty',
-    learnHref: '/projects',
-    projectSlug: 'women-and-family-food-sovereignty',
+    exploreHref: "/projects/women-and-family-food-sovereignty",
+    learnHref: "/projects",
+    projectSlug: "women-and-family-food-sovereignty",
   },
   {
-    id: 'courtyard-meal-drive',
-    title: 'COURTYARD MEAL SERVICE',
+    id: "courtyard-meal-drive",
+    title: "COURTYARD MEAL SERVICE",
     description:
-      'Serving hot, freshly steamed rice and dal outside public hospitals so caregivers never have to sleep hungry.',
+      "Serving hot, freshly steamed rice and dal outside public hospitals so caregivers never have to sleep hungry.",
     image: IMAGES.heroMeals,
-    exploreHref: '/projects/community-meal-program',
-    learnHref: '/track-meal',
-    projectSlug: 'community-meal-program',
+    exploreHref: "/projects/community-meal-program",
+    learnHref: "/track-meal",
+    projectSlug: "community-meal-program",
   },
 ];
 
@@ -111,7 +112,7 @@ const LargeStarburstGraphic: React.FC<{ className?: string }> = ({
       className={className}
       aria-hidden="true"
     >
-      <polygon points={coords.join(' ')} />
+      <polygon points={coords.join(" ")} />
     </svg>
   );
 };
@@ -124,7 +125,7 @@ export const MissionProgramsShowcase: React.FC<
 
   const visiblePrograms = MISSION_PROGRAMS.slice(
     pageIndex * 3,
-    pageIndex * 3 + 3
+    pageIndex * 3 + 3,
   );
 
   const handlePrev = () => {
@@ -244,7 +245,19 @@ export const MissionProgramsShowcase: React.FC<
         <ScrollReveal delay={0.18} className="mt-5 sm:mt-6">
           <div className="relative rounded-[18px] bg-[#B9FF2C] text-[#122023] px-6 sm:px-10 lg:px-12 py-7 sm:py-9 overflow-hidden flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             {/* Oversized White Starburst Graphic on Right */}
-            <LargeStarburstGraphic className="pointer-events-none absolute -bottom-28 right-8 sm:right-24 lg:right-40 w-64 h-64 sm:w-80 sm:h-80 text-white/95 select-none" />
+            <motion.div
+              className="pointer-events-none absolute -bottom-7 md:bottom-auto md:-top-8 right-8 sm:right-24 md:right-16 lg:right-40 lg:-top-22 w-64 h-64 sm:w-80 sm:h-80 text-white/95 select-none z-0"
+              animate={{
+                scale: [0.1, 1, 0.1],
+              }}
+              transition={{
+                duration: 3,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+            >
+              <LargeStarburstGraphic className="w-full h-full" />
+            </motion.div>
 
             {/* Left: Condensed Uppercase Title */}
             <div className="relative z-10">
@@ -265,7 +278,7 @@ export const MissionProgramsShowcase: React.FC<
               {onOpenSupport ? (
                 <button
                   type="button"
-                  onClick={() => onOpenSupport('volunteer')}
+                  onClick={() => onOpenSupport("volunteer")}
                   className="group inline-flex items-center gap-3.5 text-left cursor-pointer"
                 >
                   <span className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#122023] text-white flex items-center justify-center transition-transform duration-200 group-hover:scale-105">

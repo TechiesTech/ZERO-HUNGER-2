@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { IMAGES } from '../data/projects';
 import { MEAL_IMAGES } from '../data/mealProgram';
 import { EditorialImage } from './EditorialImage';
@@ -117,8 +118,7 @@ const StarburstIcon: React.FC<{ className?: string }> = ({ className }) => {
 };
 
 /**
- * Expressive hand-drawn cursive loop SVG behind the right-side portrait
- * matching the sweeping brushstroke graphic in the reference design
+ * Expressive hand-drawn cursive loop SVG with path-drawing animation
  */
 const BrushstrokeLoopSvg: React.FC<{ className?: string }> = ({
   className,
@@ -129,12 +129,20 @@ const BrushstrokeLoopSvg: React.FC<{ className?: string }> = ({
     className={className}
     aria-hidden="true"
   >
-    <path
+    <motion.path
       d="M 20 305 C 150 295, 340 270, 355 155 C 365 70, 245 40, 225 130 C 205 220, 345 295, 485 280"
       stroke="currentColor"
       strokeWidth="18"
       strokeLinecap="round"
       strokeLinejoin="round"
+      initial={{ pathLength: 0, opacity: 0 }}
+      whileInView={{ pathLength: 1, opacity: 1 }}
+      viewport={{ once: true }}
+      transition={{ 
+        duration: 2.0, 
+        ease: 'easeInOut',
+        delay: 0.1 
+      }}
     />
   </svg>
 );
@@ -143,11 +151,8 @@ export const FivePrinciplesShowcase: React.FC = () => {
   return (
     <section className="bg-[#122023] text-white py-20 sm:py-28 border-b border-white/10 overflow-hidden">
       <div className="max-w-[1360px] mx-auto px-5 sm:px-8 lg:px-12">
-        {/* ===================================================================
-            TOP HEADER: TWO-TONE CONDENSED DISPLAY HEADLINE + STARBURST & COPY
-        ==================================================================== */}
+        {/* TOP HEADER */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start mb-12 sm:mb-16">
-          {/* Left 7 Columns */}
           <ScrollReveal className="lg:col-span-7">
             <span className="text-xs sm:text-sm font-medium text-[#49E619] tracking-tight block mb-3">
               05 · Our Core Values
@@ -161,7 +166,6 @@ export const FivePrinciplesShowcase: React.FC = () => {
             </h2>
           </ScrollReveal>
 
-          {/* Right 5 Columns: White Starburst Badge + Supporting Paragraph */}
           <ScrollReveal
             delay={0.1}
             className="lg:col-span-5 lg:pl-8 flex flex-col items-start"
@@ -176,9 +180,7 @@ export const FivePrinciplesShowcase: React.FC = () => {
           </ScrollReveal>
         </div>
 
-        {/* ===================================================================
-            STACKED FULL-WIDTH HORIZONTAL QUOTE & PORTRAIT CARDS (01 TO 05)
-        ==================================================================== */}
+        {/* STACKED CARDS (01 TO 05) */}
         <div className="space-y-4 sm:space-y-5">
           {PRINCIPLE_BANNERS.map((item, idx) => (
             <ScrollReveal key={item.index} delay={idx * 0.06}>
@@ -190,7 +192,7 @@ export const FivePrinciplesShowcase: React.FC = () => {
                   className={`pointer-events-none absolute right-4 sm:right-20 md:right-32 bottom-0 w-[340px] sm:w-[440px] lg:w-[500px] h-auto select-none ${item.loopStrokeColor}`}
                 />
 
-                {/* Left 7–8 Columns: Bold Condensed Quote + Attribution + White Learn More Button */}
+                {/* Left Columns: Quote + Attribution + Button */}
                 <div className="md:col-span-7 lg:col-span-8 p-6 sm:p-9 lg:p-11 flex flex-col justify-between relative z-10">
                   <div>
                     <h3 className="font-display-sans uppercase text-[#122023] text-xl sm:text-2xl md:text-[26px] lg:text-[32px] font-black leading-[0.96] tracking-[-0.035em] max-w-2xl">
@@ -213,7 +215,7 @@ export const FivePrinciplesShowcase: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Right 5–4 Columns: Documentary Portrait Cutout Frame */}
+                {/* Right Columns: Documentary Portrait Cutout Frame */}
                 <div className="md:col-span-5 lg:col-span-4 relative flex items-end justify-center md:justify-end px-6 pt-2 md:pt-6 md:pr-8 lg:pr-12 z-10">
                   <div className="w-52 sm:w-60 md:w-64 lg:w-72 aspect-[4/4.3] rounded-t-[140px] overflow-hidden border-4 border-white/60 shadow-2xl bg-[#122023]">
                     <EditorialImage
