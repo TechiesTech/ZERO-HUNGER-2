@@ -1,27 +1,22 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# Zero Hunger — Backend Dockerfile (PLACEHOLDER)
-# TODO: Fill in production-ready multi-stage build once the backend is implemented.
+# Zero Hunger — Backend Dockerfile
+# Production-ready Node.js container for JavaScript API
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Stage 1: Build
-FROM node:20-alpine AS builder
+FROM node:20-alpine
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY tsconfig*.json ./
-COPY src ./src
-RUN npm run build
 
-# Stage 2: Production image
-FROM node:20-alpine AS runner
-WORKDIR /app
 ENV NODE_ENV=production
+
+# Install production dependencies
 COPY package*.json ./
 RUN npm ci --omit=dev
-COPY --from=builder /app/dist ./dist
+
+# Copy application source
+COPY src ./src
 
 # TODO: Add health check
 # HEALTHCHECK --interval=30s --timeout=5s CMD wget -qO- http://localhost:5000/health || exit 1
 
 EXPOSE 5000
-CMD ["node", "dist/server.js"]
+CMD ["node", "src/server.js"]

@@ -8,7 +8,7 @@
 |--------|-------------|------|------|
 | [`frontend/`](./frontend/) | Customer website | **5173** | React 19 + TypeScript + Vite + Tailwind CSS v4 + React Router v7 |
 | [`admin/`](./admin/) | Internal admin dashboard | **5174** | React 19 + TypeScript + Vite + Tailwind CSS v4 |
-| [`backend/`](./backend/) | REST API + WebSockets | **5000** | Node.js + Express + TypeScript + MongoDB (Mongoose) |
+| [`backend/`](./backend/) | REST API + WebSockets | **5000** | Node.js + Express + JavaScript + MongoDB (Mongoose) |
 | [`shared/`](./shared/) | Shared types (future) | — | TypeScript (not yet populated) |
 
 Each project is **fully independent** — it has its own `package.json`, `node_modules`, `tsconfig`, `.gitignore`, `.env.example`, and `README.md`. You can deploy any one of them as a standalone root directory.
@@ -50,13 +50,12 @@ npm run dev   # starts all three concurrently
 
 ## Environment Variables
 
-Each project has a `.env.example` file. **Copy it to `.env` and fill in real values before running.**
+Each project has its own `.env` file pre-configured for local development:
+- [`frontend/.env`](./frontend/.env)
+- [`admin/.env`](./admin/.env)
+- [`backend/.env`](./backend/.env)
 
-```bash
-cp frontend/.env.example frontend/.env
-cp admin/.env.example    admin/.env
-cp backend/.env.example  backend/.env
-```
+Fill in any secret API keys (e.g. Razorpay, Gemini) as needed.
 
 > ⚠️ **Never commit `.env` files.** They are listed in every `.gitignore`.
 
@@ -76,9 +75,9 @@ cp backend/.env.example  backend/.env
 No authentication is implemented yet. See `TODO (auth):` comments in:
 - [`admin/src/App.tsx`](./admin/src/App.tsx)
 - [`admin/src/components/layout/AdminLayout.tsx`](./admin/src/components/layout/AdminLayout.tsx)
-- [`backend/src/routes/admin.ts`](./backend/src/routes/admin.ts)
-- [`backend/src/routes/riders.ts`](./backend/src/routes/riders.ts)
-- [`backend/src/controllers/adminController.ts`](./backend/src/controllers/adminController.ts)
+- [`backend/src/routes/admin.js`](./backend/src/routes/admin.js)
+- [`backend/src/routes/riders.js`](./backend/src/routes/riders.js)
+- [`backend/src/controllers/adminController.js`](./backend/src/controllers/adminController.js)
 
 ---
 
