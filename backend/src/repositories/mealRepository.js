@@ -15,12 +15,24 @@ const updateMeal = async (mealId, updateData) =>
         { new: true, runValidators: true }
     ).lean();
 
-const mealRepository = {
-    findActiveBySlug,
-    findActiveById,
-    createMeal,
-    updateMeal,
-};
+const getAllMeals = async ({ category, isAvailable, page = 1, limit = 10 } = {}) => {
+    const filter = { isDeleted: false };
+    if (category) filter.mealCategories = category;
+    if (isAvailable !== undefined) filter.isAvailable = isAvailable;
 
-export { findActiveBySlug, findActiveById, createMeal, updateMeal };
-export default mealRepository;
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
+
+    const [meals, totalMeals] = await Promise.all([
+        Meal.find(filter)
+            .sort({ displayOrder: 1, createdAt: 1 })
+            .skip(skip)
+            .limit(limitNum)
+            .lean(),
+        Meal.countDocuments(filter),
+    ]);
+
+    return { meals, totalMeals };
+};
+export { findActiveBySlug, findActiveById, createMeal, updateMeal, getAllMeals };

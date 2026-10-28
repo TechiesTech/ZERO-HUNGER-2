@@ -1,4 +1,4 @@
-import mealRepository from '../repositories/mealRepository.js';
+import * as mealRepository from '../repositories/mealRepository.js';
 import AppError from '../utils/appError.js';
 
 const createSlug = (text) =>
@@ -56,7 +56,25 @@ const updateMeal = async (mealId, payload) => {
     return updatedMeal;
 };
 
-const mealService = { createMeal, updateMeal };
+const getAllMeals = async (query = {}) => {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.max(1, Number(query.limit) || 10);
 
-export { createMeal, updateMeal };
-export default mealService;
+    const { meals, totalMeals } = await mealRepository.getAllMeals({
+        ...query,
+        page,
+        limit,
+    });
+
+    return {
+        meals,
+        pagination: {
+            page,
+            limit,
+            totalMeals,
+            totalPages: Math.ceil(totalMeals / limit),
+        },
+    };
+};
+
+export { createMeal, updateMeal, getAllMeals };

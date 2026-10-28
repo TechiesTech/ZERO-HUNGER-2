@@ -1,4 +1,4 @@
-import mealService from '../services/mealService.js';
+import * as mealService from '../services/mealService.js';
 
 const createMeal = async (req, res, next) => {
     try {
@@ -28,5 +28,19 @@ const updateMeal = async (req, res, next) => {
     }
 };
 
+const getAllMeals = async (req, res, next) => {
+    try {
+        const query = req.validatedQuery || req.query || {};
+        const { meals, pagination } = await mealService.getAllMeals(query);
 
-export { createMeal, updateMeal };
+        res.status(200).json({
+            success: true,
+            count: meals.length,
+            pagination,
+            data: meals,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+export { createMeal, updateMeal, getAllMeals };

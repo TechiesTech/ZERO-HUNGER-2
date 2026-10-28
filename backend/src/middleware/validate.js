@@ -15,7 +15,12 @@ const validate = (schema, source = 'body') => (req, _res, next) => {
         return next(new AppError('Validation failed', 400, errors));
     }
 
-    req[source] = value;
+    if (source === 'query') {
+        req.validatedQuery = value;
+    } else {
+        req[source] = value;
+    }
+
     return next();
 };
 

@@ -46,4 +46,12 @@ const mealIdParamSchema = Joi.object({
         'string.pattern.base': 'mealId must be a valid id',
     }),
 });
-export { createMealSchema, updateMealSchema, mealIdParamSchema };
+
+const getMealsQuerySchema = Joi.object({
+    category: Joi.string().trim().uppercase().valid(...MEAL_CATEGORIES),
+    isAvailable: Joi.boolean(),
+    page: Joi.number().integer().min(1).default(1),
+    limit: Joi.number().integer().min(1).max(100).default(20),
+});
+
+export { createMealSchema, updateMealSchema, mealIdParamSchema, getMealsQuerySchema };
