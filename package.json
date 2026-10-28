@@ -1,0 +1,11 @@
+{
+  "name": "zerohunger-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "concurrently --names \"frontend,admin,backend\" --prefix-colors \"cyan,magenta,yellow\" \"npm run dev --prefix frontend\" \"npm run dev --prefix admin\" \"npm run dev --prefix backend\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}
