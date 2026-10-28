@@ -1,55 +1,49 @@
 import express from 'express';
-import cors from 'cors';
-import 'dotenv/config';
-
-/**
- * Zero Hunger — Express Application
- *
- * This file creates and configures the Express app.
- * Routes, middleware, and socket setup will be imported here as they are built.
- *
- * TODO: Import and mount routers once they are implemented:
- *   import { mealsRouter }    from './routes/meals.js';
- *   import { ordersRouter }   from './routes/orders.js';
- *   import { paymentsRouter } from './routes/payments.js';
- *   import { trackingRouter } from './routes/tracking.js';
- *   import { adminRouter }    from './routes/admin.js';
- *   import { ridersRouter }   from './routes/riders.js';
- *
- * TODO: Import and register error-handling middleware:
- *   import { errorHandler } from './middleware/errorHandler.js';
- *
- * TODO: Add rate-limiting middleware:
- *   import { rateLimiter } from './middleware/rateLimit.js';
- */
+import mealRoutes from './routes/mealRoutes.js';
 
 const app = express();
 
-// ── Core middleware ────────────────────────────────────────────────────────────
-app.use(
-  cors({
-    origin: [
-      process.env.CLIENT_URL ?? 'http://localhost:5173',
-      process.env.ADMIN_URL  ?? 'http://localhost:5174',
-    ],
-    credentials: true,
-  })
-);
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+const errorHandler = (err, _req, res, _next) => {
+  if (err.code === 11000) {
+    return res.status(409).json({
+      success: false,
+      message: 'A meal with this slug already exists',
+    });
+  }
 
-// ── Health check ───────────────────────────────────────────────────────────────
-app.get('/health', (_req, res) => {
-  res.status(200).json({
-    status: 'ok',
-    service: 'zerohunger-api',
-    timestamp: new Date().toISOString(),
+  if (err.name === 'ValidationError' && err.errors) {
+    const errors = Object.values(err.errors).map((item) => ({
+      field: item.path,
+      message: item.message,
+    }));
+    return res.status(400).json({ success: false, message: 'Validation failed', errors });
+  }
+
+  const statusCode = err.statusCode || 500;
+  const message = statusCode === 500 ? 'Something went wrong' : err.message;
+
+  if (statusCode === 500) console.error(err);
+
+  return res.status(statusCode).json({
+    success: false,
+    message,
+    ...(err.errors?.length && { errors: err.errors }),
   });
+};
+
+const notFoundHandler = (_req, res) => {
+  res.status(404).json({ success: false, message: 'Route not found' });
+};
+
+app.use(express.json());
+
+app.get('/health', (_req, res) => {
+  res.status(200).json({ success: true, message: 'Server is running' });
 });
 
-// TODO: Mount feature routers here (see above)
+app.use('/api/meals', mealRoutes);
 
-// TODO: Register global error handler last (must have 4 params for Express to recognise it)
-// app.use(errorHandler);
+app.use(notFoundHandler);
+app.use(errorHandler);
 
-export { app };
+export default app;

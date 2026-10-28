@@ -57,16 +57,6 @@ const mealSchema = new Schema(
     imageUrl: { type: String, trim: true, default: '' },
     isAvailable: { type: Boolean, default: true },
     unavailableReason: { type: String, trim: true, maxlength: 120, default: '' },
-    availableFromTime: {
-      type: String,
-      match: [/^([01]\d|2[0-3]):[0-5]\d$/, 'Use HH:mm format, e.g. 12:00'],
-      default: undefined,
-    },
-    availableUntilTime: {
-      type: String,
-      match: [/^([01]\d|2[0-3]):[0-5]\d$/, 'Use HH:mm format, e.g. 15:00'],
-      default: undefined,
-    },
     displayOrder: { type: Number, default: 0 },
     isDeleted: { type: Boolean, default: false },
     deletedAt: { type: Date, default: null },
