@@ -68,4 +68,16 @@ const uploadMealImage = async (req, res, next) => {
         next(error);
     }
 };
-export { createMeal, updateMeal, getAllMeals, getImageUploadSignature, uploadMealImage };
+const deleteMeal = async (req, res, next) => {
+    try {
+        await mealService.deleteMeal(req.params.mealId);
+
+        res.status(200).json({
+            success: true,
+            message: 'Meal deleted',
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+export { createMeal, updateMeal, getAllMeals, getImageUploadSignature, uploadMealImage, deleteMeal };

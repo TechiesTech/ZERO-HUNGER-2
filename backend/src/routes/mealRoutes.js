@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import uploadImage from '../middleware/uploadImage.js';
-import { createMeal, updateMeal, getAllMeals, getImageUploadSignature, uploadMealImage } from '../controllers/mealController.js';
+import { createMeal, updateMeal, getAllMeals, getImageUploadSignature, uploadMealImage, deleteMeal } from '../controllers/mealController.js';
 import validate from '../middleware/validate.js';
 import {
     createMealSchema, mealIdParamSchema, updateMealSchema, getMealsQuerySchema
@@ -13,4 +13,6 @@ router.patch('/updateMealById/:mealId', validate(mealIdParamSchema, 'params'), v
 router.get('/getAllMeals', validate(getMealsQuerySchema, 'query'), getAllMeals);
 router.get('/image-upload-signature', getImageUploadSignature);
 router.post('/upload-image', uploadImage, uploadMealImage);
+router.delete('/deleteMeal/:mealId', validate(mealIdParamSchema, 'params'), deleteMeal);
+
 export default router;

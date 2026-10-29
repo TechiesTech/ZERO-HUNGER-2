@@ -98,5 +98,14 @@ const uploadMealImage = async (file) => {
         imagePublicId: result.public_id,
     };
 };
+const deleteMeal = async (mealId) => {
+    const deletedMeal = await mealRepository.deleteMeal(mealId);
 
-export { createMeal, updateMeal, getAllMeals, createImageUploadSignature, uploadMealImage };
+    if (!deletedMeal) {
+        throw new AppError('Meal not found', 404);
+    }
+
+    return deletedMeal;
+};
+
+export { createMeal, updateMeal, getAllMeals, createImageUploadSignature, uploadMealImage, deleteMeal };

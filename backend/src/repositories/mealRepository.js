@@ -69,4 +69,37 @@ const uploadImageToCloudinary = async (fileBuffer, folder) =>
 
         stream.end(fileBuffer);
     });
-export { findActiveBySlug, findActiveById, createMeal, updateMeal, getAllMeals, createImageUploadSignature, uploadImageToCloudinary };
+
+const deleteMeal = async (mealId) => {
+    const deletedMeal = await Meal.findOneAndUpdate(
+        { _id: mealId, isDeleted: false },
+        { $set: { isDeleted: true, deletedAt: new Date() } },
+        { new: false }
+    ).lean();
+
+    if (!deletedMeal) return null;
+
+    const { imagePublicId } = deletedMeal;
+
+    if (imagePublicId) {
+        const otherMealUsesImage = await Meal.exists({
+            imagePublicId,
+            _id: { $ne: mealId },
+            isDeleted: false,
+        });
+
+        if (!otherMealUsesImage) {
+            try {
+                await cloudinary.uploader.destroy(imagePublicId, {
+                    resource_type: 'image',
+                    invalidate: true,
+                });
+            } catch (error) {
+                console.error('Could not delete image from Cloudinary:', error.message);
+            }
+        }
+    }
+
+    return deletedMeal;
+};
+export { findActiveBySlug, findActiveById, createMeal, updateMeal, getAllMeals, createImageUploadSignature, uploadImageToCloudinary, deleteMeal };
