@@ -78,14 +78,6 @@ const getAllMeals = async (query = {}) => {
     };
 };
 const uploadFolder = 'zerohunger/meals';
-const allowedFormats = 'jpg,jpeg,png,webp';
-
-const createImageUploadSignature = async () =>
-    mealRepository.createImageUploadSignature({
-        folder: uploadFolder,
-        allowedFormats,
-    });
-
 const uploadMealImage = async (file) => {
     if (!file) {
         throw new AppError('Please choose a photo to upload', 400);
@@ -108,4 +100,4 @@ const deleteMeal = async (mealId) => {
     return deletedMeal;
 };
 
-export { createMeal, updateMeal, getAllMeals, createImageUploadSignature, uploadMealImage, deleteMeal };
+export { createMeal, updateMeal, getAllMeals, uploadMealImage, deleteMeal };

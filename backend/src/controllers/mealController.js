@@ -43,18 +43,6 @@ const getAllMeals = async (req, res, next) => {
         next(error);
     }
 };
-const getImageUploadSignature = async (_req, res, next) => {
-    try {
-        const signatureData = await mealService.createImageUploadSignature();
-
-        res.status(200).json({
-            success: true,
-            data: signatureData,
-        });
-    } catch (error) {
-        next(error);
-    }
-};
 const uploadMealImage = async (req, res, next) => {
     try {
         const image = await mealService.uploadMealImage(req.file);
@@ -80,4 +68,4 @@ const deleteMeal = async (req, res, next) => {
         next(error);
     }
 };
-export { createMeal, updateMeal, getAllMeals, getImageUploadSignature, uploadMealImage, deleteMeal };
+export { createMeal, updateMeal, getAllMeals, uploadMealImage, deleteMeal };

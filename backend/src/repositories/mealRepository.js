@@ -36,25 +36,6 @@ const getAllMeals = async ({ category, isAvailable, page = 1, limit = 10 } = {})
 
     return { meals, totalMeals };
 };
-const createImageUploadSignature = async ({ folder, allowedFormats }) => {
-    const timestamp = Math.round(Date.now() / 1000);
-
-    const signature = cloudinary.utils.api_sign_request(
-        { timestamp, folder, asset_folder: folder, allowed_formats: allowedFormats },
-        process.env.CLOUDINARY_API_SECRET
-    );
-
-    return {
-        signature,
-        timestamp,
-        folder,
-        assetFolder: folder,
-        allowedFormats,
-        apiKey: process.env.CLOUDINARY_API_KEY,
-        cloudName: process.env.CLOUDINARY_CLOUD_NAME,
-    };
-};
-
 const uploadImageToCloudinary = async (fileBuffer, folder) =>
     new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
@@ -102,4 +83,4 @@ const deleteMeal = async (mealId) => {
 
     return deletedMeal;
 };
-export { findActiveBySlug, findActiveById, createMeal, updateMeal, getAllMeals, createImageUploadSignature, uploadImageToCloudinary, deleteMeal };
+export { findActiveBySlug, findActiveById, createMeal, updateMeal, getAllMeals, uploadImageToCloudinary, deleteMeal };
