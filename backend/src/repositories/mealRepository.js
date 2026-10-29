@@ -1,0 +1,72 @@
+import { Meal } from '../models/schemas/mealSchema.js';
+import cloudinary from '../config/cloudinary.js';
+
+const findActiveBySlug = async (mealSlug) =>
+    Meal.findOne({ mealSlug, isDeleted: false }).lean();
+
+const findActiveById = async (mealId) =>
+    Meal.findOne({ _id: mealId, isDeleted: false }).lean();
+
+const createMeal = async (mealData) => Meal.create(mealData);
+
+const updateMeal = async (mealId, updateData) =>
+    Meal.findOneAndUpdate(
+        { _id: mealId, isDeleted: false },
+        { $set: updateData },
+        { new: true, runValidators: true }
+    ).lean();
+
+const getAllMeals = async ({ category, isAvailable, page = 1, limit = 10 } = {}) => {
+    const filter = { isDeleted: false };
+    if (category) filter.mealCategories = category;
+    if (isAvailable !== undefined) filter.isAvailable = isAvailable;
+
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
+
+    const [meals, totalMeals] = await Promise.all([
+        Meal.find(filter)
+            .sort({ displayOrder: 1, createdAt: 1 })
+            .skip(skip)
+            .limit(limitNum)
+            .lean(),
+        Meal.countDocuments(filter),
+    ]);
+
+    return { meals, totalMeals };
+};
+const createImageUploadSignature = async ({ folder, allowedFormats }) => {
+    const timestamp = Math.round(Date.now() / 1000);
+
+    const signature = cloudinary.utils.api_sign_request(
+        { timestamp, folder, asset_folder: folder, allowed_formats: allowedFormats },
+        process.env.CLOUDINARY_API_SECRET
+    );
+
+    return {
+        signature,
+        timestamp,
+        folder,
+        assetFolder: folder,
+        allowedFormats,
+        apiKey: process.env.CLOUDINARY_API_KEY,
+        cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    };
+};
+
+const uploadImageToCloudinary = async (fileBuffer, folder) =>
+    new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+            {
+                folder,
+                asset_folder: folder,
+                allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+                resource_type: 'image',
+            },
+            (error, result) => (error ? reject(error) : resolve(result))
+        );
+
+        stream.end(fileBuffer);
+    });
+export { findActiveBySlug, findActiveById, createMeal, updateMeal, getAllMeals, createImageUploadSignature, uploadImageToCloudinary };
