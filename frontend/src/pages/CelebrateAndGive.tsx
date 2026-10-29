@@ -84,10 +84,10 @@ export const CelebrateAndGive: React.FC = () => {
     occasionType === 'Birthday'
       ? `HAPPY ${celebrantAge ? `${celebrantAge}TH ` : ''}BIRTHDAY ${celebrantName.toUpperCase()}!`
       : occasionType === 'Wedding Anniversary'
-      ? `HAPPY ANNIVERSARY ${celebrantName.toUpperCase()}!`
-      : occasionType === 'Memorial / In Remembrance'
-      ? `IN SACRED MEMORY OF ${celebrantName.toUpperCase()}`
-      : `CELEBRATING ${celebrantName.toUpperCase()}`;
+        ? `HAPPY ANNIVERSARY ${celebrantName.toUpperCase()}!`
+        : occasionType === 'Memorial / In Remembrance'
+          ? `IN SACRED MEMORY OF ${celebrantName.toUpperCase()}`
+          : `CELEBRATING ${celebrantName.toUpperCase()}`;
 
   const selectedCenter =
     DISTRIBUTION_CENTERS.find((c) => c.id === selectedCenterId) ||
@@ -119,67 +119,84 @@ export const CelebrateAndGive: React.FC = () => {
       {/* =====================================================================
           HERO SECTION — CELEBRATE LIFE · CLOTHE WITH DIGNITY · RESCUE FOOD
       ====================================================================== */}
-      <section className="bg-[#080808] pt-28 sm:pt-36 pb-16 sm:pb-20 border-b border-white/10">
+
+
+      <section
+        className="relative isolate overflow-hidden pt-28 sm:pt-36 pb-16 sm:pb-20 border-b border-white/10"
+        style={{
+          backgroundImage: `
+      linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
+      url("/images/Kindness%20in%20Every%20Gift.png")
+    `,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+      >
         <div className="max-w-[1360px] mx-auto px-5 sm:px-8 lg:px-12 text-center">
           <ScrollReveal>
-            <span className="text-xs font-mono-tabular font-bold uppercase tracking-[0.22em] text-[#49E619] block mb-3">
+            <span className="text-[10px] sm:text-xs font-mono-tabular font-bold uppercase tracking-[0.18em] sm:tracking-[0.22em] text-[#49E619] block mb-3">
               COMMUNITY CELEBRATIONS & ZERO-WASTE DRIVES
             </span>
 
-            <h1 className="font-display-sans uppercase text-4xl sm:text-6xl lg:text-7xl font-black tracking-[-0.04em] leading-[0.92] text-white">
+            <h1 className="font-display-sans uppercase text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-[-0.035em] leading-[1.05] text-white max-w-5xl mx-auto">
               SHARE YOUR <span className="text-[#49E619]">JOY.</span>
               <br />
               FEED & CLOTHE WITH DIGNITY.
             </h1>
 
-            <p className="mt-5 text-base sm:text-xl text-white/80 max-w-2xl mx-auto leading-relaxed">
-              Celebrate your birthdays and wedding anniversaries by sponsoring hot meals where children hold your personalized placards and send video gratitude. Donate clothes at local drop boxes, or call our 24/7 rescue vans for leftover party food.
+            <p className="mt-5 text-sm sm:text-base md:text-lg text-white/90 max-w-2xl mx-auto leading-relaxed px-2">
+              Celebrate your birthdays and wedding anniversaries by sponsoring
+              hot meals where children hold your personalized placards and send
+              video gratitude. Donate clothes at local drop boxes, or call our
+              24/7 rescue vans for leftover party food.
             </p>
 
-            {/* 3 Main Drive Switcher Tabs */}
-            <div className="mt-10 inline-flex flex-wrap items-center justify-center p-1.5 rounded-[16px] bg-[#122023] border border-white/15 gap-1.5">
+            {/* All three buttons preserved */}
+            <div className="mt-8 sm:mt-10 flex flex-wrap items-center justify-center p-1.5 rounded-[16px] bg-[#122023]/90 backdrop-blur-sm border border-white/15 gap-1.5 max-w-fit mx-auto">
+
               <button
                 type="button"
                 onClick={() => handleTabChange('OCCASION_FOOD')}
-                className={`flex items-center gap-2 px-5 py-3 rounded-[12px] font-mono-tabular text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                  activeTab === 'OCCASION_FOOD'
+                className={`flex items-center gap-2 px-4 py-3 rounded-[12px] font-mono-tabular text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${activeTab === 'OCCASION_FOOD'
                     ? 'bg-[#49E619] text-[#080808] shadow-lg'
                     : 'text-white/80 hover:text-white'
-                }`}
+                  }`}
               >
-                <Cake className="w-4 h-4 text-current" />
+                <Cake className="w-4 h-4 shrink-0" />
                 <span>Celebrate Birthdays & Anniversaries</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => handleTabChange('CLOTH_DONATION')}
-                className={`flex items-center gap-2 px-5 py-3 rounded-[12px] font-mono-tabular text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                  activeTab === 'CLOTH_DONATION'
+                className={`flex items-center gap-2 px-4 py-3 rounded-[12px] font-mono-tabular text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${activeTab === 'CLOTH_DONATION'
                     ? 'bg-[#4EDBE2] text-[#080808] shadow-lg'
                     : 'text-white/80 hover:text-white'
-                }`}
+                  }`}
               >
-                <Shirt className="w-4 h-4 text-current" />
+                <Shirt className="w-4 h-4 shrink-0" />
                 <span>Donate Clothes (Drop-off & Pickup)</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => handleTabChange('LEFTOVER_RESCUE')}
-                className={`flex items-center gap-2 px-5 py-3 rounded-[12px] font-mono-tabular text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                  activeTab === 'LEFTOVER_RESCUE'
+                className={`flex items-center gap-2 px-4 py-3 rounded-[12px] font-mono-tabular text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${activeTab === 'LEFTOVER_RESCUE'
                     ? 'bg-[#B9FF2C] text-[#080808] shadow-lg'
                     : 'text-white/80 hover:text-white'
-                }`}
+                  }`}
               >
-                <Truck className="w-4 h-4 text-current" />
+                <Truck className="w-4 h-4 shrink-0" />
                 <span>Leftover Food Rescue (Fast Pickup)</span>
               </button>
+
             </div>
           </ScrollReveal>
         </div>
       </section>
+
+
 
       {/* =====================================================================
           TAB 1: CELEBRATE OCCASIONS WITH CUSTOM PLACARDS
@@ -257,11 +274,10 @@ export const CelebrateAndGive: React.FC = () => {
                                   key={type}
                                   type="button"
                                   onClick={() => setOccasionType(type)}
-                                  className={`py-2.5 px-3 rounded-[8px] text-xs font-mono-tabular font-bold uppercase border transition-colors cursor-pointer text-center ${
-                                    occasionType === type
-                                      ? 'bg-[#49E619] text-[#080808] border-[#49E619]'
-                                      : 'bg-[#080808] text-white/75 border-white/15 hover:border-white/40'
-                                  }`}
+                                  className={`py-2.5 px-3 rounded-[8px] text-xs font-mono-tabular font-bold uppercase border transition-colors cursor-pointer text-center ${occasionType === type
+                                    ? 'bg-[#49E619] text-[#080808] border-[#49E619]'
+                                    : 'bg-[#080808] text-white/75 border-white/15 hover:border-white/40'
+                                    }`}
                                 >
                                   {type}
                                 </button>
@@ -291,8 +307,8 @@ export const CelebrateAndGive: React.FC = () => {
                               {occasionType === 'Birthday'
                                 ? 'Age Turning'
                                 : occasionType === 'Wedding Anniversary'
-                                ? 'Anniversary Years'
-                                : 'Special Note'}
+                                  ? 'Anniversary Years'
+                                  : 'Special Note'}
                             </label>
                             <input
                               type="text"
@@ -332,11 +348,10 @@ export const CelebrateAndGive: React.FC = () => {
                                   key={pkg.id}
                                   type="button"
                                   onClick={() => setSelectedPackage(pkg)}
-                                  className={`p-3.5 rounded-[12px] text-left border transition-all cursor-pointer ${
-                                    isSelected
-                                      ? 'bg-[#49E619] text-[#080808] border-[#49E619]'
-                                      : 'bg-[#080808] text-white border-white/15 hover:border-white/40'
-                                  }`}
+                                  className={`p-3.5 rounded-[12px] text-left border transition-all cursor-pointer ${isSelected
+                                    ? 'bg-[#49E619] text-[#080808] border-[#49E619]'
+                                    : 'bg-[#080808] text-white border-white/15 hover:border-white/40'
+                                    }`}
                                 >
                                   <div className="flex items-center justify-between">
                                     <span className="font-mono-tabular text-xs font-bold">
@@ -559,11 +574,10 @@ export const CelebrateAndGive: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setClothMode('REQUEST_PICKUP')}
-                  className={`px-5 py-2.5 rounded-[10px] font-mono-tabular text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer ${
-                    clothMode === 'REQUEST_PICKUP'
-                      ? 'bg-[#4EDBE2] text-[#080808]'
-                      : 'text-white/80 hover:text-white'
-                  }`}
+                  className={`px-5 py-2.5 rounded-[10px] font-mono-tabular text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer ${clothMode === 'REQUEST_PICKUP'
+                    ? 'bg-[#4EDBE2] text-[#080808]'
+                    : 'text-white/80 hover:text-white'
+                    }`}
                 >
                   <Truck className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />
                   Schedule Free Doorstep Pickup
@@ -571,11 +585,10 @@ export const CelebrateAndGive: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setClothMode('DROP_OFF')}
-                  className={`px-5 py-2.5 rounded-[10px] font-mono-tabular text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer ${
-                    clothMode === 'DROP_OFF'
-                      ? 'bg-[#4EDBE2] text-[#080808]'
-                      : 'text-white/80 hover:text-white'
-                  }`}
+                  className={`px-5 py-2.5 rounded-[10px] font-mono-tabular text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer ${clothMode === 'DROP_OFF'
+                    ? 'bg-[#4EDBE2] text-[#080808]'
+                    : 'text-white/80 hover:text-white'
+                    }`}
                 >
                   <MapPin className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />
                   Drop at Nearest Collection Bin (4 Hubs)
