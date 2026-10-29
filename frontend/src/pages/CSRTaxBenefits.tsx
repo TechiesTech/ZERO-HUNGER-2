@@ -355,89 +355,109 @@ export const CSRTaxBenefits: React.FC = () => {
           SECTION 2 — THE STATUTORY DOCUMENT VAULT
           "we provide whatever document want from our end"
       ====================================================================== */}
-      <section className="bg-white text-[#080808] py-20 sm:py-28 border-y border-[#122023]/10">
-        <div className="max-w-[1360px] mx-auto px-5 sm:px-8 lg:px-12">
-          <div className="text-center max-w-3xl mx-auto mb-14">
+      <section className="bg-white text-[#080808] py-16 sm:py-24 border-y border-[#122023]/10 overflow-hidden">
+      <div className="max-w-[1360px] mx-auto px-5 sm:px-8 lg:px-12">
+        
+        {/* Top Header Section with Character Illustration */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center mb-12 sm:mb-16">
+          
+          {/* Left: Illustration Graphic */}
+          <div className="lg:col-span-4 flex justify-center lg:justify-start">
+            <div className="relative w-full max-w-[300px] sm:max-w-[340px] lg:max-w-[380px]">
+              <img
+                src="/assets/images/CsrAndTax.png"
+                alt="Statutory Compliance & Tax Clearance Illustration"
+                className="w-full h-auto object-contain drop-shadow-md"
+              />
+            </div>
+          </div>
+
+          {/* Right: Section Title & Subheading */}
+          <div className="lg:col-span-8 text-center lg:text-left">
             <span className="text-xs font-mono-tabular font-bold uppercase tracking-[0.2em] text-[#188D44] block mb-2">
               RADICAL TRANSPARENCY & STATUTORY VAULT
             </span>
-            <h2 className="font-display-sans uppercase text-3xl sm:text-5xl font-black text-[#080808]">
-              We Provide Whatever Document You Need
+
+            <h2 className="font-display-sans uppercase text-3xl sm:text-5xl font-black text-[#080808] leading-[1.08]">
+              We Provide Whatever <br className="hidden sm:inline" /> Document You Need
             </h2>
-            <p className="mt-3 text-sm sm:text-base text-[#122023]/80 leading-relaxed font-medium">
+
+            <p className="mt-3 text-sm sm:text-base text-[#122023]/80 leading-relaxed font-medium max-w-2xl lg:mx-0 mx-auto">
               From 80G tax clearance to Chartered Accountant audited annual balance sheets and bilateral CSR MoUs—all official files are readily available for immediate review, compliance audit, and download.
             </p>
 
             {downloadSuccessMessage && (
-              <div className="mt-4 p-3.5 rounded-[10px] bg-[#188D44] text-white font-mono-tabular text-xs font-bold uppercase shadow-sm">
+              <div className="mt-4 inline-block p-3.5 rounded-[10px] bg-[#188D44] text-white font-mono-tabular text-xs font-bold uppercase shadow-sm">
                 {downloadSuccessMessage}
               </div>
             )}
           </div>
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-            {COMPLIANCE_DOCUMENTS.map((doc, idx) => {
-              const theme = DOCUMENT_CARD_THEMES[idx % DOCUMENT_CARD_THEMES.length];
-              const isDarkCard =
-                theme.bgClass.includes('#122023') ||
-                theme.bgClass.includes('#080808') ||
-                theme.bgClass.includes('#188D44');
-              const dividerClass = isDarkCard ? 'border-white/15' : 'border-[#080808]/15';
+        {/* Bottom Grid: Compliance Document Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+          {COMPLIANCE_DOCUMENTS.map((doc, idx) => {
+            const theme = DOCUMENT_CARD_THEMES[idx % DOCUMENT_CARD_THEMES.length];
+            const isDarkCard =
+              theme.bgClass.includes('#122023') ||
+              theme.bgClass.includes('#080808') ||
+              theme.bgClass.includes('#188D44');
+            const dividerClass = isDarkCard ? 'border-white/15' : 'border-[#080808]/15';
 
-              return (
-                <div
-                  key={doc.id}
-                  className={`rounded-[18px] ${theme.bgClass} ${theme.borderClass} p-6 flex flex-col justify-between transition-all duration-300 group hover:-translate-y-1 shadow-md`}
-                >
-                  <div>
-                    <div className={`flex items-center justify-between pb-3 border-b ${dividerClass}`}>
-                      <span className={`px-2.5 py-0.5 rounded-[4px] font-mono-tabular text-[10px] font-bold ${theme.badgeBg}`}>
-                        {doc.badgeText}
-                      </span>
-                      <span className={`font-mono-tabular text-[10px] font-bold ${isDarkCard ? 'text-white/70' : 'text-[#080808]/70'}`}>
-                        {doc.fileSize}
-                      </span>
-                    </div>
-
-                    <h3 className={`font-display-sans uppercase text-lg font-black mt-4 leading-tight transition-colors ${theme.titleClass}`}>
-                      {doc.title}
-                    </h3>
-
-                    <p className={`mt-2.5 text-xs leading-relaxed font-medium ${theme.descClass}`}>
-                      {doc.description}
-                    </p>
-
-                    <div className={`mt-4 pt-3 border-t font-mono-tabular text-[10px] ${dividerClass} ${theme.metaClass}`}>
-                      <div>Ref: <strong className={theme.refClass}>{doc.referenceNumber}</strong></div>
-                      <div>Validity: <strong className={theme.refClass}>{doc.validity}</strong></div>
-                    </div>
+            return (
+              <div
+                key={doc.id}
+                className={`rounded-[18px] ${theme.bgClass} ${theme.borderClass} p-6 flex flex-col justify-between transition-all duration-300 group hover:-translate-y-1 shadow-md`}
+              >
+                <div>
+                  <div className={`flex items-center justify-between pb-3 border-b ${dividerClass}`}>
+                    <span className={`px-2.5 py-0.5 rounded-[4px] font-mono-tabular text-[10px] font-bold ${theme.badgeBg}`}>
+                      {doc.badgeText}
+                    </span>
+                    <span className={`font-mono-tabular text-[10px] font-bold ${isDarkCard ? 'text-white/70' : 'text-[#080808]/70'}`}>
+                      {doc.fileSize}
+                    </span>
                   </div>
 
-                  <div className={`mt-6 pt-3 border-t flex items-center gap-2 ${dividerClass}`}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedDoc(doc)}
-                      className={`flex-1 py-2.5 px-3 rounded-[8px] font-mono-tabular text-[11px] font-bold uppercase tracking-wider inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs ${theme.btnViewClass}`}
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>View Doc</span>
-                    </button>
+                  <h3 className={`font-display-sans uppercase text-lg font-black mt-4 leading-tight transition-colors ${theme.titleClass}`}>
+                    {doc.title}
+                  </h3>
 
-                    <button
-                      type="button"
-                      onClick={() => handleDownloadDoc(doc)}
-                      className={`py-2.5 px-3 rounded-[8px] font-mono-tabular text-[11px] font-bold uppercase tracking-wider inline-flex items-center justify-center transition-all cursor-pointer shadow-xs ${theme.btnDownloadClass}`}
-                      title={`Download ${doc.title}`}
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                    </button>
+                  <p className={`mt-2.5 text-xs leading-relaxed font-medium ${theme.descClass}`}>
+                    {doc.description}
+                  </p>
+
+                  <div className={`mt-4 pt-3 border-t font-mono-tabular text-[10px] ${dividerClass} ${theme.metaClass}`}>
+                    <div>Ref: <strong className={theme.refClass}>{doc.referenceNumber}</strong></div>
+                    <div>Validity: <strong className={theme.refClass}>{doc.validity}</strong></div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+
+                <div className={`mt-6 pt-3 border-t flex items-center gap-2 ${dividerClass}`}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDoc(doc)}
+                    className={`flex-1 py-2.5 px-3 rounded-[8px] font-mono-tabular text-[11px] font-bold uppercase tracking-wider inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs ${theme.btnViewClass}`}
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>View Doc</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadDoc(doc)}
+                    className={`py-2.5 px-3 rounded-[8px] font-mono-tabular text-[11px] font-bold uppercase tracking-wider inline-flex items-center justify-center transition-all cursor-pointer shadow-xs ${theme.btnDownloadClass}`}
+                    title={`Download ${doc.title}`}
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
-      </section>
+      </div>
+    </section>
 
       {/* =====================================================================
           SECTION 3 — CUSTOM CSR PROPOSAL & BILATERAL MOU REQUEST FORM

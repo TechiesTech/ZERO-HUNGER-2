@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   Mail,
   Phone,
@@ -10,8 +10,8 @@ import {
   Linkedin,
   Youtube,
   Clock,
-} from 'lucide-react';
-import { ScrollReveal } from '../components/ScrollReveal';
+} from "lucide-react";
+import { ScrollReveal } from "../components/ScrollReveal";
 
 interface ContactHub {
   id: string;
@@ -24,37 +24,38 @@ interface ContactHub {
 
 const HUBS: ContactHub[] = [
   {
-    id: 'secunderabad',
-    name: 'Secunderabad Flagship Community Kitchen',
-    address: 'Plot 14, Clock Tower Corridor, Secunderabad, Hyderabad 500003',
-    hours: 'Daily · 5:30 AM – 7:30 PM IST',
-    coordinates: '17.4399° N, 78.4983° E',
-    role: 'Central Culinary Operations & Volunteer Orientation',
+    id: "secunderabad",
+    name: "Secunderabad Flagship Community Kitchen",
+    address: "Plot 14, Clock Tower Corridor, Secunderabad, Hyderabad 500003",
+    hours: "Daily · 5:30 AM – 7:30 PM IST",
+    coordinates: "17.4399° N, 78.4983° E",
+    role: "Central Culinary Operations & Volunteer Orientation",
   },
   {
-    id: 'afzalgunj',
-    name: 'Old City & Hospital Courtyard Hub',
-    address: 'Near Osmania General Hospital Gate 2, Afzalgunj, Hyderabad 500012',
-    hours: 'Daily · 11:30 AM – 2:30 PM IST',
-    coordinates: '17.3753° N, 78.4744° E',
-    role: 'Daily Midday Community Meal Distribution',
+    id: "afzalgunj",
+    name: "Old City & Hospital Courtyard Hub",
+    address:
+      "Near Osmania General Hospital Gate 2, Afzalgunj, Hyderabad 500012",
+    hours: "Daily · 11:30 AM – 2:30 PM IST",
+    coordinates: "17.3753° N, 78.4744° E",
+    role: "Daily Midday Community Meal Distribution",
   },
   {
-    id: 'sangareddy',
-    name: 'Sangareddy Rural Grain Bank & Co-op Center',
-    address: 'Panchayat Road, Sangareddy Cluster, Telangana 502001',
-    hours: 'Mon–Sat · 8:00 AM – 5:00 PM IST',
-    coordinates: '17.6140° N, 78.0816° E',
-    role: 'Smallholder Procurement & Maternal Nutrition Baskets',
+    id: "sangareddy",
+    name: "Sangareddy Rural Grain Bank & Co-op Center",
+    address: "Panchayat Road, Sangareddy Cluster, Telangana 502001",
+    hours: "Mon–Sat · 8:00 AM – 5:00 PM IST",
+    coordinates: "17.6140° N, 78.0816° E",
+    role: "Smallholder Procurement & Maternal Nutrition Baskets",
   },
 ];
 
 export const Contact: React.FC = () => {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [subject, setSubject] = useState('Sponsor a Community Meal Drive');
-  const [message, setMessage] = useState('');
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [subject, setSubject] = useState("Sponsor a Community Meal Drive");
+  const [message, setMessage] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [selectedHub, setSelectedHub] = useState<ContactHub>(HUBS[0]);
 
@@ -66,19 +67,32 @@ export const Contact: React.FC = () => {
   return (
     <div className="bg-[#080808] text-white">
       {/* HERO & CONTACT GRID */}
-      <section className="bg-[#080808] pt-32 sm:pt-40 pb-24 sm:pb-32 border-b border-white/10">
-        <div className="max-w-[1360px] mx-auto px-5 sm:px-8 lg:px-12">
-          <ScrollReveal className="max-w-4xl mb-16 sm:mb-24">
-            <span className="text-xs font-mono-tabular font-bold uppercase tracking-[0.22em] text-[#49E619] block mb-4">
+      <section className="relative bg-[#080808] pt-32 sm:pt-40 pb-24 sm:pb-32 border-b border-white/10 overflow-hidden">
+        {/* BACKGROUND IMAGE HERO */}
+        <div className="absolute inset-0 z-0 pointer-events-none mt-40 lg:mt-32">
+          {/* Container matching main content padding & alignment */}
+          <div className="max-w-[1360px] mx-auto px-5 sm:px-8 lg:px-12 h-full flex justify-start items-start">
+            <img
+              src="/assets/images/zero_hunger_contact_hero.png"
+              alt="Zero Hunger Hero"
+              className="w-full h-auto max-h-[600px] object-contain object-left-top opacity-85"
+            />
+          </div>
+
+          {/* Subtle gradient overlays to keep text readable */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#080808] via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#080808]/60 via-transparent to-transparent" />
+        </div>
+
+        <div className="relative z-10 max-w-[1360px] mx-auto px-5 sm:px-8 lg:px-12">
+          <ScrollReveal className="max-w-xl mb-16 sm:mb-24 flex flex-col gap-35 sm:gap-64">
+            <span className="text-xs font-mono-tabular font-bold uppercase tracking-[0.22em] text-[#49E619] block mb-4 drop-shadow">
               GET IN TOUCH · HYDERABAD, INDIA
             </span>
-            <h1 className="font-display-sans uppercase text-5xl sm:text-6xl lg:text-7xl xl:text-[5.25rem] font-black tracking-[-0.04em] leading-[0.92] text-white">
-              LET&apos;S CREATE
-              <br />
-              <span className="text-[#49E619]">CHANGE</span> TOGETHER.
-            </h1>
-            <p className="mt-6 text-base sm:text-lg text-white/80 max-w-xl leading-relaxed">
-              Whether you are looking to partner on a school nutrition drive, volunteer in our morning kitchen, or inquire about institutional grants, our team responds within 24 hours.
+            <p className="text-base sm:text-lg text-white/90 max-w-xl leading-relaxed drop-shadow-md">
+              Whether you are looking to partner on a school nutrition drive,
+              volunteer in our morning kitchen, or inquire about institutional
+              grants, our team responds within 24 hours.
             </p>
           </ScrollReveal>
 
@@ -97,16 +111,21 @@ export const Contact: React.FC = () => {
                     Thank you for reaching out, {name}.
                   </h2>
                   <p className="mt-3 text-sm sm:text-base text-[#122023]/80 max-w-md mx-auto leading-relaxed">
-                    We have logged your inquiry regarding <span className="text-[#080808] font-bold">“{subject}”</span> and sent a confirmation copy to {email}. Our Hyderabad coordination desk will reply shortly.
+                    We have logged your inquiry regarding{" "}
+                    <span className="text-[#080808] font-bold">
+                      “{subject}”
+                    </span>{" "}
+                    and sent a confirmation copy to {email}. Our Hyderabad
+                    coordination desk will reply shortly.
                   </p>
                   <button
                     type="button"
                     onClick={() => {
                       setIsSubmitted(false);
-                      setName('');
-                      setEmail('');
-                      setPhone('');
-                      setMessage('');
+                      setName("");
+                      setEmail("");
+                      setPhone("");
+                      setMessage("");
                     }}
                     className="mt-8 px-6 py-3.5 rounded-[10px] bg-[#49E619] text-[#080808] text-xs font-mono-tabular font-bold uppercase tracking-wider hover:bg-[#B9FF2C] transition-colors cursor-pointer"
                   >
@@ -236,7 +255,7 @@ export const Contact: React.FC = () => {
 
             {/* RIGHT: DIRECT CONTACT & SOCIAL CHANNELS */}
             <ScrollReveal delay={0.14} className="lg:col-span-5 space-y-8">
-              <div className="rounded-[18px] bg-[#122023] p-7 border border-white/12">
+              <div className="rounded-[18px] bg-[#122023]/95 backdrop-blur-md p-7 border border-white/12">
                 <span className="text-xs font-mono-tabular font-bold uppercase tracking-[0.2em] text-[#49E619] block mb-5">
                   DIRECT COORDINATION DESK
                 </span>
@@ -289,7 +308,7 @@ export const Contact: React.FC = () => {
               </div>
 
               {/* Social Channels */}
-              <div className="rounded-[18px] bg-[#122023] p-7 border border-white/12">
+              <div className="rounded-[18px] bg-[#122023]/95 backdrop-blur-md p-7 border border-white/12">
                 <span className="text-xs font-mono-tabular font-bold uppercase tracking-[0.2em] text-[#4EDBE2] block mb-4">
                   FIELD DISPATCHES & SOCIAL MEDIA
                 </span>
@@ -298,7 +317,7 @@ export const Contact: React.FC = () => {
                     href="https://instagram.com"
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-2.5 p-3.5 rounded-[10px] bg-[#080808] border border-white/12 hover:border-[#49E619] transition-colors text-sm font-bold text-white"
+                    className="flex items-center gap-2.5 p-3.5 rounded-[10px] bg-[#080808]/80 border border-white/12 hover:border-[#49E619] transition-colors text-sm font-bold text-white"
                   >
                     <Instagram className="w-4 h-4 text-[#49E619]" />
                     <span>Instagram</span>
@@ -307,7 +326,7 @@ export const Contact: React.FC = () => {
                     href="https://facebook.com"
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-2.5 p-3.5 rounded-[10px] bg-[#080808] border border-white/12 hover:border-[#4EDBE2] transition-colors text-sm font-bold text-white"
+                    className="flex items-center gap-2.5 p-3.5 rounded-[10px] bg-[#080808]/80 border border-white/12 hover:border-[#4EDBE2] transition-colors text-sm font-bold text-white"
                   >
                     <Facebook className="w-4 h-4 text-[#4EDBE2]" />
                     <span>Facebook</span>
@@ -316,7 +335,7 @@ export const Contact: React.FC = () => {
                     href="https://linkedin.com"
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-2.5 p-3.5 rounded-[10px] bg-[#080808] border border-white/12 hover:border-[#B9FF2C] transition-colors text-sm font-bold text-white"
+                    className="flex items-center gap-2.5 p-3.5 rounded-[10px] bg-[#080808]/80 border border-white/12 hover:border-[#B9FF2C] transition-colors text-sm font-bold text-white"
                   >
                     <Linkedin className="w-4 h-4 text-[#B9FF2C]" />
                     <span>LinkedIn</span>
@@ -325,7 +344,7 @@ export const Contact: React.FC = () => {
                     href="https://youtube.com"
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-2.5 p-3.5 rounded-[10px] bg-[#080808] border border-white/12 hover:border-[#49E619] transition-colors text-sm font-bold text-white"
+                    className="flex items-center gap-2.5 p-3.5 rounded-[10px] bg-[#080808]/80 border border-white/12 hover:border-[#49E619] transition-colors text-sm font-bold text-white"
                   >
                     <Youtube className="w-4 h-4 text-[#49E619]" />
                     <span>YouTube</span>
@@ -340,7 +359,9 @@ export const Contact: React.FC = () => {
                   <span>OPEN KITCHEN POLICY</span>
                 </div>
                 <p className="mt-2 text-sm text-[#122023] font-medium leading-relaxed">
-                  Donors, teachers, and citizens are welcome to visit our Secunderabad Community Kitchen any morning between 6:00 AM and 9:00 AM to witness meal preparation firsthand.
+                  Donors, teachers, and citizens are welcome to visit our
+                  Secunderabad Community Kitchen any morning between 6:00 AM and
+                  9:00 AM to witness meal preparation firsthand.
                 </p>
               </div>
             </ScrollReveal>
@@ -369,8 +390,8 @@ export const Contact: React.FC = () => {
                   onClick={() => setSelectedHub(hub)}
                   className={`px-4 py-2.5 rounded-[8px] text-xs font-mono-tabular font-bold uppercase tracking-wider transition-colors cursor-pointer ${
                     selectedHub.id === hub.id
-                      ? 'bg-[#49E619] text-[#080808]'
-                      : 'bg-[#080808] text-white border border-white/15 hover:border-[#49E619]'
+                      ? "bg-[#49E619] text-[#080808]"
+                      : "bg-[#080808] text-white border border-white/15 hover:border-[#49E619]"
                   }`}
                 >
                   {hub.id}
@@ -411,8 +432,23 @@ export const Contact: React.FC = () => {
                   strokeWidth="2"
                   strokeDasharray="6 6"
                 />
-                <circle cx="42%" cy="48%" r="48" fill="none" stroke="#49E619" strokeWidth="1" />
-                <circle cx="42%" cy="48%" r="96" fill="none" stroke="#4EDBE2" strokeWidth="0.6" strokeDasharray="4 4" />
+                <circle
+                  cx="42%"
+                  cy="48%"
+                  r="48"
+                  fill="none"
+                  stroke="#49E619"
+                  strokeWidth="1"
+                />
+                <circle
+                  cx="42%"
+                  cy="48%"
+                  r="96"
+                  fill="none"
+                  stroke="#4EDBE2"
+                  strokeWidth="0.6"
+                  strokeDasharray="4 4"
+                />
               </svg>
 
               <div className="relative z-10 flex items-center justify-between">
