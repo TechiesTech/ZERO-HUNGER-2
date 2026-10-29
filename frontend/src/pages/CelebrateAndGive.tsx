@@ -121,6 +121,7 @@ export const CelebrateAndGive: React.FC = () => {
       ====================================================================== */}
 
 
+
       <section
         className="relative isolate overflow-hidden pt-28 sm:pt-36 pb-16 sm:pb-20 border-b border-white/10"
         style={{
@@ -195,6 +196,7 @@ export const CelebrateAndGive: React.FC = () => {
           </ScrollReveal>
         </div>
       </section>
+
 
 
 
