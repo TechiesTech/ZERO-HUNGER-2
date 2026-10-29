@@ -1,4 +1,5 @@
 import { Meal } from '../models/schemas/mealSchema.js';
+import cloudinary from '../config/cloudinary.js';
 
 const findActiveBySlug = async (mealSlug) =>
     Meal.findOne({ mealSlug, isDeleted: false }).lean();
@@ -35,4 +36,37 @@ const getAllMeals = async ({ category, isAvailable, page = 1, limit = 10 } = {})
 
     return { meals, totalMeals };
 };
-export { findActiveBySlug, findActiveById, createMeal, updateMeal, getAllMeals };
+const createImageUploadSignature = async ({ folder, allowedFormats }) => {
+    const timestamp = Math.round(Date.now() / 1000);
+
+    const signature = cloudinary.utils.api_sign_request(
+        { timestamp, folder, asset_folder: folder, allowed_formats: allowedFormats },
+        process.env.CLOUDINARY_API_SECRET
+    );
+
+    return {
+        signature,
+        timestamp,
+        folder,
+        assetFolder: folder,
+        allowedFormats,
+        apiKey: process.env.CLOUDINARY_API_KEY,
+        cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    };
+};
+
+const uploadImageToCloudinary = async (fileBuffer, folder) =>
+    new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+            {
+                folder,
+                asset_folder: folder,
+                allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+                resource_type: 'image',
+            },
+            (error, result) => (error ? reject(error) : resolve(result))
+        );
+
+        stream.end(fileBuffer);
+    });
+export { findActiveBySlug, findActiveById, createMeal, updateMeal, getAllMeals, createImageUploadSignature, uploadImageToCloudinary };

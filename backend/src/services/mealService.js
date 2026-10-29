@@ -1,5 +1,6 @@
 import * as mealRepository from '../repositories/mealRepository.js';
 import AppError from '../utils/appError.js';
+import cloudinary from '../config/cloudinary.js';
 
 const createSlug = (text) =>
     text
@@ -76,5 +77,26 @@ const getAllMeals = async (query = {}) => {
         },
     };
 };
+const uploadFolder = 'zerohunger/meals';
+const allowedFormats = 'jpg,jpeg,png,webp';
 
-export { createMeal, updateMeal, getAllMeals };
+const createImageUploadSignature = async () =>
+    mealRepository.createImageUploadSignature({
+        folder: uploadFolder,
+        allowedFormats,
+    });
+
+const uploadMealImage = async (file) => {
+    if (!file) {
+        throw new AppError('Please choose a photo to upload', 400);
+    }
+
+    const result = await mealRepository.uploadImageToCloudinary(file.buffer, uploadFolder);
+
+    return {
+        imageUrl: result.secure_url,
+        imagePublicId: result.public_id,
+    };
+};
+
+export { createMeal, updateMeal, getAllMeals, createImageUploadSignature, uploadMealImage };

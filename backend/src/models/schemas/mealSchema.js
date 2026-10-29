@@ -55,6 +55,7 @@ const mealSchema = new Schema(
     caloriesKcal: { type: Number, min: 0, default: 0 },
     proteinInGrams: { type: Number, min: 0, default: 0 },
     imageUrl: { type: String, trim: true, default: '' },
+    imagePublicId: { type: String, trim: true, default: '' },
     isAvailable: { type: Boolean, default: true },
     unavailableReason: { type: String, trim: true, maxlength: 120, default: '' },
     displayOrder: { type: Number, default: 0 },
