@@ -1,5 +1,6 @@
 import express from 'express';
 import mealRoutes from './routes/mealRoutes.js';
+import orderRoutes from './routes/orderRoutes.js';
 
 const app = express();
 
@@ -42,6 +43,7 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/api/meals', mealRoutes);
+app.use('/api/orders', orderRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
