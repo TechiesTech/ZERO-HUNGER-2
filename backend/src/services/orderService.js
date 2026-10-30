@@ -63,6 +63,13 @@ const trackOrder = async ({ orderNumber, customerEmail }) => {
 
 const trackMyOrders = async ({ orders }) => orderRepository.trackMyOrders(orders);
 
+const cancelOrder = async ({ orderNumber, customerEmail }) => {
+    const order = await orderRepository.cancelOrder(orderNumber, customerEmail);
+    if (!order) {
+        throw new AppError('Order not found or can no longer be cancelled', 404);
+    }
+    return order;
+};
 const getAllOrders = async ({ customerMealStatus, paymentStatus, search, from, to, page, limit }) => {
     const filter = { isDeleted: false };
     if (customerMealStatus) filter.customerMealStatus = customerMealStatus;
@@ -160,6 +167,7 @@ export {
     createOrder,
     trackOrder,
     trackMyOrders,
+    cancelOrder,
     getAllOrders,
     getOrderById,
     updateOrderStatus,

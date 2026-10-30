@@ -69,6 +69,20 @@ const trackMyOrders = async (pairs) =>
             ],
         },
     ]);
+const cancelOrder = async (orderNumber, customerEmail) =>
+    Order.findOneAndUpdate(
+        {
+            orderNumber,
+            customerEmail,
+            isDeleted: false,
+            customerMealStatus: 'confirmed',
+            paymentStatus: { $ne: 'success' },
+        },
+        { $set: { customerMealStatus: 'cancelled' } },
+        { new: true }
+    )
+        .select('orderNumber customerMealStatus')
+        .lean();
 
 const getAllOrders = async (filter, skip, limit) => {
     const [result] = await Order.aggregate([
@@ -143,8 +157,11 @@ const deleteOrder = async (orderId) =>
         .select('orderNumber')
         .lean();
 
-const updateDeliveryDetails = async ({ orderNumber, customerEmail, ...changes }) =>
-    Order.findOneAndUpdate(
+const updateDeliveryDetails = async ({ orderNumber, customerEmail, ...changes }) => {
+    if (changes.deliveryAddress && !changes.deliveryLocation) {
+        changes.deliveryLocation = { latitude: null, longitude: null };
+    }
+    return Order.findOneAndUpdate(
         {
             orderNumber,
             customerEmail,
@@ -156,12 +173,14 @@ const updateDeliveryDetails = async ({ orderNumber, customerEmail, ...changes })
     )
         .select('orderNumber customerMealStatus deliveryAddress deliveryLocation')
         .lean();
+};
 
 export {
     findActiveMealsByIds,
     createOrderWithItems,
     trackOrder,
     trackMyOrders,
+    cancelOrder,
     getAllOrders,
     getOrderById,
     updateOrderStatus,
