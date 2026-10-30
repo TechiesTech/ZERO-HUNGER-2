@@ -1,16 +1,19 @@
+import mongoose from 'mongoose';
+
 /**
- * backend/src/config/db.js
- * TODO: Implement MongoDB connection using Mongoose.
- *
- * Example:
- *   import mongoose from 'mongoose';
- *   export async function connectDB() {
- *     const uri = process.env.MONGODB_URI;
- *     if (!uri) throw new Error('MONGODB_URI is not set');
- *     await mongoose.connect(uri);
- *     console.log('[db] Connected to MongoDB');
- *   }
+ * Connect to MongoDB database using Mongoose.
  */
-export async function connectDB() {
-  // TODO: connect using mongoose
-}
+export const connectDB = async () => {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    throw new Error('MONGODB_URI is not defined in environment variables');
+  }
+
+  await mongoose.connect(uri, {
+    dbName: 'zerohunger',
+  });
+
+  console.log(`MongoDB connected to database: ${mongoose.connection.name}`);
+};
+
+export default connectDB;
