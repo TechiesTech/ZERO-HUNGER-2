@@ -67,5 +67,6 @@ const trackOrder = async ({ orderNumber, customerEmail }) => {
     }
     return order;
 };
+const trackMyOrders = async ({ orders }) => orderRepository.trackMyOrders(orders);
 
-export { createOrder, trackOrder };
+export { createOrder, trackOrder, trackMyOrders };

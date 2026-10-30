@@ -42,5 +42,16 @@ const trackOrderSchema = Joi.object({
     orderNumber: Joi.string().trim().uppercase().min(8).max(20).required(),
     customerEmail: Joi.string().trim().lowercase().email({ tlds: { allow: false } }).required(),
 });
-
-export { createOrderSchema, trackOrderSchema };
+const trackMyOrdersSchema = Joi.object({
+    orders: Joi.array()
+        .items(
+            Joi.object({
+                orderNumber: Joi.string().trim().uppercase().min(8).max(20).required(),
+                customerEmail: Joi.string().trim().lowercase().email({ tlds: { allow: false } }).required(),
+            })
+        )
+        .min(1)
+        .max(20)
+        .required(),
+});
+export { createOrderSchema, trackOrderSchema, trackMyOrdersSchema };

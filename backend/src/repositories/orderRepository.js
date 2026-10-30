@@ -42,5 +42,23 @@ const trackOrder = async (orderNumber, customerEmail) => {
 
     return { ...order, items };
 };
-export { findActiveMealsByIds, createOrderWithItems, trackOrder };
+const trackMyOrders = async (pairs) => {
+    const orders = await Order.find({ $or: pairs, isDeleted: false })
+        .select('-customerPhone -deliveryAddress -paymentId -assignedRiderId -isDeleted -deletedAt')
+        .sort({ createdAt: -1 })
+        .lean();
+
+    if (orders.length === 0) return [];
+
+    const items = await OrderItem.find({ orderId: { $in: orders.map((order) => order._id) } }).lean();
+
+    const itemsByOrder = new Map();
+    items.forEach(({ orderId, ...item }) => {
+        const key = String(orderId);
+        itemsByOrder.set(key, [...(itemsByOrder.get(key) || []), item]);
+    });
+
+    return orders.map((order) => ({ ...order, items: itemsByOrder.get(String(order._id)) || [] }));
+};
+export { findActiveMealsByIds, createOrderWithItems, trackOrder, trackMyOrders };
 
