@@ -2,22 +2,17 @@ import crypto from 'crypto';
 import AppError from '../utils/appError.js';
 import * as orderRepository from '../repositories/orderRepository.js';
 
-const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const MAX_ORDER_NUMBER_ATTEMPTS = 3;
-
 const createOrder = async (body) => {
     const quantityByMeal = new Map();
     body.items.forEach(({ mealId, quantity }) => {
         quantityByMeal.set(mealId, (quantityByMeal.get(mealId) || 0) + quantity);
     });
-
     const meals = await orderRepository.findActiveMealsByIds([...quantityByMeal.keys()]);
     const mealById = new Map(meals.map((meal) => [String(meal._id), meal]));
 
     const orderItems = [...quantityByMeal].map(([mealId, quantity]) => {
         const meal = mealById.get(mealId);
         if (!meal) throw new AppError('One or more meals are not available', 400);
-
         return {
             mealId: meal._id,
             productName: meal.mealName,
@@ -39,12 +34,11 @@ const createOrder = async (body) => {
         sponsoredMealsCount: orderItems.reduce((sum, item) => sum + item.sponsoredChildMeals, 0),
     };
 
-    for (let attempt = 1; attempt <= MAX_ORDER_NUMBER_ATTEMPTS; attempt += 1) {
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
         const code = Array.from(
             { length: 6 },
-            () => CODE_CHARS[crypto.randomInt(CODE_CHARS.length)]
+            () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[crypto.randomInt(32)]
         ).join('');
-
         try {
             const { order, items } = await orderRepository.createOrderWithItems(
                 { ...orderData, orderNumber: `ZH-ORD-${code}` },
@@ -56,7 +50,6 @@ const createOrder = async (body) => {
             if (error.code !== 11000) throw error;
         }
     }
-
     throw new AppError('Could not create the order, please try again', 409);
 };
 
@@ -67,6 +60,7 @@ const trackOrder = async ({ orderNumber, customerEmail }) => {
     }
     return order;
 };
+
 const trackMyOrders = async ({ orders }) => orderRepository.trackMyOrders(orders);
 
 const getAllOrders = async ({ customerMealStatus, paymentStatus, search, from, to, page, limit }) => {
@@ -88,13 +82,65 @@ const getAllOrders = async ({ customerMealStatus, paymentStatus, search, from, t
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
 };
+
 const getOrderById = async (orderId) => {
     const order = await orderRepository.getOrderById(orderId);
-
     if (!order) {
         throw new AppError('Order not found', 404);
     }
+    return order;
+};
 
+const updateOrderStatus = async (orderId, { customerMealStatus }) => {
+    const statusFlow = ['CONFIRMED', 'PREPARING_IN_KITCHEN', 'OUT_FOR_DELIVERY', 'DELIVERED_TO_CUSTOMER'];
+    const previousStatus = statusFlow[statusFlow.indexOf(customerMealStatus) - 1];
+    if (!previousStatus) {
+        throw new AppError('Order cannot be moved back to CONFIRMED', 400);
+    }
+    const order = await orderRepository.updateOrderStatus(orderId, previousStatus, customerMealStatus);
+    if (!order) {
+        throw new AppError('Order not found', 404);
+    }
+    if (order.paymentStatus !== 'SUCCESS') {
+        throw new AppError('Payment must be successful before updating the order status', 400);
+    }
+    if (order.customerMealStatus !== previousStatus) {
+        const nextStatus = statusFlow[statusFlow.indexOf(order.customerMealStatus) + 1];
+        throw new AppError(
+            nextStatus
+                ? `Status can only move from ${order.customerMealStatus} to ${nextStatus}`
+                : 'Order is already delivered',
+            400
+        );
+    }
+    return { ...order, customerMealStatus, updatedAt: new Date() };
+};
+
+const getOrderStats = async () => {
+    const istNow = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+    istNow.setUTCHours(0, 0, 0, 0);
+    const startOfToday = new Date(istNow.getTime() - 5.5 * 60 * 60 * 1000);
+    const stats = await orderRepository.getOrderStats(startOfToday);
+    return {
+        totalOrders: stats.total[0]?.count || 0,
+        ordersToday: stats.today[0]?.count || 0,
+        byMealStatus: Object.fromEntries(stats.byMealStatus.map(({ _id, count }) => [_id, count])),
+        byPaymentStatus: Object.fromEntries(stats.byPaymentStatus.map(({ _id, count }) => [_id, count])),
+    };
+};
+
+const deleteOrder = async (orderId) => {
+    const order = await orderRepository.deleteOrder(orderId);
+    if (!order) {
+        throw new AppError('Order not found', 404);
+    }
+    return order;
+};
+const updateDeliveryDetails = async (payload) => {
+    const order = await orderRepository.updateDeliveryDetails(payload);
+    if (!order) {
+        throw new AppError('Order not found or can no longer be changed', 404);
+    }
     return order;
 };
 export {
@@ -102,5 +148,9 @@ export {
     trackOrder,
     trackMyOrders,
     getAllOrders,
-    getOrderById
+    getOrderById,
+    updateOrderStatus,
+    getOrderStats,
+    deleteOrder,
+    updateDeliveryDetails,
 };

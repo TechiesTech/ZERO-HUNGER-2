@@ -69,10 +69,38 @@ const getAllOrdersSchema = Joi.object({
 const orderIdParamSchema = Joi.object({
     orderId: Joi.string().trim().lowercase().hex().length(24).required(),
 });
+const updateOrderStatusSchema = Joi.object({
+    customerMealStatus: Joi.string()
+        .trim()
+        .uppercase()
+        .valid('CONFIRMED', 'PREPARING_IN_KITCHEN', 'OUT_FOR_DELIVERY', 'DELIVERED_TO_CUSTOMER')
+        .required(),
+});
+const updateDeliveryDetailsSchema = Joi.object({
+    orderNumber: Joi.string().trim().uppercase().required(),
+    customerEmail: Joi.string().trim().lowercase().email().required(),
+    customerPhone: Joi.string().trim().allow('').pattern(/^[+\d\s-]{7,20}$/),
+    deliveryAddress: Joi.object({
+        addressLine1: Joi.string().trim().max(120).required(),
+        addressLine2: Joi.string().trim().allow('').max(120),
+        area: Joi.string().trim().max(80).required(),
+        landmark: Joi.string().trim().allow('').max(80),
+        city: Joi.string().trim().max(60).required(),
+        state: Joi.string().trim().max(60).required(),
+        pincode: Joi.string().trim().pattern(/^[1-9][0-9]{5}$/).required(),
+    }),
+    deliveryLocation: Joi.object({
+        latitude: Joi.number().min(-90).max(90).required(),
+        longitude: Joi.number().min(-180).max(180).required(),
+    }),
+}).or('customerPhone', 'deliveryAddress', 'deliveryLocation');
+
 export {
     createOrderSchema,
     trackOrderSchema,
     trackMyOrdersSchema,
     getAllOrdersSchema,
     orderIdParamSchema,
+    updateOrderStatusSchema,
+    updateDeliveryDetailsSchema,
 };

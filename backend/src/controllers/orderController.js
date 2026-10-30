@@ -48,4 +48,51 @@ const getOrderById = async (req, res, next) => {
         return next(error);
     }
 };
-export { createOrder, trackOrder, trackMyOrders, getAllOrders, getOrderById };
+const updateOrderStatus = async (req, res, next) => {
+    try {
+        const data = await orderService.updateOrderStatus(req.params.orderId, req.body);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Order status updated successfully',
+            data,
+        });
+    } catch (error) {
+        return next(error);
+    }
+};
+const deleteOrder = async (req, res, next) => {
+    try {
+        const data = await orderService.deleteOrder(req.params.orderId);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Order deleted successfully',
+            data,
+        });
+    } catch (error) {
+        return next(error);
+    }
+};
+const updateDeliveryDetails = async (req, res, next) => {
+    try {
+        const data = await orderService.updateDeliveryDetails(req.body);
+        return res.status(200).json({
+            success: true,
+            message: 'Delivery details updated successfully',
+            data,
+        });
+    } catch (error) {
+        return next(error);
+    }
+};
+export {
+    createOrder,
+    trackOrder,
+    trackMyOrders,
+    getAllOrders,
+    getOrderById,
+    updateOrderStatus,
+    deleteOrder,
+    updateDeliveryDetails,
+};

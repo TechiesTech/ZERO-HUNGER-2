@@ -4,11 +4,9 @@ import { Order } from '../models/schemas/orderSchema.js';
 import { OrderItem } from '../models/schemas/orderItemSchema.js';
 
 const findActiveMealsByIds = async (mealIds) =>
-    Meal.find({
-        _id: { $in: mealIds },
-        isDeleted: false,
-        isAvailable: true,
-    }).lean();
+    Meal.find({ _id: { $in: mealIds }, isDeleted: false, isAvailable: true })
+        .select('mealName priceInRupees')
+        .lean();
 
 const createOrderWithItems = async (orderData, orderItems) => {
     const session = await mongoose.startSession();
@@ -17,62 +15,144 @@ const createOrderWithItems = async (orderData, orderItems) => {
     try {
         const [order] = await Order.create([orderData], { session });
 
-        const itemDocs = orderItems.map((item) => ({ ...item, orderId: order._id }));
-        const items = await OrderItem.insertMany(itemDocs, { session });
+        const items = await OrderItem.insertMany(
+            orderItems.map((item) => ({ ...item, orderId: order._id })),
+            { session }
+        );
 
         await session.commitTransaction();
-        return { order: order.toObject(), items };
+        return { order: order.toObject(), items: items.map((item) => item.toObject()) };
     } catch (error) {
         await session.abortTransaction();
         throw error;
     } finally {
-        session.endSession();
+        await session.endSession();
     }
 };
+
 const trackOrder = async (orderNumber, customerEmail) => {
-    const order = await Order.findOne({ orderNumber, customerEmail, isDeleted: false })
-        .select('-customerPhone -deliveryAddress -paymentId -assignedRiderId -isDeleted -deletedAt')
-        .lean();
-
-    if (!order) return null;
-
-    const items = await OrderItem.find({ orderId: order._id })
-        .select('-orderId')
-        .lean();
-
-    return { ...order, items };
-};
-const trackMyOrders = async (pairs) => {
-    const orders = await Order.find({ $or: pairs, isDeleted: false })
-        .select('-customerPhone -deliveryAddress -paymentId -assignedRiderId -isDeleted -deletedAt')
-        .sort({ createdAt: -1 })
-        .lean();
-
-    if (orders.length === 0) return [];
-
-    const items = await OrderItem.find({ orderId: { $in: orders.map((order) => order._id) } }).lean();
-
-    const itemsByOrder = new Map();
-    items.forEach(({ orderId, ...item }) => {
-        const key = String(orderId);
-        itemsByOrder.set(key, [...(itemsByOrder.get(key) || []), item]);
-    });
-
-    return orders.map((order) => ({ ...order, items: itemsByOrder.get(String(order._id)) || [] }));
-};
-const getAllOrders = async (filter, skip, limit) => {
-    const [orders, total] = await Promise.all([
-        Order.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-        Order.countDocuments(filter),
+    const [order] = await Order.aggregate([
+        { $match: { orderNumber, customerEmail, isDeleted: false } },
+        { $lookup: { from: 'orderItems', localField: '_id', foreignField: 'orderId', as: 'items' } },
+        {
+            $unset: [
+                'customerPhone',
+                'deliveryAddress',
+                'paymentId',
+                'assignedRiderId',
+                'isDeleted',
+                'deletedAt',
+                'items.orderId',
+            ],
+        },
     ]);
-    return { orders, total };
+
+    return order || null;
 };
+
+const trackMyOrders = async (pairs) =>
+    Order.aggregate([
+        { $match: { $or: pairs, isDeleted: false } },
+        { $sort: { createdAt: -1 } },
+        { $lookup: { from: 'orderItems', localField: '_id', foreignField: 'orderId', as: 'items' } },
+        {
+            $unset: [
+                'customerPhone',
+                'deliveryAddress',
+                'paymentId',
+                'assignedRiderId',
+                'isDeleted',
+                'deletedAt',
+                'items.orderId',
+            ],
+        },
+    ]);
+
+const getAllOrders = async (filter, skip, limit) => {
+    const [result] = await Order.aggregate([
+        { $match: filter },
+        { $sort: { createdAt: -1 } },
+        {
+            $facet: {
+                orders: [{ $skip: skip }, { $limit: limit }],
+                total: [{ $count: 'count' }],
+            },
+        },
+    ]);
+
+    return { orders: result.orders, total: result.total[0]?.count || 0 };
+};
+
 const getOrderById = async (orderId) => {
-    const order = await Order.findOne({ _id: orderId, isDeleted: false }).lean();
-    if (!order) return null;
-    const items = await OrderItem.find({ orderId: order._id }).lean();
-    return { ...order, items };
+    const [order] = await Order.aggregate([
+        { $match: { _id: new mongoose.Types.ObjectId(orderId), isDeleted: false } },
+        { $lookup: { from: 'orderItems', localField: '_id', foreignField: 'orderId', as: 'items' } },
+    ]);
+
+    return order || null;
 };
+
+const updateOrderStatus = async (orderId, previousStatus, newStatus) => {
+    const canMove = {
+        $and: [
+            { $eq: ['$paymentStatus', 'SUCCESS'] },
+            { $eq: ['$customerMealStatus', previousStatus] },
+        ],
+    };
+
+    return Order.findOneAndUpdate(
+        { _id: orderId, isDeleted: false },
+        [
+            {
+                $set: {
+                    customerMealStatus: { $cond: [canMove, newStatus, '$customerMealStatus'] },
+                    updatedAt: { $cond: [canMove, '$$NOW', '$updatedAt'] },
+                },
+            },
+        ],
+        { returnDocument: 'before', timestamps: false }
+    ).lean();
+};
+
+const getOrderStats = async (startOfToday) => {
+    const [stats] = await Order.aggregate([
+        { $match: { isDeleted: false } },
+        {
+            $facet: {
+                total: [{ $count: 'count' }],
+                today: [{ $match: { createdAt: { $gte: startOfToday } } }, { $count: 'count' }],
+                byMealStatus: [{ $group: { _id: '$customerMealStatus', count: { $sum: 1 } } }],
+                byPaymentStatus: [{ $group: { _id: '$paymentStatus', count: { $sum: 1 } } }],
+            },
+        },
+    ]);
+
+    return stats;
+};
+
+const deleteOrder = async (orderId) =>
+    Order.findOneAndUpdate(
+        { _id: orderId, isDeleted: false },
+        { isDeleted: true, deletedAt: new Date() },
+        { new: true }
+    )
+        .select('orderNumber')
+        .lean();
+
+const updateDeliveryDetails = async ({ orderNumber, customerEmail, ...changes }) =>
+    Order.findOneAndUpdate(
+        {
+            orderNumber,
+            customerEmail,
+            isDeleted: false,
+            customerMealStatus: { $in: ['CONFIRMED', 'PREPARING_IN_KITCHEN'] },
+        },
+        { $set: changes },
+        { new: true, runValidators: true }
+    )
+        .select('orderNumber customerMealStatus deliveryAddress deliveryLocation')
+        .lean();
+
 export {
     findActiveMealsByIds,
     createOrderWithItems,
@@ -80,4 +160,8 @@ export {
     trackMyOrders,
     getAllOrders,
     getOrderById,
+    updateOrderStatus,
+    getOrderStats,
+    deleteOrder,
+    updateDeliveryDetails,
 };

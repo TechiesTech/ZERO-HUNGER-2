@@ -28,9 +28,12 @@ const orderSchema = new Schema(
     sponsoredMealsCount: { type: Number, min: 0, default: 0, validate: Number.isInteger },
     customerMealStatus: {
       type: String,
-      enum: ['CONFIRMED', 'PREPARING_IN_KITCHEN', 'OUT_FOR_DELIVERY', 'DELIVERED_TO_CUSTOMER'],
+      enum: ['CONFIRMED', 'PREPARING_IN_KITCHEN', 'OUT_FOR_DELIVERY', 'DELIVERED_TO_CUSTOMER', 'CANCELLED'],
       default: 'CONFIRMED',
     },
+    cancelledAt: { type: Date, default: null },
+    cancelReason: { type: String, trim: true, maxlength: 200, default: '' },
+    addressEditCount: { type: Number, default: 0, min: 0 },
     assignedRiderId: { type: Schema.Types.ObjectId, ref: 'Riders', default: null },
     isDeleted: { type: Boolean, default: false },
     deletedAt: { type: Date, default: null },
