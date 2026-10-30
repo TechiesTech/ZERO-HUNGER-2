@@ -38,6 +38,7 @@ const trackOrder = async (orderNumber, customerEmail) => {
             $unset: [
                 'customerPhone',
                 'deliveryAddress',
+                'deliveryLocation',
                 'paymentId',
                 'assignedRiderId',
                 'isDeleted',
@@ -59,6 +60,7 @@ const trackMyOrders = async (pairs) =>
             $unset: [
                 'customerPhone',
                 'deliveryAddress',
+                'deliveryLocation',
                 'paymentId',
                 'assignedRiderId',
                 'isDeleted',
@@ -92,24 +94,21 @@ const getOrderById = async (orderId) => {
     return order || null;
 };
 
-const updateOrderStatus = async (orderId, previousStatus, newStatus) => {
-    const canMove = {
-        $and: [
-            { $eq: ['$paymentStatus', 'SUCCESS'] },
-            { $eq: ['$customerMealStatus', previousStatus] },
-        ],
+// TODO: require paymentStatus success before moving to preparing (when payments are built)
+const updateOrderStatus = async (orderId, previousStatus, newStatus, assignedRiderId) => {
+    const canMove = { $eq: ['$customerMealStatus', previousStatus] };
+    const changes = {
+        customerMealStatus: { $cond: [canMove, newStatus, '$customerMealStatus'] },
+        updatedAt: { $cond: [canMove, '$$NOW', '$updatedAt'] },
     };
-
+    if (assignedRiderId) {
+        changes.assignedRiderId = {
+            $cond: [canMove, new mongoose.Types.ObjectId(assignedRiderId), '$assignedRiderId'],
+        };
+    }
     return Order.findOneAndUpdate(
         { _id: orderId, isDeleted: false },
-        [
-            {
-                $set: {
-                    customerMealStatus: { $cond: [canMove, newStatus, '$customerMealStatus'] },
-                    updatedAt: { $cond: [canMove, '$$NOW', '$updatedAt'] },
-                },
-            },
-        ],
+        [{ $set: changes }],
         { returnDocument: 'before', timestamps: false }
     ).lean();
 };
@@ -132,7 +131,12 @@ const getOrderStats = async (startOfToday) => {
 
 const deleteOrder = async (orderId) =>
     Order.findOneAndUpdate(
-        { _id: orderId, isDeleted: false },
+        {
+            _id: orderId,
+            isDeleted: false,
+            customerMealStatus: { $in: ['confirmed', 'cancelled'] },
+            paymentStatus: { $ne: 'success' },
+        },
         { isDeleted: true, deletedAt: new Date() },
         { new: true }
     )
@@ -145,7 +149,7 @@ const updateDeliveryDetails = async ({ orderNumber, customerEmail, ...changes })
             orderNumber,
             customerEmail,
             isDeleted: false,
-            customerMealStatus: { $in: ['CONFIRMED', 'PREPARING_IN_KITCHEN'] },
+            customerMealStatus: { $in: ['confirmed', 'preparing'] },
         },
         { $set: changes },
         { new: true, runValidators: true }

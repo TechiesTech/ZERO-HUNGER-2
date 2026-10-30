@@ -91,29 +91,41 @@ const getOrderById = async (orderId) => {
     return order;
 };
 
-const updateOrderStatus = async (orderId, { customerMealStatus }) => {
-    const statusFlow = ['CONFIRMED', 'PREPARING_IN_KITCHEN', 'OUT_FOR_DELIVERY', 'DELIVERED_TO_CUSTOMER'];
+const updateOrderStatus = async (orderId, { customerMealStatus, assignedRiderId }) => {
+    const statusFlow = ['confirmed', 'preparing', 'outfordelivery', 'delivered'];
     const previousStatus = statusFlow[statusFlow.indexOf(customerMealStatus) - 1];
     if (!previousStatus) {
-        throw new AppError('Order cannot be moved back to CONFIRMED', 400);
+        throw new AppError('Order cannot be moved back to confirmed', 409);
     }
-    const order = await orderRepository.updateOrderStatus(orderId, previousStatus, customerMealStatus);
-    if (!order) {
-        throw new AppError('Order not found', 404);
+    const order = await orderRepository.updateOrderStatus(
+        orderId,
+        previousStatus,
+        customerMealStatus,
+        assignedRiderId
+    );
+    if (!order) throw new AppError('Order not found', 404);
+    const current = order.customerMealStatus;
+    if (current === customerMealStatus) {
+        throw new AppError(`Order is already ${current}`, 409);
     }
-    if (order.paymentStatus !== 'SUCCESS') {
-        throw new AppError('Payment must be successful before updating the order status', 400);
+    if (current === 'cancelled') {
+        throw new AppError('Cancelled orders cannot be changed', 409);
     }
-    if (order.customerMealStatus !== previousStatus) {
-        const nextStatus = statusFlow[statusFlow.indexOf(order.customerMealStatus) + 1];
+    if (current !== previousStatus) {
+        const nextStatus = statusFlow[statusFlow.indexOf(current) + 1];
         throw new AppError(
             nextStatus
-                ? `Status can only move from ${order.customerMealStatus} to ${nextStatus}`
+                ? `Status can only move from ${current} to ${nextStatus}`
                 : 'Order is already delivered',
-            400
+            409
         );
     }
-    return { ...order, customerMealStatus, updatedAt: new Date() };
+    return {
+        ...order,
+        customerMealStatus,
+        ...(assignedRiderId && { assignedRiderId }),
+        updatedAt: new Date(),
+    };
 };
 
 const getOrderStats = async () => {
@@ -132,10 +144,11 @@ const getOrderStats = async () => {
 const deleteOrder = async (orderId) => {
     const order = await orderRepository.deleteOrder(orderId);
     if (!order) {
-        throw new AppError('Order not found', 404);
+        throw new AppError('Order not found or cannot be deleted', 404);
     }
     return order;
 };
+
 const updateDeliveryDetails = async (payload) => {
     const order = await orderRepository.updateDeliveryDetails(payload);
     if (!order) {

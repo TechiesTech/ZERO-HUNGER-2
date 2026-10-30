@@ -25,8 +25,7 @@ const createOrderSchema = Joi.object({
         latitude: Joi.number().min(-90).max(90).required(),
         longitude: Joi.number().min(-180).max(180).required(),
     }),
-    paymentMethod: Joi.string().trim().uppercase().valid('UPI', 'CARD', 'NET_BANKING').required(),
-    items: Joi.array()
+    paymentMethod: Joi.string().trim().lowercase().valid('upi', 'card', 'netbanking').required(), items: Joi.array()
         .items(
             Joi.object({
                 mealId: Joi.string().trim().lowercase().hex().length(24).required(),
@@ -57,9 +56,9 @@ const trackMyOrdersSchema = Joi.object({
 const getAllOrdersSchema = Joi.object({
     customerMealStatus: Joi.string()
         .trim()
-        .uppercase()
-        .valid('CONFIRMED', 'PREPARING_IN_KITCHEN', 'OUT_FOR_DELIVERY', 'DELIVERED_TO_CUSTOMER'),
-    paymentStatus: Joi.string().trim().uppercase().valid('PENDING', 'SUCCESS', 'FAILED'),
+        .lowercase()
+        .valid('confirmed', 'preparing', 'outfordelivery', 'delivered', 'cancelled'),
+    paymentStatus: Joi.string().trim().lowercase().valid('pending', 'success', 'failed'),
     search: Joi.string().trim().max(80),
     from: Joi.date().iso(),
     to: Joi.date().iso().min(Joi.ref('from')),
@@ -72,9 +71,19 @@ const orderIdParamSchema = Joi.object({
 const updateOrderStatusSchema = Joi.object({
     customerMealStatus: Joi.string()
         .trim()
-        .uppercase()
-        .valid('CONFIRMED', 'PREPARING_IN_KITCHEN', 'OUT_FOR_DELIVERY', 'DELIVERED_TO_CUSTOMER')
+        .lowercase()
+        .valid('confirmed', 'preparing', 'outfordelivery', 'delivered')
         .required(),
+    assignedRiderId: Joi.string()
+        .trim()
+        .lowercase()
+        .hex()
+        .length(24)
+        .when('customerMealStatus', {
+            is: 'outfordelivery',
+            then: Joi.required(),
+            otherwise: Joi.forbidden(),
+        }),
 });
 const updateDeliveryDetailsSchema = Joi.object({
     orderNumber: Joi.string().trim().uppercase().required(),
