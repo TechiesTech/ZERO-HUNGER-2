@@ -60,5 +60,12 @@ const trackMyOrders = async (pairs) => {
 
     return orders.map((order) => ({ ...order, items: itemsByOrder.get(String(order._id)) || [] }));
 };
-export { findActiveMealsByIds, createOrderWithItems, trackOrder, trackMyOrders };
+const getAllOrders = async (filter, skip, limit) => {
+    const [orders, total] = await Promise.all([
+        Order.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+        Order.countDocuments(filter),
+    ]);
+    return { orders, total };
+};
+export { findActiveMealsByIds, createOrderWithItems, trackOrder, trackMyOrders, getAllOrders };
 

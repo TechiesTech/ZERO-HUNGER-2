@@ -69,4 +69,23 @@ const trackOrder = async ({ orderNumber, customerEmail }) => {
 };
 const trackMyOrders = async ({ orders }) => orderRepository.trackMyOrders(orders);
 
-export { createOrder, trackOrder, trackMyOrders };
+const getAllOrders = async ({ customerMealStatus, paymentStatus, search, from, to, page, limit }) => {
+    const filter = { isDeleted: false };
+    if (customerMealStatus) filter.customerMealStatus = customerMealStatus;
+    if (paymentStatus) filter.paymentStatus = paymentStatus;
+    if (from || to) {
+        filter.createdAt = {};
+        if (from) filter.createdAt.$gte = from;
+        if (to) filter.createdAt.$lte = to;
+    }
+    if (search) {
+        const pattern = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+        filter.$or = [{ orderNumber: pattern }, { customerName: pattern }, { customerEmail: pattern }];
+    }
+    const { orders, total } = await orderRepository.getAllOrders(filter, (page - 1) * limit, limit);
+    return {
+        orders,
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+};
+export { createOrder, trackOrder, trackMyOrders, getAllOrders };

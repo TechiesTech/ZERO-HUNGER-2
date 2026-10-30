@@ -30,5 +30,13 @@ const trackMyOrders = async (req, res, next) => {
         return next(error);
     }
 };
+const getAllOrders = async (req, res, next) => {
+    try {
+        const data = await orderService.getAllOrders(req.validatedQuery);
 
-export { createOrder, trackOrder, trackMyOrders };
+        return res.status(200).json({ success: true, data });
+    } catch (error) {
+        return next(error);
+    }
+};
+export { createOrder, trackOrder, trackMyOrders, getAllOrders };

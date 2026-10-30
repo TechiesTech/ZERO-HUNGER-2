@@ -54,4 +54,16 @@ const trackMyOrdersSchema = Joi.object({
         .max(20)
         .required(),
 });
-export { createOrderSchema, trackOrderSchema, trackMyOrdersSchema };
+const getAllOrdersSchema = Joi.object({
+    customerMealStatus: Joi.string()
+        .trim()
+        .uppercase()
+        .valid('CONFIRMED', 'PREPARING_IN_KITCHEN', 'OUT_FOR_DELIVERY', 'DELIVERED_TO_CUSTOMER'),
+    paymentStatus: Joi.string().trim().uppercase().valid('PENDING', 'SUCCESS', 'FAILED'),
+    search: Joi.string().trim().max(80),
+    from: Joi.date().iso(),
+    to: Joi.date().iso().min(Joi.ref('from')),
+    page: Joi.number().integer().min(1).default(1),
+    limit: Joi.number().integer().min(1).max(100).default(10),
+});
+export { createOrderSchema, trackOrderSchema, trackMyOrdersSchema, getAllOrdersSchema };
