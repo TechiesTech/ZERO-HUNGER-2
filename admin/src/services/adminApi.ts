@@ -1,29 +1,45 @@
 /**
  * admin/src/services/adminApi.ts
- * TODO: Implement admin API calls (requires auth header once JWT is added).
- *
- * TODO (auth): Inject Authorization header from stored admin session token.
- * Example:
- *   headers: { Authorization: `Bearer ${getAdminToken()}` }
+ * Centralised fetch wrapper pointing at the backend API.
  */
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
 
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (body) headers['Content-Type'] = 'application/json';
+
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(json.message ?? `Request failed (${res.status})`);
+  }
+  return json as T;
+}
+
 export const adminApi = {
-  get: async <T>(path: string): Promise<T> => {
-    // TODO: implement — add auth header
-    throw new Error(`GET ${BASE_URL}/admin${path} — not yet implemented`);
-  },
-  post: async <T>(path: string, _body: unknown): Promise<T> => {
-    // TODO: implement — add auth header
-    throw new Error(`POST ${BASE_URL}/admin${path} — not yet implemented`);
-  },
-  patch: async <T>(path: string, _body: unknown): Promise<T> => {
-    // TODO: implement — add auth header
-    throw new Error(`PATCH ${BASE_URL}/admin${path} — not yet implemented`);
-  },
-  delete: async <T>(path: string): Promise<T> => {
-    // TODO: implement — add auth header
-    throw new Error(`DELETE ${BASE_URL}/admin${path} — not yet implemented`);
+  get:    <T>(path: string)                 => request<T>('GET',    path),
+  post:   <T>(path: string, body: unknown)  => request<T>('POST',   path, body),
+  patch:  <T>(path: string, body: unknown)  => request<T>('PATCH',  path, body),
+  delete: <T>(path: string)                 => request<T>('DELETE', path),
+
+  /** Upload a file (multipart/form-data — no JSON Content-Type header). */
+  upload: async <T>(path: string, formData: FormData): Promise<T> => {
+    const res = await fetch(`${BASE_URL}${path}`, {
+      method: 'POST',
+      body: formData,
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message ?? `Upload failed (${res.status})`);
+    return json as T;
   },
 };

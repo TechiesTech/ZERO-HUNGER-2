@@ -1,15 +1,6 @@
 import React from 'react';
-import { Outlet, NavLink } from 'react-router-dom';
+import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { LayoutDashboard, UtensilsCrossed, ShoppingBag, Bike } from 'lucide-react';
-
-/**
- * AdminLayout — shared shell for all admin pages.
- *
- * Structure: fixed sidebar on the left + scrollable content area on the right.
- *
- * TODO (auth): Add a Logout button in the header/sidebar that clears the
- * admin session and redirects to the login page (to be built later).
- */
 
 interface NavItem {
   to: string;
@@ -25,10 +16,13 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export function AdminLayout(): React.ReactElement {
+  const { pathname } = useLocation();
+  const currentPage = NAV_ITEMS.find((n) => pathname.startsWith(n.to))?.label ?? 'Dashboard';
+
   return (
     <div className="flex min-h-screen bg-[#080808]">
       {/* ── Sidebar ── */}
-      <aside className="w-56 flex-shrink-0 flex flex-col bg-[#0D1719] border-r border-white/8">
+      <aside className="w-56 flex-shrink-0 flex flex-col bg-[#0D1719] border-r border-white/8 sticky top-0 h-screen">
         {/* Logo / brand mark */}
         <div className="h-16 flex items-center px-5 border-b border-white/8">
           <span className="text-[#49E619] font-bold text-sm tracking-wider uppercase">
@@ -63,7 +57,6 @@ export function AdminLayout(): React.ReactElement {
         {/* Footer note */}
         <div className="px-5 py-4 border-t border-white/8">
           <p className="text-[11px] text-white/25 leading-relaxed">
-            {/* TODO (auth): Show logged-in admin name here */}
             Zero Hunger v0.1
           </p>
         </div>
@@ -73,12 +66,12 @@ export function AdminLayout(): React.ReactElement {
       <main className="flex-1 flex flex-col overflow-auto">
         {/* Top bar */}
         <header className="h-16 flex items-center justify-between px-8 border-b border-white/8 bg-[#080808]/80 backdrop-blur-sm sticky top-0 z-10">
-          <div className="text-sm text-white/40 font-medium">
-            {/* TODO (auth): Replace with active page breadcrumb */}
-            Admin Dashboard
+          <div className="flex items-center gap-2 text-sm text-white/40 font-medium">
+            <span className="text-white/20">Admin</span>
+            <span className="text-white/15">/</span>
+            <span className="text-white/60">{currentPage}</span>
           </div>
           <div className="flex items-center gap-3">
-            {/* TODO (auth): Add avatar / logout button here */}
             <div className="w-8 h-8 rounded-full bg-[#122023] border border-[#49E619]/30 flex items-center justify-center text-[#49E619] text-xs font-bold">
               A
             </div>

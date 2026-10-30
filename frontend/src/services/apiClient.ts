@@ -1,23 +1,34 @@
 /**
  * frontend/src/services/apiClient.ts
- *
- * TODO: Replace with a real HTTP client (e.g. axios or fetch wrapper)
- * that points at VITE_API_URL from import.meta.env.
- *
- * Example future usage:
- *   import { apiClient } from '@/services/apiClient';
- *   const meals = await apiClient.get('/meals');
+ * HTTP client pointing at the backend API.
  */
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
 
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (body) headers['Content-Type'] = 'application/json';
+
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(json.message ?? `Request failed (${res.status})`);
+  }
+  return json as T;
+}
+
 export const apiClient = {
-  get: async <T>(path: string): Promise<T> => {
-    // TODO: implement
-    throw new Error(`GET ${BASE_URL}${path} — not yet implemented`);
-  },
-  post: async <T>(path: string, _body: unknown): Promise<T> => {
-    // TODO: implement
-    throw new Error(`POST ${BASE_URL}${path} — not yet implemented`);
-  },
+  get:    <T>(path: string)                 => request<T>('GET',    path),
+  post:   <T>(path: string, body: unknown)  => request<T>('POST',   path, body),
+  patch:  <T>(path: string, body: unknown)  => request<T>('PATCH',  path, body),
+  delete: <T>(path: string)                 => request<T>('DELETE', path),
 };

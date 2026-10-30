@@ -1,5 +1,6 @@
 import express from 'express';
 import mealRoutes from './routes/mealRoutes.js';
+import cors from 'cors';
 
 const app = express();
 
@@ -34,7 +35,10 @@ const errorHandler = (err, _req, res, _next) => {
 const notFoundHandler = (_req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });
 };
-
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://localhost:5176'],
+  credentials: true,
+}));
 app.use(express.json());
 
 app.get('/health', (_req, res) => {

@@ -17,12 +17,13 @@ import {
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  MEAL_PRODUCTS,
   MealCategory,
   CharityToken,
   Order,
+  MealProduct,
 } from '../data/mealProgram';
 import { useMealProgram } from '../context/MealProgramContext';
+import { useMeals } from '../hooks';
 import { EditorialImage } from '../components/EditorialImage';
 import { ScrollReveal } from '../components/ScrollReveal';
 import { PlateToHandsSteps } from '../components/PlateToHandsSteps';
@@ -49,6 +50,8 @@ export const MealBox: React.FC = () => {
     placeOrder,
   } = useMealProgram();
 
+  const { meals: backendMeals, loading: mealsLoading } = useMeals();
+
   const [activeCategory, setActiveCategory] = useState<MealCategory>('ALL');
   const [checkoutStep, setCheckoutStep] = useState<'CART' | 'CHECKOUT' | 'CONFIRMED'>('CART');
 
@@ -69,8 +72,8 @@ export const MealBox: React.FC = () => {
 
   const filteredProducts =
     activeCategory === 'ALL'
-      ? MEAL_PRODUCTS
-      : MEAL_PRODUCTS.filter((p) => p.categories.includes(activeCategory));
+      ? backendMeals
+      : backendMeals.filter((p) => p.categories.includes(activeCategory));
 
   const scrollToMeals = () => {
     const el = document.getElementById('meal-box-catalog');
@@ -555,10 +558,10 @@ export const MealBox: React.FC = () => {
                         </p>
                         <button
                           type="button"
-                          onClick={() => addToCart(MEAL_PRODUCTS[0])}
+                          onClick={() => addToCart(backendMeals[0])}
                           className="mt-5 px-5 py-3 rounded-[10px] bg-[#49E619] hover:bg-[#B9FF2C] text-[#080808] font-mono-tabular text-[11px] font-bold uppercase tracking-widest transition-colors cursor-pointer"
                         >
-                          + Quick Add Protein Power Meal (₹150)
+                          + Quick Add {backendMeals[0]?.name || 'Meal'} (₹{backendMeals[0]?.priceInr || 150})
                         </button>
                       </div>
                     ) : (
