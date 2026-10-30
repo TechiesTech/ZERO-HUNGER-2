@@ -67,5 +67,17 @@ const getAllOrders = async (filter, skip, limit) => {
     ]);
     return { orders, total };
 };
-export { findActiveMealsByIds, createOrderWithItems, trackOrder, trackMyOrders, getAllOrders };
-
+const getOrderById = async (orderId) => {
+    const order = await Order.findOne({ _id: orderId, isDeleted: false }).lean();
+    if (!order) return null;
+    const items = await OrderItem.find({ orderId: order._id }).lean();
+    return { ...order, items };
+};
+export {
+    findActiveMealsByIds,
+    createOrderWithItems,
+    trackOrder,
+    trackMyOrders,
+    getAllOrders,
+    getOrderById,
+};

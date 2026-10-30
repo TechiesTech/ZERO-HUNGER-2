@@ -39,4 +39,13 @@ const getAllOrders = async (req, res, next) => {
         return next(error);
     }
 };
-export { createOrder, trackOrder, trackMyOrders, getAllOrders };
+const getOrderById = async (req, res, next) => {
+    try {
+        const data = await orderService.getOrderById(req.params.orderId);
+
+        return res.status(200).json({ success: true, data });
+    } catch (error) {
+        return next(error);
+    }
+};
+export { createOrder, trackOrder, trackMyOrders, getAllOrders, getOrderById };

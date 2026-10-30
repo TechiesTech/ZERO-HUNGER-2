@@ -88,4 +88,19 @@ const getAllOrders = async ({ customerMealStatus, paymentStatus, search, from, t
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
 };
-export { createOrder, trackOrder, trackMyOrders, getAllOrders };
+const getOrderById = async (orderId) => {
+    const order = await orderRepository.getOrderById(orderId);
+
+    if (!order) {
+        throw new AppError('Order not found', 404);
+    }
+
+    return order;
+};
+export {
+    createOrder,
+    trackOrder,
+    trackMyOrders,
+    getAllOrders,
+    getOrderById
+};

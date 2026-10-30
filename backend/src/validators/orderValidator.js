@@ -66,4 +66,13 @@ const getAllOrdersSchema = Joi.object({
     page: Joi.number().integer().min(1).default(1),
     limit: Joi.number().integer().min(1).max(100).default(10),
 });
-export { createOrderSchema, trackOrderSchema, trackMyOrdersSchema, getAllOrdersSchema };
+const orderIdParamSchema = Joi.object({
+    orderId: Joi.string().trim().lowercase().hex().length(24).required(),
+});
+export {
+    createOrderSchema,
+    trackOrderSchema,
+    trackMyOrdersSchema,
+    getAllOrdersSchema,
+    orderIdParamSchema,
+};
