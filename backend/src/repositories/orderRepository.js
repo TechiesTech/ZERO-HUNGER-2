@@ -29,6 +29,18 @@ const createOrderWithItems = async (orderData, orderItems) => {
         session.endSession();
     }
 };
+const trackOrder = async (orderNumber, customerEmail) => {
+    const order = await Order.findOne({ orderNumber, customerEmail, isDeleted: false })
+        .select('-customerPhone -deliveryAddress -paymentId -assignedRiderId -isDeleted -deletedAt')
+        .lean();
 
-export { findActiveMealsByIds, createOrderWithItems };
+    if (!order) return null;
+
+    const items = await OrderItem.find({ orderId: order._id })
+        .select('-orderId')
+        .lean();
+
+    return { ...order, items };
+};
+export { findActiveMealsByIds, createOrderWithItems, trackOrder };
 

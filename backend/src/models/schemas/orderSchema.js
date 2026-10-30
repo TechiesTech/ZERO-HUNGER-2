@@ -4,11 +4,23 @@ const { Schema } = mongoose;
 
 const orderSchema = new Schema(
   {
-    orderNumber: { type: String, trim: true, uppercase: true },
+    orderNumber: { type: String, required: true, trim: true, uppercase: true },
     customerName: { type: String, required: true, trim: true, minlength: 2, maxlength: 80 },
     customerEmail: { type: String, required: true, trim: true, lowercase: true },
     customerPhone: { type: String, trim: true, default: '' },
-    deliveryAddress: { type: String, required: true, trim: true, maxlength: 300 },
+    deliveryAddress: {
+      addressLine1: { type: String, required: true, trim: true, maxlength: 120 },
+      addressLine2: { type: String, trim: true, maxlength: 120, default: '' },
+      area: { type: String, required: true, trim: true, maxlength: 80 },
+      landmark: { type: String, trim: true, maxlength: 80, default: '' },
+      city: { type: String, required: true, trim: true, maxlength: 60 },
+      state: { type: String, required: true, trim: true, maxlength: 60 },
+      pincode: { type: String, required: true, trim: true, match: /^[1-9][0-9]{5}$/ },
+    },
+    deliveryLocation: {
+      latitude: { type: Number, min: -90, max: 90, default: null },
+      longitude: { type: Number, min: -180, max: 180, default: null },
+    },
     paymentMethod: { type: String, required: true, enum: ['UPI', 'CARD', 'NET_BANKING'] },
     paymentStatus: { type: String, enum: ['PENDING', 'SUCCESS', 'FAILED'], default: 'PENDING' },
     paymentId: { type: Schema.Types.ObjectId, ref: 'Payments', default: null },
@@ -26,11 +38,17 @@ const orderSchema = new Schema(
   { timestamps: true, versionKey: false }
 );
 
-orderSchema.index({ orderNumber: 1 }, { unique: true, sparse: true });
+orderSchema.index({ orderNumber: 1 }, { unique: true });
 orderSchema.index({ isDeleted: 1, createdAt: -1 });
 orderSchema.index({ isDeleted: 1, customerMealStatus: 1, createdAt: -1 });
 orderSchema.index({ isDeleted: 1, paymentStatus: 1, createdAt: -1 });
 orderSchema.index({ customerEmail: 1, createdAt: -1 });
-orderSchema.index({ assignedRiderId: 1 });
+orderSchema.index({ 'deliveryAddress.pincode': 1 });
+orderSchema.index(
+  { assignedRiderId: 1 },
+  { partialFilterExpression: { assignedRiderId: { $type: 'objectId' } } }
+);
 
-export const Order = mongoose.model('Orders', orderSchema, 'orders');
+const Order = mongoose.model('Orders', orderSchema, 'orders');
+
+export { Order };

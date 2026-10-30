@@ -12,5 +12,14 @@ const createOrder = async (req, res, next) => {
         next(error);
     }
 };
+const trackOrder = async (req, res, next) => {
+    try {
+        const data = await orderService.trackOrder(req.body);
 
-export { createOrder };
+        return res.status(200).json({ success: true, data });
+    } catch (error) {
+        return next(error);
+    }
+};
+
+export { createOrder, trackOrder };

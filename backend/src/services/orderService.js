@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import AppError from '../utils/appError.js';
-import { findActiveMealsByIds, createOrderWithItems } from '../repositories/orderRepository.js';
+import * as orderRepository from '../repositories/orderRepository.js';
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const MAX_ORDER_NUMBER_ATTEMPTS = 3;
@@ -11,7 +11,7 @@ const createOrder = async (body) => {
         quantityByMeal.set(mealId, (quantityByMeal.get(mealId) || 0) + quantity);
     });
 
-    const meals = await findActiveMealsByIds([...quantityByMeal.keys()]);
+    const meals = await orderRepository.findActiveMealsByIds([...quantityByMeal.keys()]);
     const mealById = new Map(meals.map((meal) => [String(meal._id), meal]));
 
     const orderItems = [...quantityByMeal].map(([mealId, quantity]) => {
@@ -28,12 +28,12 @@ const createOrder = async (body) => {
             sponsoredChildMeals: quantity,
         };
     });
-
     const orderData = {
         customerName: body.customerName,
         customerEmail: body.customerEmail,
         customerPhone: body.customerPhone,
         deliveryAddress: body.deliveryAddress,
+        deliveryLocation: body.deliveryLocation,
         paymentMethod: body.paymentMethod,
         totalAmountInr: orderItems.reduce((sum, item) => sum + item.totalPriceInr, 0),
         sponsoredMealsCount: orderItems.reduce((sum, item) => sum + item.sponsoredChildMeals, 0),
@@ -46,7 +46,7 @@ const createOrder = async (body) => {
         ).join('');
 
         try {
-            const { order, items } = await createOrderWithItems(
+            const { order, items } = await orderRepository.createOrderWithItems(
                 { ...orderData, orderNumber: `ZH-ORD-${code}` },
                 orderItems
             );
@@ -60,4 +60,12 @@ const createOrder = async (body) => {
     throw new AppError('Could not create the order, please try again', 409);
 };
 
-export { createOrder };
+const trackOrder = async ({ orderNumber, customerEmail }) => {
+    const order = await orderRepository.trackOrder(orderNumber, customerEmail);
+    if (!order) {
+        throw new AppError('Order not found', 404);
+    }
+    return order;
+};
+
+export { createOrder, trackOrder };

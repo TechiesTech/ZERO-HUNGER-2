@@ -15,5 +15,8 @@
     "joi": "^18.3.0",
     "mongoose": "^8.14.0",
     "multer": "^2.5.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
   }
 }
