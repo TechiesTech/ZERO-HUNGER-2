@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import mealRoutes from './routes/mealRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
+import { trackingRouter } from './routes/tracking.js';
 import errorHandler from './middleware/errorHandler.js';
 import notFoundHandler from './middleware/notFoundHandler.js';
 
@@ -22,6 +23,7 @@ app.get('/health', (_req, res) => {
 // API Routes
 app.use('/api/meals', mealRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/tracking', trackingRouter);
 
 // 404 & Centralized Error Handlers
 app.use(notFoundHandler);

@@ -1,9 +1,9 @@
 /**
  * frontend/src/services/mealsService.ts
- * Service for fetching meals from the backend API.
+ * Unified meals API
  */
 
-import { apiClient } from './apiClient';
+import { api } from './apiClient';
 
 export interface Meal {
   _id: string;
@@ -36,9 +36,6 @@ export interface MealsResponse {
   data: Meal[];
 }
 
-/**
- * Convert backend Meal to frontend MealProduct format
- */
 export function toMealProduct(meal: Meal) {
   return {
     id: meal._id,
@@ -55,10 +52,6 @@ export function toMealProduct(meal: Meal) {
   };
 }
 
-/**
- * Fetch all meals from the backend.
- * @param query - Optional query parameters (page, limit, category, isAvailable)
- */
 export async function getAllMeals(query?: {
   page?: number;
   limit?: number;
@@ -71,22 +64,14 @@ export async function getAllMeals(query?: {
   if (query?.category) params.append('category', query.category);
   if (query?.isAvailable !== undefined) params.append('isAvailable', query.isAvailable.toString());
 
-  const queryString = params.toString();
-  const path = queryString ? `/api/meals/getAllMeals?${queryString}` : '/api/meals/getAllMeals';
-
-  return apiClient.get<MealsResponse>(path);
+  const path = params.toString() ? `/api/meals/getAllMeals?${params.toString()}` : '/api/meals/getAllMeals';
+  return api.get<MealsResponse>(path);
 }
 
-/**
- * Fetch a single meal by slug.
- * @param slug - The meal slug
- */
 export async function getMealBySlug(slug: string): Promise<Meal> {
   const response = await getAllMeals();
   const meal = response.data.find((m) => m.mealSlug === slug);
-  if (!meal) {
-    throw new Error(`Meal with slug "${slug}" not found`);
-  }
+  if (!meal) throw new Error(`Meal with slug "${slug}" not found`);
   return meal;
 }
 

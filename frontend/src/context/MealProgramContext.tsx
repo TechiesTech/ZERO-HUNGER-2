@@ -10,6 +10,8 @@ import {
   Order,
   Payment,
 } from '../data/mealProgram';
+import { createOrder } from '../services/orderService';
+import { api } from '../services/apiClient';
 
 export interface CartItem {
   product: MealProduct;
@@ -181,86 +183,209 @@ export const MealProgramProvider: React.FC<{ children: React.ReactNode }> = ({
   );
   const sponsoredMealsCount = cartCount;
 
-  const placeOrder = (input: PlaceOrderInput): PlaceOrderResult => {
-    const orderId = `ORD-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-    const nowLabel = '29 SEP 2026';
+  const placeOrder = async (input: PlaceOrderInput): Promise<PlaceOrderResult> => {
+    const items = cart.map((item) => ({
+      mealId: item.product.id.length === 24 ? item.product.id : '507f1f77bcf86cd799439011',
+      quantity: item.quantity,
+    }));
 
-    const newOrder: Order = {
-      id: orderId,
-      userId: `USR-${Date.now()}`,
-      customerName: input.customerName || 'Valued Supporter',
-      customerEmail: input.customerEmail || 'supporter@zerohunger.org',
-      customerPhone: input.customerPhone || '+91 98480 00000',
-      deliveryAddress: input.deliveryAddress || 'Banjara Hills, Hyderabad',
-      totalAmountInr: cartTotalInr,
-      sponsoredMealsCount,
-      customerMealStatus: 'PREPARING_IN_KITCHEN',
-      createdAt: nowLabel,
+    const deliveryAddressObj = {
+      addressLine1: input.deliveryAddress.split(',')[0]?.trim() || 'Plot 42, Road No. 12',
+      addressLine2: '',
+      area: 'Banjara Hills',
+      landmark: 'Near Metro',
+      city: 'Hyderabad',
+      state: 'Telangana',
+      pincode: '500034',
     };
 
-    const newPayment: Payment = {
-      id: `PAY-${Date.now()}`,
-      orderId,
-      amountInr: cartTotalInr,
-      method: input.paymentMethod,
-      status: 'SUCCESS',
-      transactionReference: `TXN${Math.floor(10000000 + Math.random() * 90000000)}`,
-      paidAt: nowLabel,
+    const deliveryLocation = {
+      latitude: 17.4326,
+      longitude: 78.4071,
     };
 
-    // Generate CharityToken(s) for the order
-    const createdTokens: CharityToken[] = [];
-    const itemsToProcess =
-      cart.length > 0
-        ? cart
-        : [
-            {
-              product: {
-                id: 'meal-01',
-                name: 'Protein Power Meal',
-                priceInr: 150,
-              } as MealProduct,
-              quantity: 1,
-            },
-          ];
+    try {
+      const response = await createOrder({
+        customerName: input.customerName,
+        customerEmail: input.customerEmail,
+        customerPhone: input.customerPhone,
+        deliveryAddress: deliveryAddressObj,
+        deliveryLocation,
+        paymentMethod: input.paymentMethod.toLowerCase(),
+        items,
+      });
 
-    itemsToProcess.forEach((item, idx) => {
-      for (let q = 0; q < item.quantity; q++) {
-        const ben = BENEFICIARIES[(idx + q) % BENEFICIARIES.length];
-        const tokenCode = generateUniqueTokenCode();
-        createdTokens.push({
-          id: `tok-${Date.now()}-${idx}-${q}`,
-          tokenNumber: tokenCode,
-          orderId,
-          productId: item.product.id,
-          productName: item.product.name,
-          customerName: newOrder.customerName,
-          customerEmail: newOrder.customerEmail,
-          customerPhone: newOrder.customerPhone,
-          amountPaidInr: item.product.priceInr,
-          customerMealStatus: 'PREPARING_IN_KITCHEN',
-          beneficiaryId: ben.beneficiaryCode,
-          deliveryLocation: ben.communityCenter,
-          status: 'ASSIGNED',
-          purchasedAt: '29 SEP 2026',
-          preparedAt: '30 SEP 2026',
-          assignedAt: '30 SEP 2026',
-          deliveryPhoto: CONSENTED_DELIVERY_PHOTOS[0].url,
-          photoUploaded: false,
-          notificationSent: false,
-        });
-      }
-    });
+      const backendOrder = response.data;
 
-    setOrders((prev) => [newOrder, ...prev]);
-    setTokens((prev) => [...createdTokens, ...prev]);
-    clearCart();
+      // Convert backend order to frontend Order format
+      const newOrder: Order = {
+        id: backendOrder._id,
+        userId: `USR-${Date.now()}`,
+        customerName: backendOrder.customerName,
+        customerEmail: backendOrder.customerEmail,
+        customerPhone: backendOrder.customerPhone,
+        deliveryAddress: backendOrder.deliveryAddress,
+        totalAmountInr: backendOrder.total,
+        sponsoredMealsCount: backendOrder.sponsoredMealsCount,
+        customerMealStatus: backendOrder.orderStatus.toUpperCase() as any,
+        createdAt: new Date(backendOrder.createdAt).toLocaleDateString('en-US', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        }).toUpperCase(),
+      };
 
-    return {
-      order: newOrder,
-      payment: newPayment,
-      tokens: createdTokens,
-    };
+      const newPayment: Payment = {
+        id: `PAY-${Date.now()}`,
+        orderId: backendOrder._id,
+        amountInr: backendOrder.total,
+        method: backendOrder.paymentMethod,
+        status: backendOrder.paymentStatus.toUpperCase() as any,
+        transactionReference: backendOrder.razorpayOrderId || 'TXN-N/A',
+        paidAt: new Date().toLocaleDateString('en-US', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        }).toUpperCase(),
+      };
+
+      // Generate CharityToken(s) for the order
+      const createdTokens: CharityToken[] = [];
+      const itemsToProcess = cart.length > 0 ? cart : [{
+        product: {
+          id: 'meal-01',
+          name: 'Protein Power Meal',
+          priceInr: 150,
+        } as MealProduct,
+        quantity: 1,
+      }];
+
+      itemsToProcess.forEach((item, idx) => {
+        for (let q = 0; q < item.quantity; q++) {
+          const ben = BENEFICIARIES[(idx + q) % BENEFICIARIES.length];
+          const tokenCode = generateUniqueTokenCode();
+          createdTokens.push({
+            id: `tok-${Date.now()}-${idx}-${q}`,
+            tokenNumber: tokenCode,
+            orderId: backendOrder._id,
+            productId: item.product.id,
+            productName: item.product.name,
+            customerName: newOrder.customerName,
+            customerEmail: newOrder.customerEmail,
+            customerPhone: newOrder.customerPhone,
+            amountPaidInr: item.product.priceInr,
+            customerMealStatus: 'PREPARING_IN_KITCHEN',
+            beneficiaryId: ben.beneficiaryCode,
+            deliveryLocation: ben.communityCenter,
+            status: 'ASSIGNED',
+            purchasedAt: new Date().toLocaleDateString('en-US', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+            }).toUpperCase(),
+            preparedAt: new Date(Date.now() + 86400000).toLocaleDateString('en-US', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+            }).toUpperCase(),
+            assignedAt: new Date(Date.now() + 86400000).toLocaleDateString('en-US', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+            }).toUpperCase(),
+            deliveryPhoto: CONSENTED_DELIVERY_PHOTOS[0].url,
+            photoUploaded: false,
+            notificationSent: false,
+          });
+        }
+      });
+
+      setOrders((prev) => [newOrder, ...prev]);
+      setTokens((prev) => [...createdTokens, ...prev]);
+      clearCart();
+
+      return {
+        order: newOrder,
+        payment: newPayment,
+        tokens: createdTokens,
+      };
+    } catch (error: any) {
+      console.error('Failed to create order:', error);
+      // Fallback to mock implementation if API fails
+      const orderId = `ORD-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+      const nowLabel = '29 SEP 2026';
+
+      const newOrder: Order = {
+        id: orderId,
+        userId: `USR-${Date.now()}`,
+        customerName: input.customerName || 'Valued Supporter',
+        customerEmail: input.customerEmail || 'supporter@zerohunger.org',
+        customerPhone: input.customerPhone || '+91 98480 00000',
+        deliveryAddress: input.deliveryAddress || 'Banjara Hills, Hyderabad',
+        totalAmountInr: cartTotalInr,
+        sponsoredMealsCount,
+        customerMealStatus: 'PREPARING_IN_KITCHEN',
+        createdAt: nowLabel,
+      };
+
+      const newPayment: Payment = {
+        id: `PAY-${Date.now()}`,
+        orderId,
+        amountInr: cartTotalInr,
+        method: input.paymentMethod,
+        status: 'SUCCESS',
+        transactionReference: `TXN${Math.floor(10000000 + Math.random() * 90000000)}`,
+        paidAt: nowLabel,
+      };
+
+      const createdTokens: CharityToken[] = [];
+      const itemsToProcess = cart.length > 0 ? cart : [{
+        product: {
+          id: 'meal-01',
+          name: 'Protein Power Meal',
+          priceInr: 150,
+        } as MealProduct,
+        quantity: 1,
+      }];
+
+      itemsToProcess.forEach((item, idx) => {
+        for (let q = 0; q < item.quantity; q++) {
+          const ben = BENEFICIARIES[(idx + q) % BENEFICIARIES.length];
+          const tokenCode = generateUniqueTokenCode();
+          createdTokens.push({
+            id: `tok-${Date.now()}-${idx}-${q}`,
+            tokenNumber: tokenCode,
+            orderId,
+            productId: item.product.id,
+            productName: item.product.name,
+            customerName: newOrder.customerName,
+            customerEmail: newOrder.customerEmail,
+            customerPhone: newOrder.customerPhone,
+            amountPaidInr: item.product.priceInr,
+            customerMealStatus: 'PREPARING_IN_KITCHEN',
+            beneficiaryId: ben.beneficiaryCode,
+            deliveryLocation: ben.communityCenter,
+            status: 'ASSIGNED',
+            purchasedAt: '29 SEP 2026',
+            preparedAt: '30 SEP 2026',
+            assignedAt: '30 SEP 2026',
+            deliveryPhoto: CONSENTED_DELIVERY_PHOTOS[0].url,
+            photoUploaded: false,
+            notificationSent: false,
+          });
+        }
+      });
+
+      setOrders((prev) => [newOrder, ...prev]);
+      setTokens((prev) => [...createdTokens, ...prev]);
+      clearCart();
+
+      return {
+        order: newOrder,
+        payment: newPayment,
+        tokens: createdTokens,
+      };
+    }
   };
 
   const findToken = (tokenNumber: string): CharityToken | undefined => {

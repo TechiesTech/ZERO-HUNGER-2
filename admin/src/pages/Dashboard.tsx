@@ -8,8 +8,11 @@ import {
   Package,
   AlertCircle,
   RefreshCw,
+  CheckCircle2,
+  Clock,
+  Truck,
 } from 'lucide-react';
-import { useMeals } from '@/hooks';
+import { useMeals, useOrders, type OrderStats } from '@/hooks';
 
 /* ── Stat Card ── */
 interface StatCardProps {
@@ -56,12 +59,17 @@ function RecentMealRow({ name, price, categories, available }: {
 /* ── Dashboard Page ── */
 export function Dashboard(): React.ReactElement {
   const { meals, loading, error, fetchMeals } = useMeals();
+  const { stats: orderStats, fetchStats } = useOrders();
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 60_000);
     return () => clearInterval(t);
   }, []);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   const totalMeals = meals.length;
   const activeMeals = meals.filter((m) => m.isAvailable && !m.isDeleted).length;
@@ -91,7 +99,7 @@ export function Dashboard(): React.ReactElement {
           </p>
         </div>
         <button
-          onClick={fetchMeals}
+          onClick={() => { fetchMeals(); fetchStats(); }}
           disabled={loading}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#122023] border border-white/10 text-sm text-white/70 hover:text-white hover:border-[#49E619]/40 transition-colors cursor-pointer disabled:opacity-50"
         >
@@ -110,6 +118,38 @@ export function Dashboard(): React.ReactElement {
       )}
 
       {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          label="Total Orders"
+          value={orderStats?.totalOrders || 0}
+          sub={`₹${(orderStats?.totalRevenue || 0).toLocaleString('en-IN')} revenue`}
+          icon={<ShoppingBag size={18} className="text-[#080808]" />}
+          accent="bg-[#4EDBE2]"
+        />
+        <StatCard
+          label="Pending Orders"
+          value={orderStats?.pendingOrders || 0}
+          sub="awaiting preparation"
+          icon={<Clock size={18} className="text-[#080808]" />}
+          accent="bg-[#B9FF2C]"
+        />
+        <StatCard
+          label="In Transit"
+          value={orderStats?.outForDelivery || 0}
+          sub="out for delivery"
+          icon={<Truck size={18} className="text-[#080808]" />}
+          accent="bg-[#FFB347]"
+        />
+        <StatCard
+          label="Delivered"
+          value={orderStats?.deliveredOrders || 0}
+          sub={`${orderStats?.totalSponsoredMeals || 0} meals sponsored`}
+          icon={<CheckCircle2 size={18} className="text-[#080808]" />}
+          accent="bg-[#49E619]"
+        />
+      </div>
+
+      {/* Meals Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Total Meals"

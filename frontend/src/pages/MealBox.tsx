@@ -54,6 +54,7 @@ export const MealBox: React.FC = () => {
 
   const [activeCategory, setActiveCategory] = useState<MealCategory>('ALL');
   const [checkoutStep, setCheckoutStep] = useState<'CART' | 'CHECKOUT' | 'CONFIRMED'>('CART');
+  const [submitting, setSubmitting] = useState(false);
 
   // Customer checkout fields
   const [customerName, setCustomerName] = useState('Philip');
@@ -89,23 +90,30 @@ export const MealBox: React.FC = () => {
     }
   };
 
-  const handleCompletePayment = (e: React.FormEvent) => {
+  const handleCompletePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!customerName.trim() || !customerEmail.trim() || !deliveryAddress.trim()) {
       setFormError('Please provide your name, email, and delivery address for your meal.');
       return;
     }
     setFormError('');
-    const result = placeOrder({
-      customerName,
-      customerEmail,
-      customerPhone,
-      deliveryAddress,
-      paymentMethod,
-    });
-    setConfirmedOrder(result.order);
-    setConfirmedTokens(result.tokens);
-    setCheckoutStep('CONFIRMED');
+    setSubmitting(true);
+    try {
+      const result = await placeOrder({
+        customerName,
+        customerEmail,
+        customerPhone,
+        deliveryAddress,
+        paymentMethod,
+      });
+      setConfirmedOrder(result.order);
+      setConfirmedTokens(result.tokens);
+      setCheckoutStep('CONFIRMED');
+    } catch (error: any) {
+      setFormError(error.message || 'Failed to place order. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleCopyToken = (tokenStr: string) => {

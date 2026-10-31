@@ -1,16 +1,12 @@
 /**
  * frontend/src/hooks/index.ts
- * Custom hooks for the frontend application
+ * Unified hooks for frontend
  */
 
 import { useState, useEffect } from 'react';
 import { getAllMeals, toMealProduct, type Meal } from '../services/mealsService';
 import { MEAL_PRODUCTS as MOCK_MEAL_PRODUCTS, type MealProduct } from '../data/mealProgram';
 
-/**
- * Hook to fetch meals from the backend
- * Falls back to mock data if the API fails
- */
 export function useMeals() {
   const [meals, setMeals] = useState<MealProduct[]>(MOCK_MEAL_PRODUCTS);
   const [loading, setLoading] = useState(true);
@@ -26,12 +22,10 @@ export function useMeals() {
       } catch (err: any) {
         console.error('Failed to fetch meals from backend, using mock data:', err.message);
         setError(err.message);
-        // Keep using mock data as fallback
       } finally {
         setLoading(false);
       }
     }
-
     fetchMeals();
   }, []);
 
