@@ -20,6 +20,7 @@ import { Contact } from './pages/Contact';
 import { MealBox } from './pages/MealBox';
 import { TrackMeal } from './pages/TrackMeal';
 import { LiveTracking } from './pages/LiveTracking';
+import { ZeptoTracking } from './pages/ZeptoTracking';
 import { CelebrateAndGive } from './pages/CelebrateAndGive';
 import { CSRTaxBenefits } from './pages/CSRTaxBenefits';
 
@@ -51,7 +52,8 @@ function AppContent() {
             />
             <Route path="/meal-box" element={<MealBox />} />
             <Route path="/track-meal" element={<TrackMeal />} />
-            <Route path="/live-tracking/:orderId" element={<LiveTracking />} />
+            <Route path="/live-tracking/:orderNumber" element={<LiveTracking />} />
+            <Route path="/zepto-tracking/:orderId" element={<ZeptoTracking />} />
             <Route path="/celebrate-and-give" element={<CelebrateAndGive />} />
             <Route path="/csr-tax-benefits" element={<CSRTaxBenefits />} />
             <Route

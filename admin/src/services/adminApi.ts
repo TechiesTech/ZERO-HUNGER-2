@@ -9,7 +9,12 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const headers: Record<string, string> = {};
   if (body) headers['Content-Type'] = 'application/json';
 
-  const res = await fetch(`${BASE_URL}${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+    credentials: 'include',
+  });
   const json = await res.json();
   if (!res.ok) throw new Error(json.message ?? `Request failed (${res.status})`);
   return json as T;
@@ -21,9 +26,25 @@ export const api = {
   patch: <T>(path: string, body: unknown) => request<T>('PATCH', path, body),
   delete: <T>(path: string) => request<T>('DELETE', path),
   upload: async <T>(path: string, formData: FormData): Promise<T> => {
-    const res = await fetch(`${BASE_URL}${path}`, { method: 'POST', body: formData });
+    const res = await fetch(`${BASE_URL}${path}`, {
+      method: 'POST',
+      body: formData,
+      credentials: 'include',
+    });
     const json = await res.json();
     if (!res.ok) throw new Error(json.message ?? `Upload failed (${res.status})`);
     return json as T;
   },
+};
+
+export const authApi = {
+  login: (email: string, password: string) =>
+    api.post<{ success: boolean; message: string; data: { admin: { id: string; name: string; email: string } } }>(
+      '/api/admin/login',
+      { email, password }
+    ),
+  logout: () =>
+    api.post<{ success: boolean; message: string }>('/api/admin/logout', {}),
+  getMe: () =>
+    api.get<{ success: boolean; data: { _id: string; name: string; email: string } }>('/api/admin/me'),
 };

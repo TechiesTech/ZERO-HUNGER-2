@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, UtensilsCrossed, ShoppingBag, Bike } from 'lucide-react';
+import { LayoutDashboard, UtensilsCrossed, ShoppingBag, Bike, LogOut } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface NavItem {
   to: string;
@@ -17,7 +18,12 @@ const NAV_ITEMS: NavItem[] = [
 
 export function AdminLayout(): React.ReactElement {
   const { pathname } = useLocation();
+  const { admin, logout } = useAuth();
   const currentPage = NAV_ITEMS.find((n) => pathname.startsWith(n.to))?.label ?? 'Dashboard';
+
+  const handleLogout = async () => {
+    await logout();
+  };
 
   return (
     <div className="flex min-h-screen bg-[#080808]">
@@ -72,9 +78,20 @@ export function AdminLayout(): React.ReactElement {
             <span className="text-white/60">{currentPage}</span>
           </div>
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-[#122023] border border-[#49E619]/30 flex items-center justify-center text-[#49E619] text-xs font-bold">
-              A
+            <div className="text-right">
+              <p className="text-white text-sm font-medium">{admin?.name || 'Admin'}</p>
+              <p className="text-white/40 text-xs">{admin?.email || ''}</p>
             </div>
+            <div className="w-8 h-8 rounded-full bg-[#122023] border border-[#49E619]/30 flex items-center justify-center text-[#49E619] text-xs font-bold">
+              {admin?.name?.charAt(0).toUpperCase() || 'A'}
+            </div>
+            <button
+              onClick={handleLogout}
+              className="p-2 rounded-lg text-white/60 hover:text-white hover:bg-white/5 transition-colors"
+              title="Logout"
+            >
+              <LogOut size={18} />
+            </button>
           </div>
         </header>
 

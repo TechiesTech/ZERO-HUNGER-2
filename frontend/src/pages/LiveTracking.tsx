@@ -1,187 +1,182 @@
 /**
  * frontend/src/pages/LiveTracking.tsx
- * Live order tracking page with real-time delivery updates
+ * Live order tracking page with Leaflet maps
  */
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useTracking } from '../hooks/useTracking';
-import { Clock, MapPin, Navigation, Phone, Star, Truck, X } from 'lucide-react';
+import { useLiveTracking } from '../hooks/useLiveTracking';
+import L from 'leaflet';
+import { Clock, MapPin, Navigation, Phone, Star, Truck, X, Loader2 } from 'lucide-react';
 
 interface LiveTrackingProps {
-  orderId?: string;
+  orderNumber?: string;
+  customerEmail?: string;
 }
 
-export function LiveTracking({ orderId: propOrderId }: LiveTrackingProps): React.ReactElement {
-  const { orderId: paramOrderId } = useParams<{ orderId: string }>();
-  const orderId = propOrderId || paramOrderId || '';
+export function LiveTracking({ orderNumber: propOrderNumber, customerEmail: propCustomerEmail }: LiveTrackingProps): React.ReactElement {
+  const { orderNumber: paramOrderNumber } = useParams<{ orderNumber: string }>();
   const navigate = useNavigate();
 
-  const {
-    tracking,
-    currentLocation,
-    loading,
-    error,
-    startLocationTracking,
-    stopLocationTracking,
-  } = useTracking(orderId);
+  const orderNumber = propOrderNumber || paramOrderNumber || '';
+  const customerEmail = propCustomerEmail || 'philip@zerohunger.org';
+
+  const { tracking, loading, error, refetch } = useLiveTracking(orderNumber, customerEmail);
 
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<Map<string, google.maps.Marker>>(new Map());
-  const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<Map<string, L.Marker>>(new Map());
+  const polylineRef = useRef<L.Polyline | null>(null);
 
-  const [isRiderMode, setIsRiderMode] = useState(false);
   const [eta, setEta] = useState<string>('Calculating...');
 
-  useEffect(() => {
-    if (!window.google || !mapRef.current) return;
+  const fetchRoute = async (from: [number, number], to: [number, number]) => {
+    try {
+      const res = await fetch(
+        `https://router.project-osrm.org/route/v1/driving/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`
+      );
+      const data = await res.json();
+      if (data.routes && data.routes[0]) {
+        const coords = data.routes[0].geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]);
+        if (mapInstanceRef.current) {
+          polylineRef.current = L.polyline(coords, {
+            color: '#FF6B00',
+            weight: 5,
+            opacity: 0.8,
+          }).addTo(mapInstanceRef.current);
+        }
+      }
+    } catch (err) {
+      console.error('Route fetch error:', err);
+    }
+  };
 
-    const map = new google.maps.Map(mapRef.current, {
-      center: { lat: 17.3850, lng: 78.4867 },
+  useEffect(() => {
+    if (!mapRef.current || mapInstanceRef.current) return;
+
+    const map = L.map(mapRef.current, {
+      center: [17.3850, 78.4867],
       zoom: 13,
-      disableDefaultUI: false,
+      scrollWheelZoom: false,
       zoomControl: true,
-      streetViewControl: false,
-      mapTypeControl: false,
-      styles: [
-        {
-          featureType: 'poi',
-          elementType: 'labels',
-          stylers: [{ visibility: 'off' }],
-        },
-      ],
     });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      subdomains: 'abc',
+      maxZoom: 19,
+    }).addTo(map);
 
     mapInstanceRef.current = map;
-    directionsRendererRef.current = new google.maps.DirectionsRenderer({
-      map,
-      polylineOptions: {
-        strokeColor: '#FF6B00',
-        strokeWeight: 5,
-        strokeOpacity: 0.8,
-      },
-    });
 
     return () => {
       if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
     };
   }, []);
 
   useEffect(() => {
-    if (!mapInstanceRef.current || !tracking) return;
+    if (!mapInstanceRef.current || !tracking || !tracking.destination) return;
 
     const map = mapInstanceRef.current;
-    const directionsRenderer = directionsRendererRef.current;
 
     markersRef.current.forEach((marker) => marker.setMap(null));
     markersRef.current.clear();
+    if (polylineRef.current) {
+      polylineRef.current.setMap(null);
+    }
 
-    const restaurantLocation = { lat: 17.4326, lng: 78.4071 };
-    const customerLocation = { lat: 17.4932, lng: 78.3998 };
-    const riderLocation = currentLocation
-      ? { lat: currentLocation.latitude, lng: currentLocation.longitude }
-      : restaurantLocation;
+    const restaurantLocation: [number, number] = [17.4326, 78.4071];
+    const customerLocation: [number, number] = [tracking.destination.latitude, tracking.destination.longitude];
 
-    const restaurantMarker = new google.maps.Marker({
-      position: restaurantLocation,
-      map,
-      title: 'Restaurant',
-      icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 10,
-        fillColor: '#FF6B00',
-        fillOpacity: 1,
-        strokeColor: '#FFFFFF',
-        strokeWeight: 2,
-      },
+    const restaurantIcon = L.divIcon({
+      className: 'bg-transparent border-0',
+      html: `
+        <div class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-orange-500 text-white shadow-lg">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 3h18v18H3zM12 8v8M8 12h8"/>
+          </svg>
+        </div>
+      `,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20],
     });
+
+    const restaurantMarker = L.marker(restaurantLocation, { icon: restaurantIcon }).addTo(map);
+    restaurantMarker.bindPopup('<div class="font-bold">Restaurant</div>');
     markersRef.current.set('restaurant', restaurantMarker);
 
-    const customerMarker = new google.maps.Marker({
-      position: customerLocation,
-      map,
-      title: 'Delivery Location',
-      icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 10,
-        fillColor: '#4CAF50',
-        fillOpacity: 1,
-        strokeColor: '#FFFFFF',
-        strokeWeight: 2,
-      },
+    const customerIcon = L.divIcon({
+      className: 'bg-transparent border-0',
+      html: `
+        <div class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-500 text-white shadow-lg">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+        </div>
+      `,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20],
     });
+
+    const customerMarker = L.marker(customerLocation, { icon: customerIcon }).addTo(map);
+    customerMarker.bindPopup('<div class="font-bold">Delivery Location</div>');
     markersRef.current.set('customer', customerMarker);
 
-    const riderMarker = new google.maps.Marker({
-      position: riderLocation,
-      map,
-      title: 'Delivery Partner',
-      icon: {
-        path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-        scale: 8,
-        fillColor: '#2196F3',
-        fillOpacity: 1,
-        strokeColor: '#FFFFFF',
-        strokeWeight: 2,
-        rotation: 45,
-      },
-      animation: google.maps.Animation.DROP,
-    });
-    markersRef.current.set('rider', riderMarker);
+    if (tracking.customerMealStatus === 'outfordelivery') {
+      const riderLocation: [number, number] = [17.4400, 78.3900];
 
-    if (directionsRenderer && tracking.status !== 'delivered') {
-      const directionsService = new google.maps.DirectionsService();
-      directionsService.route(
-        {
-          origin: riderLocation,
-          destination: customerLocation,
-          travelMode: google.maps.TravelMode.DRIVING,
-        },
-        (result, status) => {
-          if (status === google.maps.DirectionsStatus.OK && directionsRenderer) {
-            directionsRenderer.setDirections(result);
-            const duration = result.routes[0].legs[0].duration;
-            setEta(duration.text);
-          }
-        }
-      );
+      const riderIcon = L.divIcon({
+        className: 'bg-transparent border-0',
+        html: `
+          <div class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-blue-500 text-white shadow-lg animate-pulse">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 17l2-4 3 4 4-5 5 4"/>
+            </svg>
+          </div>
+        `,
+        iconSize: [40, 40],
+        iconAnchor: [20, 20],
+      });
+
+      const riderMarker = L.marker(riderLocation, { icon: riderIcon }).addTo(map);
+      riderMarker.bindPopup('<div class="font-bold">Delivery Partner</div>');
+      markersRef.current.set('rider', riderMarker);
+
+      fetchRoute(riderLocation, customerLocation);
     }
 
-    const bounds = new google.maps.LatLngBounds([
-      restaurantLocation,
-      customerLocation,
-      riderLocation,
-    ]);
-    map.fitBounds(bounds, { padding: 50 });
-  }, [tracking, currentLocation]);
+    const bounds = L.latLngBounds([restaurantLocation, customerLocation]);
+    map.fitBounds(bounds, { padding: [50, 50] });
 
-  const handleToggleRiderMode = () => {
-    if (isRiderMode) {
-      stopLocationTracking();
+    if (tracking.estimatedDeliveryAt) {
+      const estimatedTime = new Date(tracking.estimatedDeliveryAt);
+      const now = new Date();
+      const diffMs = estimatedTime.getTime() - now.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      setEta(diffMins > 0 ? `${diffMins} mins` : 'Arriving soon');
     } else {
-      startLocationTracking();
+      setEta('Not available');
     }
-    setIsRiderMode(!isRiderMode);
-  };
+  }, [tracking]);
 
   const statusSteps = [
     { key: 'confirmed', label: 'Order Confirmed', icon: Clock },
     { key: 'preparing', label: 'Preparing', icon: Clock },
-    { key: 'picked_up', label: 'Picked Up', icon: Truck },
-    { key: 'out_for_delivery', label: 'Out for Delivery', icon: Navigation },
+    { key: 'outfordelivery', label: 'Out for Delivery', icon: Truck },
     { key: 'delivered', label: 'Delivered', icon: MapPin },
   ];
 
-  const currentStepIndex = statusSteps.findIndex((step) => step.key === tracking?.status);
+  const currentStepIndex = statusSteps.findIndex((step) => step.key === tracking?.customerMealStatus);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <Loader2 size={48} className="animate-spin text-orange-500 mx-auto mb-4" />
           <p className="text-gray-600">Loading tracking information...</p>
         </div>
       </div>
@@ -198,7 +193,7 @@ export function LiveTracking({ orderId: propOrderId }: LiveTrackingProps): React
           <h2 className="text-xl font-bold text-gray-800 mb-2">Tracking Error</h2>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate(-1)}
             className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
           >
             Go Back
@@ -217,18 +212,14 @@ export function LiveTracking({ orderId: propOrderId }: LiveTrackingProps): React
           </button>
           <div>
             <h1 className="text-lg font-bold text-gray-800">Live Tracking</h1>
-            <p className="text-sm text-gray-500">Order #{orderId.slice(-6).toUpperCase()}</p>
+            <p className="text-sm text-gray-500">Order #{tracking?.orderNumber.slice(-6).toUpperCase()}</p>
           </div>
         </div>
         <button
-          onClick={handleToggleRiderMode}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            isRiderMode
-              ? 'bg-red-500 text-white hover:bg-red-600'
-              : 'bg-orange-500 text-white hover:bg-orange-600'
-          }`}
+          onClick={refetch}
+          className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
         >
-          {isRiderMode ? 'Stop Tracking' : 'Start Rider Mode'}
+          Refresh
         </button>
       </div>
 
@@ -313,16 +304,20 @@ export function LiveTracking({ orderId: propOrderId }: LiveTrackingProps): React
             <h3 className="font-bold text-gray-800 mb-3">Order Details</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
+                <span className="text-gray-500">Customer</span>
+                <span className="text-gray-800">{tracking?.customerName}</span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-gray-500">Items</span>
-                <span className="text-gray-800">2x Protein Power Meal</span>
+                <span className="text-gray-800">{tracking?.items?.length || 0} items</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Total</span>
-                <span className="font-bold text-gray-800">₹300</span>
+                <span className="font-bold text-gray-800">₹{tracking?.totalAmountInr || 0}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Delivery Address</span>
-                <span className="text-gray-800 text-right">Plot 42, Road No. 12, Banjara Hills, Hyderabad</span>
+                <span className="text-gray-500">Sponsored Meals</span>
+                <span className="text-green-600 font-medium">{tracking?.sponsoredMealsCount || 0}</span>
               </div>
             </div>
           </div>

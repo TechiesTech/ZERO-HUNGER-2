@@ -1,40 +1,32 @@
 /**
  * frontend/src/services/trackingService.ts
- * Live delivery tracking API service
+ * Live order tracking API service
  */
 
 import { api } from './apiClient';
 
-export interface LocationUpdate {
-  orderId: string;
-  deliveryPartnerId: string;
-  latitude: number;
-  longitude: number;
-  timestamp: string;
+export interface TimelineStep {
+  status: string;
+  at: string | null;
 }
 
 export interface TrackingData {
-  orderId: string;
-  deliveryPartnerId: string;
-  currentLocation: LocationUpdate | null;
-  locationHistory: LocationUpdate[];
-  status: string;
-  lastLocationUpdate: string;
-  deliveredAt?: string;
+  orderNumber: string;
+  customerName: string;
+  customerMealStatus: string;
+  paymentStatus: string;
+  totalAmountInr: number;
+  sponsoredMealsCount: number;
+  placedAt: string;
+  estimatedDeliveryAt: string | null;
+  timeline: TimelineStep[];
+  destination: { latitude: number; longitude: number } | null;
+  rider: null;
+  items: any[];
+  canEditDetails: boolean;
+  canCancel: boolean;
 }
 
-export async function getTrackingData(orderId: string): Promise<{ success: boolean; data: TrackingData }> {
-  return api.get(`/api/tracking/${orderId}`);
-}
-
-export async function updateLocation(data: LocationUpdate): Promise<{ success: boolean; data: TrackingData }> {
-  return api.post(`/api/tracking/${data.orderId}/location`, data);
-}
-
-export async function updateDeliveryStatus(orderId: string, status: string): Promise<{ success: boolean; data: TrackingData }> {
-  return api.patch(`/api/tracking/${orderId}/status`, { status });
-}
-
-export async function assignDeliveryPartner(orderId: string, deliveryPartnerId: string): Promise<{ success: boolean; data: TrackingData }> {
-  return api.post(`/api/tracking/${orderId}/assign`, { deliveryPartnerId });
+export async function trackLiveOrder(orderNumber: string, customerEmail: string): Promise<{ success: boolean; data: TrackingData }> {
+  return api.post('/api/orders/trackLiveOrder', { orderNumber, customerEmail });
 }

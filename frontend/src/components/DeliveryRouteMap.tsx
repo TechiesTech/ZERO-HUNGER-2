@@ -35,6 +35,8 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
 
   const [mapMode, setMapMode] = useState<MapFilterMode>('DUAL_PATHS');
   const [selectedHubId, setSelectedHubId] = useState<string | null>(null);
+  const [customerRoute, setCustomerRoute] = useState<[number, number][]>([]);
+  const [sponsoredRoute, setSponsoredRoute] = useState<[number, number][]>([]);
 
   const effectiveLocation = overrideLocation || token.deliveryLocation;
   const effectiveBeneficiary = overrideBeneficiaryId || token.beneficiaryId;
@@ -50,6 +52,36 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
 
   const isDelivered = token.status === 'DELIVERED';
 
+  const fetchOSRMRoute = async (from: [number, number], to: [number, number]) => {
+    try {
+      const res = await fetch(
+        `https://router.project-osrm.org/route/v1/driving/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`
+      );
+      const data = await res.json();
+      if (data.routes && data.routes[0]) {
+        return data.routes[0].geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]);
+      }
+      return [from, to];
+    } catch (err) {
+      console.error('OSRM route error:', err);
+      return [from, to];
+    }
+  };
+
+  useEffect(() => {
+    const loadRoutes = async () => {
+      if (mapMode === 'DUAL_PATHS') {
+        const route = await fetchOSRMRoute(originKitchen.coords, CUSTOMER_DELIVERY_GEO.coords);
+        setCustomerRoute(route);
+      }
+      if (mapMode !== 'ALL_NETWORK') {
+        const route = await fetchOSRMRoute(originKitchen.coords, activeHubRoute.coords);
+        setSponsoredRoute(route);
+      }
+    };
+    loadRoutes();
+  }, [mapMode, originKitchen, activeHubRoute]);
+
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
@@ -61,11 +93,10 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
     });
 
     L.tileLayer(
-      'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
       {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        subdomains: 'abcd',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        subdomains: 'abc',
         maxZoom: 19,
       }
     ).addTo(map);
@@ -139,11 +170,9 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
 
     // 2. Render Customer's Own Purchased Meal Route (Stream 1)
     if (mapMode === 'DUAL_PATHS') {
-      CUSTOMER_DELIVERY_GEO.routeFromCentralKitchen.forEach((pt) =>
-        boundsPoints.push(pt)
-      );
+      customerRoute.forEach((pt) => boundsPoints.push(pt));
 
-      L.polyline(CUSTOMER_DELIVERY_GEO.routeFromCentralKitchen, {
+      L.polyline(customerRoute, {
         color: '#122023',
         weight: 3,
         opacity: 0.85,
@@ -191,9 +220,10 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
 
     hubsToRender.forEach((hub) => {
       const isTargetHub = hub.id === activeHubRoute.id;
-      hub.routeWaypoints.forEach((pt) => boundsPoints.push(pt));
+      const routeToUse = isTargetHub ? sponsoredRoute : hub.routeWaypoints;
+      routeToUse.forEach((pt) => boundsPoints.push(pt));
 
-      L.polyline(hub.routeWaypoints, {
+      L.polyline(routeToUse, {
         color: isTargetHub ? '#188D44' : '#122023',
         weight: isTargetHub ? 5 : 2,
         opacity: isTargetHub ? 0.95 : 0.35,
@@ -201,7 +231,7 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
       }).addTo(layerGroup);
 
       if (isTargetHub) {
-        L.polyline(hub.routeWaypoints, {
+        L.polyline(sponsoredRoute, {
           color: '#B9FF2C',
           weight: 2.5,
           opacity: 0.95,
@@ -209,7 +239,7 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
           className: 'leaflet-SponsorRoute-animated',
         }).addTo(layerGroup);
 
-        hub.routeWaypoints.slice(1, -1).forEach((waypoint, idx) => {
+        sponsoredRoute.slice(1, -1).forEach((waypoint, idx) => {
           L.circleMarker(waypoint, {
             radius: 4,
             color: '#122023',
