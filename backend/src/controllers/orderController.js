@@ -30,6 +30,15 @@ const trackMyOrders = async (req, res, next) => {
         return next(error);
     }
 };
+const trackLiveOrder = async (req, res, next) => {
+    try {
+        const data = await orderService.trackLiveOrder(req.body);
+
+        return res.status(200).json({ success: true, data });
+    } catch (error) {
+        return next(error);
+    }
+};
 const cancelOrder = async (req, res, next) => {
     try {
         const data = await orderService.cancelOrder(req.body);
@@ -110,6 +119,7 @@ export {
     createOrder,
     trackOrder,
     trackMyOrders,
+    trackLiveOrder,
     cancelOrder,
     getAllOrders,
     getOrderById,

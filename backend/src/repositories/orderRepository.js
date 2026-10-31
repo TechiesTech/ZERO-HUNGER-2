@@ -69,6 +69,43 @@ const trackMyOrders = async (pairs) =>
             ],
         },
     ]);
+
+const trackLiveOrder = async (orderNumber, customerEmail) => {
+    const [order] = await Order.aggregate([
+        { $match: { orderNumber, customerEmail, isDeleted: false } },
+        { $lookup: { from: 'orderItems', localField: '_id', foreignField: 'orderId', as: 'items' } },
+        {
+            $project: {
+                _id: 0,
+                orderNumber: 1,
+                customerName: 1,
+                customerMealStatus: 1,
+                paymentStatus: 1,
+                totalAmountInr: 1,
+                sponsoredMealsCount: 1,
+                createdAt: 1,
+                estimatedDeliveryAt: 1,
+                statusTimestamps: 1,
+                deliveryLocation: 1,
+                items: {
+                    $map: {
+                        input: '$items',
+                        as: 'item',
+                        in: {
+                            productName: '$$item.productName',
+                            quantity: '$$item.quantity',
+                            unitPriceInr: '$$item.unitPriceInr',
+                            totalPriceInr: '$$item.totalPriceInr',
+                            sponsoredChildMeals: '$$item.sponsoredChildMeals',
+                        },
+                    },
+                },
+            },
+        },
+    ]);
+
+    return order || null;
+};
 const cancelOrder = async (orderNumber, customerEmail) =>
     Order.findOneAndUpdate(
         {
@@ -78,7 +115,7 @@ const cancelOrder = async (orderNumber, customerEmail) =>
             customerMealStatus: 'confirmed',
             paymentStatus: { $ne: 'success' },
         },
-        { $set: { customerMealStatus: 'cancelled' } },
+        { $set: { customerMealStatus: 'cancelled', 'statusTimestamps.cancelledAt': new Date() } },
         { new: true }
     )
         .select('orderNumber customerMealStatus')
@@ -111,15 +148,30 @@ const getOrderById = async (orderId) => {
 // TODO: require paymentStatus success before moving to preparing (when payments are built)
 const updateOrderStatus = async (orderId, previousStatus, newStatus, assignedRiderId) => {
     const canMove = { $eq: ['$customerMealStatus', previousStatus] };
+    const timeField = {
+        preparing: 'statusTimestamps.preparingAt',
+        outfordelivery: 'statusTimestamps.outForDeliveryAt',
+        delivered: 'statusTimestamps.deliveredAt',
+    }[newStatus];
+
     const changes = {
         customerMealStatus: { $cond: [canMove, newStatus, '$customerMealStatus'] },
         updatedAt: { $cond: [canMove, '$$NOW', '$updatedAt'] },
+        [timeField]: { $cond: [canMove, '$$NOW', `$${timeField}`] },
     };
+
+    if (newStatus === 'outfordelivery') {
+        changes.estimatedDeliveryAt = {
+            $cond: [canMove, { $add: ['$$NOW', 30 * 60 * 1000] }, '$estimatedDeliveryAt'],
+        };
+    }
+
     if (assignedRiderId) {
         changes.assignedRiderId = {
             $cond: [canMove, new mongoose.Types.ObjectId(assignedRiderId), '$assignedRiderId'],
         };
     }
+
     return Order.findOneAndUpdate(
         { _id: orderId, isDeleted: false },
         [{ $set: changes }],
@@ -180,6 +232,7 @@ export {
     createOrderWithItems,
     trackOrder,
     trackMyOrders,
+    trackLiveOrder,
     cancelOrder,
     getAllOrders,
     getOrderById,

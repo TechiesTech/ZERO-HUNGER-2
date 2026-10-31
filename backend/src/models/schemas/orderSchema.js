@@ -21,7 +21,8 @@ const orderSchema = new Schema(
       latitude: { type: Number, min: -90, max: 90, default: null },
       longitude: { type: Number, min: -180, max: 180, default: null },
     },
-    paymentMethod: { type: String, required: true, enum: ['upi', 'card', 'netbanking'] }, paymentStatus: { type: String, enum: ['pending', 'success', 'failed'], default: 'pending' },
+    paymentMethod: { type: String, required: true, enum: ['upi', 'card', 'netbanking'] },
+    paymentStatus: { type: String, enum: ['pending', 'success', 'failed'], default: 'pending' },
     paymentId: { type: Schema.Types.ObjectId, ref: 'Payments', default: null },
     totalAmountInr: { type: Number, required: true, min: 1, validate: Number.isInteger },
     sponsoredMealsCount: { type: Number, min: 0, default: 0, validate: Number.isInteger },
@@ -30,6 +31,13 @@ const orderSchema = new Schema(
       enum: ['confirmed', 'preparing', 'outfordelivery', 'delivered', 'cancelled'],
       default: 'confirmed',
     },
+    statusTimestamps: {
+      preparingAt: { type: Date, default: null },
+      outForDeliveryAt: { type: Date, default: null },
+      deliveredAt: { type: Date, default: null },
+      cancelledAt: { type: Date, default: null },
+    },
+    estimatedDeliveryAt: { type: Date, default: null },
     assignedRiderId: { type: Schema.Types.ObjectId, ref: 'Riders', default: null },
     isDeleted: { type: Boolean, default: false },
     deletedAt: { type: Date, default: null },
@@ -48,6 +56,4 @@ orderSchema.index(
   { partialFilterExpression: { assignedRiderId: { $type: 'objectId' } } }
 );
 
-const Order = mongoose.model('Orders', orderSchema, 'orders');
-
-export { Order };
+export const Order = mongoose.model('Orders', orderSchema, 'orders');

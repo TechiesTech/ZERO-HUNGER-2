@@ -10,6 +10,7 @@ import {
     updateOrderStatus,
     deleteOrder,
     updateDeliveryDetails,
+    trackLiveOrder
 } from '../controllers/orderController.js';
 import {
     createOrderSchema,
@@ -27,6 +28,7 @@ import {
     trackOrderLimiter,
     trackMyOrdersLimiter,
     updateOrderLimiter,
+    trackLiveOrderLimiter
 } from '../middleware/rateLimiter.js';
 
 const router = Router();
@@ -48,4 +50,5 @@ router.patch(
 );
 router.delete('/deleteOrder/:orderId', validate(orderIdParamSchema, 'params'), deleteOrder);
 
+router.post('/trackLiveOrder', trackLiveOrderLimiter, validate(trackOrderSchema), trackLiveOrder);
 export default router;

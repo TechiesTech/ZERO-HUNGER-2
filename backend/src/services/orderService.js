@@ -63,6 +63,48 @@ const trackOrder = async ({ orderNumber, customerEmail }) => {
 
 const trackMyOrders = async ({ orders }) => orderRepository.trackMyOrders(orders);
 
+const trackLiveOrder = async ({ orderNumber, customerEmail }) => {
+    const order = await orderRepository.trackLiveOrder(orderNumber, customerEmail);
+
+    if (!order) {
+        throw new AppError('Order not found', 404);
+    }
+    const times = order.statusTimestamps || {};
+    const status = order.customerMealStatus;
+    const isFinished = status === 'delivered' || status === 'cancelled';
+    const { latitude, longitude } = order.deliveryLocation || {};
+    const timeline =
+        status === 'cancelled'
+            ? [
+                { status: 'confirmed', at: order.createdAt },
+                { status: 'cancelled', at: times.cancelledAt || null },
+            ]
+            : [
+                { status: 'confirmed', at: order.createdAt },
+                { status: 'preparing', at: times.preparingAt || null },
+                { status: 'outfordelivery', at: times.outForDeliveryAt || null },
+                { status: 'delivered', at: times.deliveredAt || null },
+            ];
+
+    return {
+        orderNumber: order.orderNumber,
+        customerName: order.customerName,
+        customerMealStatus: status,
+        paymentStatus: order.paymentStatus,
+        totalAmountInr: order.totalAmountInr,
+        sponsoredMealsCount: order.sponsoredMealsCount,
+        placedAt: order.createdAt,
+        estimatedDeliveryAt: status === 'outfordelivery' ? order.estimatedDeliveryAt || null : null,
+        timeline,
+        destination:
+            !isFinished && latitude != null && longitude != null ? { latitude, longitude } : null,
+        rider: null,
+        items: order.items,
+        canEditDetails: status === 'confirmed' || status === 'preparing',
+        canCancel: status === 'confirmed' && order.paymentStatus !== 'success',
+    };
+};
+
 const cancelOrder = async ({ orderNumber, customerEmail }) => {
     const order = await orderRepository.cancelOrder(orderNumber, customerEmail);
     if (!order) {
@@ -167,6 +209,7 @@ export {
     createOrder,
     trackOrder,
     trackMyOrders,
+    trackLiveOrder,
     cancelOrder,
     getAllOrders,
     getOrderById,

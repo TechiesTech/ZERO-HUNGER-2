@@ -13,8 +13,14 @@ const createLimiter = (max) =>
 
 const createOrderLimiter = createLimiter(10);
 const trackOrderLimiter = createLimiter(30);
+const trackLiveOrderLimiter = createLimiter(150);
 const trackMyOrdersLimiter = createLimiter(20);
 const updateOrderLimiter = createLimiter(10);
 
-export { createOrderLimiter, trackOrderLimiter, trackMyOrdersLimiter, updateOrderLimiter };
-
+export {
+    createOrderLimiter,
+    trackOrderLimiter,
+    trackLiveOrderLimiter,
+    trackMyOrdersLimiter,
+    updateOrderLimiter,
+};
