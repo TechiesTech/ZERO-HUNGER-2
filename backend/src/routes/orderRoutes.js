@@ -22,14 +22,20 @@ import {
     updateDeliveryDetailsSchema,
 } from '../validators/orderValidator.js';
 import validate from '../middleware/validate.js';
+import {
+    createOrderLimiter,
+    trackOrderLimiter,
+    trackMyOrdersLimiter,
+    updateOrderLimiter,
+} from '../middleware/rateLimiter.js';
 
 const router = Router();
 
-router.post('/createOrder', validate(createOrderSchema), createOrder);
-router.post('/trackOrder', validate(trackOrderSchema), trackOrder);
-router.post('/trackMyOrders', validate(trackMyOrdersSchema), trackMyOrders);
-router.patch('/updateDeliveryDetails', validate(updateDeliveryDetailsSchema), updateDeliveryDetails);
-router.patch('/cancelOrder', validate(cancelOrderSchema), cancelOrder);
+router.post('/createOrder', createOrderLimiter, validate(createOrderSchema), createOrder);
+router.post('/trackOrder', trackOrderLimiter, validate(trackOrderSchema), trackOrder);
+router.post('/trackMyOrders', trackMyOrdersLimiter, validate(trackMyOrdersSchema), trackMyOrders);
+router.patch('/updateDeliveryDetails', updateOrderLimiter, validate(updateDeliveryDetailsSchema), updateDeliveryDetails);
+router.patch('/cancelOrder', updateOrderLimiter, validate(cancelOrderSchema), cancelOrder);
 
 router.get('/getAllOrders', validate(getAllOrdersSchema, 'query'), getAllOrders);
 router.get('/getOrderById/:orderId', validate(orderIdParamSchema, 'params'), getOrderById);

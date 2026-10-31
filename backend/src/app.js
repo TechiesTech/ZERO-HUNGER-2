@@ -7,6 +7,8 @@ import notFoundHandler from './middleware/notFoundHandler.js';
 
 const app = express();
 
+app.set('trust proxy', 1);
+
 // Global Middlewares
 app.use(cors());
 app.use(express.json());
