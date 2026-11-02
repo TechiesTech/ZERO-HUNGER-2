@@ -7,6 +7,8 @@ const riderSchema = new Schema(
         name: { type: String, required: true, trim: true, minlength: 2, maxlength: 80 },
         phone: { type: String, required: true, trim: true },
         email: { type: String, trim: true, lowercase: true, default: '' },
+        passwordHash: { type: String, select: false },
+        tokenVersion: { type: Number, default: 0 },
         vehicleType: { type: String, required: true, enum: ['bike', 'bicycle', 'scooter'] },
         vehicleNumber: { type: String, trim: true, uppercase: true, default: '' },
         deliveryZones: { type: [{ type: String, trim: true, maxlength: 60 }], default: [] },

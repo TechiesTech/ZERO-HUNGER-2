@@ -18,7 +18,11 @@ const trackLiveOrderLimiter = createLimiter(150);
 const trackMyOrdersLimiter = createLimiter(20);
 const updateOrderLimiter = createLimiter(10);
 const adminLoginLimiter = createLimiter(10, { skipSuccessfulRequests: true });
-const riderLocationLimiter = createLimiter(60, { windowMs: 60 * 1000 });
+const riderLoginLimiter = createLimiter(10, {
+    skipSuccessfulRequests: true,
+    windowMs: 15 * 60 * 1000,
+});
+const riderLocationLimiter = createLimiter(12, { windowMs: 60 * 1000 });
 export {
     createOrderLimiter,
     trackOrderLimiter,
@@ -26,6 +30,6 @@ export {
     trackMyOrdersLimiter,
     updateOrderLimiter,
     adminLoginLimiter,
+    riderLoginLimiter,
     riderLocationLimiter,
-
 };

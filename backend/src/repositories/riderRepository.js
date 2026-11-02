@@ -24,20 +24,6 @@ const createRider = async (data) => {
     return { rider: value, isDuplicate: lastErrorObject.updatedExisting };
 };
 
-const updateLocationById = (riderId, { latitude, longitude, heading }) =>
-    Rider.findOneAndUpdate(
-        { _id: riderId, isDeleted: false, isActive: true },
-        {
-            $set: {
-                'currentLocation.latitude': latitude,
-                'currentLocation.longitude': longitude,
-                'currentLocation.heading': heading ?? null,
-                'currentLocation.updatedAt': new Date(),
-            },
-        },
-        { new: true, runValidators: true }
-    ).lean();
-
 const updateRiderById = (riderId, updates) =>
     Rider.findOneAndUpdate(
         { _id: riderId, isDeleted: false },
@@ -82,9 +68,10 @@ const findAssignableRiderById = (riderId) =>
     Rider.findOne({ _id: riderId, isDeleted: false, isActive: true }).select('_id').lean();
 export {
     createRider,
-    updateLocationById,
     updateRiderById,
     getAllRiders,
     getRiderById,
     deleteRider,
+    getRiderForTracking,
+    findAssignableRiderById,
 };
