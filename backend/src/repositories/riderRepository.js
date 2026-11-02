@@ -71,6 +71,15 @@ const deleteRider = (riderId) =>
         { new: true }
     ).lean();
 
+// NEW: only safe fields, so phone and email never reach customers
+const getRiderForTracking = (riderId) =>
+    Rider.findOne({ _id: riderId, isDeleted: false })
+        .select('name vehicleType currentLocation')
+        .lean();
+
+// NEW: used when an admin assigns a rider to an order
+const findAssignableRiderById = (riderId) =>
+    Rider.findOne({ _id: riderId, isDeleted: false, isActive: true }).select('_id').lean();
 export {
     createRider,
     updateLocationById,
