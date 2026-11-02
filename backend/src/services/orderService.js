@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import AppError from '../utils/appError.js';
 import * as orderRepository from '../repositories/orderRepository.js';
+import { getCachedRoute } from './routeService.js';
 
 const createOrder = async (body) => {
     const quantityByMeal = new Map();
@@ -73,6 +74,8 @@ const trackLiveOrder = async ({ orderNumber, customerEmail }) => {
     const status = order.customerMealStatus;
     const isFinished = status === 'delivered' || status === 'cancelled';
     const { latitude, longitude } = order.deliveryLocation || {};
+    const destination =
+        !isFinished && latitude != null && longitude != null ? { latitude, longitude } : null;
     const timeline =
         status === 'cancelled'
             ? [
@@ -86,6 +89,31 @@ const trackLiveOrder = async ({ orderNumber, customerEmail }) => {
                 { status: 'delivered', at: times.deliveredAt || null },
             ];
 
+    let rider = null;
+    let route = null;
+
+    if (status === 'outfordelivery' && order.assignedRiderId) {
+        const found = await riderRepository.getRiderForTracking(order.assignedRiderId);
+        if (found) {
+            const loc = found.currentLocation || {};
+            const updatedAt = loc.updatedAt ? new Date(loc.updatedAt) : null;
+            rider = {
+                name: found.name,
+                vehicleType: found.vehicleType,
+                currentLocation: {
+                    latitude: loc.latitude ?? null,
+                    longitude: loc.longitude ?? null,
+                    heading: loc.heading ?? null,
+                    updatedAt,
+                },
+                isLocationStale: !updatedAt || Date.now() - updatedAt.getTime() > 2 * 60 * 1000,
+            };
+            if (loc.latitude != null && loc.longitude != null && destination) {
+                route = await getCachedRoute(order.orderNumber, loc, destination);
+            }
+        }
+    }
+
     return {
         orderNumber: order.orderNumber,
         customerName: order.customerName,
@@ -96,9 +124,9 @@ const trackLiveOrder = async ({ orderNumber, customerEmail }) => {
         placedAt: order.createdAt,
         estimatedDeliveryAt: status === 'outfordelivery' ? order.estimatedDeliveryAt || null : null,
         timeline,
-        destination:
-            !isFinished && latitude != null && longitude != null ? { latitude, longitude } : null,
-        rider: null,
+        destination,
+        rider,
+        route,
         items: order.items,
         canEditDetails: status === 'confirmed' || status === 'preparing',
         canCancel: status === 'confirmed' && order.paymentStatus !== 'success',
@@ -145,6 +173,10 @@ const updateOrderStatus = async (orderId, { customerMealStatus, assignedRiderId 
     const previousStatus = statusFlow[statusFlow.indexOf(customerMealStatus) - 1];
     if (!previousStatus) {
         throw new AppError('Order cannot be moved back to confirmed', 409);
+    }
+    if (assignedRiderId) {
+        const rider = await riderRepository.findAssignableRiderById(assignedRiderId);
+        if (!rider) throw new AppError('Rider not found or inactive', 404);
     }
     const order = await orderRepository.updateOrderStatus(
         orderId,

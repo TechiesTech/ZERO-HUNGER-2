@@ -87,6 +87,7 @@ const trackLiveOrder = async (orderNumber, customerEmail) => {
                 estimatedDeliveryAt: 1,
                 statusTimestamps: 1,
                 deliveryLocation: 1,
+                assignedRiderId: 1,
                 items: {
                     $map: {
                         input: '$items',
