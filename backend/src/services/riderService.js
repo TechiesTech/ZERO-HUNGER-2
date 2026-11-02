@@ -49,8 +49,35 @@ const updateRider = async (riderId, body) => {
         throw error;
     }
 };
+
+const getAllRiders = async (query) => {
+    const { riders, total } = await riderRepository.getAllRiders(query);
+    return {
+        riders,
+        pagination: {
+            page: query.page,
+            limit: query.limit,
+            total,
+            totalPages: Math.ceil(total / query.limit),
+        },
+    };
+};
+
+const getRiderById = async (riderId) => {
+    const rider = await riderRepository.getRiderById(riderId);
+    if (!rider) throw new AppError('Rider not found', 404);
+    return rider;
+};
+
+const deleteRider = async (riderId) => {
+    const rider = await riderRepository.deleteRider(riderId);
+    if (!rider) throw new AppError('Rider not found', 404);
+};
 export {
     createRider,
     updateRiderLocation,
     updateRider,
+    getAllRiders,
+    getRiderById,
+    deleteRider,
 };

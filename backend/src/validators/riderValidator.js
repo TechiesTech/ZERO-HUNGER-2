@@ -37,9 +37,19 @@ const updateRiderSchema = Joi.object({
     isAvailable: Joi.boolean(),
     isActive: Joi.boolean(),
 }).min(1);
+
+const getAllRidersSchema = Joi.object({
+    page: Joi.number().integer().min(1).default(1),
+    limit: Joi.number().integer().min(1).max(100).default(20),
+    zone: Joi.string().trim().max(60),
+    isAvailable: Joi.boolean(),
+    isActive: Joi.boolean(),
+});
+
 export {
     createRiderSchema,
     riderIdParamSchema,
+    updateRiderSchema,
     updateRiderLocationSchema,
-    updateRiderSchema
+    getAllRidersSchema,
 };
