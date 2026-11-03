@@ -11,21 +11,22 @@ import {
 import { riderLoginSchema, setRiderPasswordSchema } from '../validators/riderAuthValidator.js';
 import { riderLoginLimiter, riderLocationLimiter } from '../middleware/rateLimiter.js';
 import validate from '../middleware/validate.js';
-import adminAuth from '../middleware/adminAuth.js';
+import requireRole from '../middleware/requireRole.js';
 import riderAuth from '../middleware/riderAuth.js';
 
 const router = Router();
 
-router.post('/createRider', adminAuth, validate(createRiderSchema), createRider);
-router.patch('/updateRider/:riderId', adminAuth, validate(riderIdParamSchema, 'params'), validate(updateRiderSchema), updateRider);
-router.get('/getAllRiders', adminAuth, validate(getAllRidersSchema, 'query'), getAllRiders);
-router.get('/getRiderById/:riderId', adminAuth, validate(riderIdParamSchema, 'params'), getRiderById);
-router.delete('/deleteRider/:riderId', adminAuth, validate(riderIdParamSchema, 'params'), deleteRider);
-router.patch('/setRiderPassword/:riderId', adminAuth, validate(riderIdParamSchema, 'params'), validate(setRiderPasswordSchema), setRiderPassword);
+// Admin only
+router.post('/createRider', requireRole('admin'), validate(createRiderSchema), createRider);
+router.patch('/updateRider/:riderId', requireRole('admin'), validate(riderIdParamSchema, 'params'), validate(updateRiderSchema), updateRider);
+router.get('/getAllRiders', requireRole('admin'), validate(getAllRidersSchema, 'query'), getAllRiders);
+router.get('/getRiderById/:riderId', requireRole('admin'), validate(riderIdParamSchema, 'params'), getRiderById);
+router.delete('/deleteRider/:riderId', requireRole('admin'), validate(riderIdParamSchema, 'params'), deleteRider);
+router.patch('/setRiderPassword/:riderId', requireRole('admin'), validate(riderIdParamSchema, 'params'), validate(setRiderPasswordSchema), setRiderPassword);
 
+// Rider only
 router.post('/login', riderLoginLimiter, validate(riderLoginSchema), login);
 router.post('/logout', riderAuth, logout);
 router.get('/me', riderAuth, getMe);
 router.patch('/updateRiderLocation', riderAuth, riderLocationLimiter, validate(updateRiderLocationSchema), updateMyLocation);
-
 export default router;
