@@ -7,6 +7,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLiveTracking } from '../hooks/useLiveTracking';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { Clock, MapPin, Navigation, Phone, Star, Truck, X, Loader2 } from 'lucide-react';
 
 interface LiveTrackingProps {

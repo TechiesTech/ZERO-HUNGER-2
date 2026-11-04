@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { HeartHandshake } from 'lucide-react';
+import { optimizeImageUrl } from '../utils/imageUrl';
 
 interface EditorialImageProps {
   src: string;
@@ -24,12 +25,20 @@ export const EditorialImage: React.FC<EditorialImageProps> = ({
     <div className={`relative overflow-hidden bg-[#1A1A1A] ${className}`}>
       {!hasError ? (
         <img
-          src={src}
+          src={optimizeImageUrl(src)}
           alt={alt}
+          width={1200}
+          height={896}
           referrerPolicy="no-referrer"
           loading={priority ? 'eager' : 'lazy'}
+          fetchPriority={priority ? 'high' : 'auto'}
+          decoding="async"
           onError={() => setHasError(true)}
-          className={`w-full h-full object-cover transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${imgClassName}`}
+          className={`w-full h-full object-cover ${
+            priority
+              ? ''
+              : 'transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]'
+          } ${imgClassName}`}
         />
       ) : (
         <div className="w-full h-full min-h-[240px] flex flex-col items-center justify-center p-8 text-center bg-gradient-to-br from-[#F3EDE4] to-[#E8DED0] text-[#080808]">

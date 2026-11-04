@@ -1,3 +1,7 @@
+import { IMAGES } from './images';
+
+export { IMAGES } from './images';
+
 export type ProjectCategory =
   | 'ALL'
   | 'FOOD RELIEF'
@@ -45,14 +49,6 @@ export interface Project {
   }[];
   gallery: ProjectGalleryItem[];
 }
-
-export const IMAGES = {
-  heroMeals: '/images/hero_community_meals_1790672974684.jpg',
-  schoolNutrition: '/images/project_school_nutrition_1790672995041.jpg',
-  emergencyRelief: '/images/project_emergency_relief_1790673011442.jpg',
-  communityKitchen: '/images/project_community_kitchen_2_1790673027388.png',
-  womenSupport: '/images/about_women_family_support_1790673047027.jpg',
-};
 
 export const PROJECTS: Project[] = [
   {
@@ -513,17 +509,4 @@ export const PROJECTS: Project[] = [
   },
 ];
 
-export const FEATURED_PROJECT = {
-  eyebrow: 'FEATURED PROJECT',
-  headlineLines: ['ONE MEAL.', 'ONE FAMILY.', 'ONE MORE DAY.'],
-  slug: 'community-meal-program',
-  title: 'Community Meal Program — Hyderabad Courtyard Hubs',
-  description:
-    'Every morning before dawn, our Secunderabad kitchen comes alive with the aroma of simmering lentils, fresh seasonal greens, and warm flatbreads. By serving freshly cooked meals in open neighborhood courtyards rather than clinical queues, we restore both physical strength and human dignity to families navigating daily hardship.',
-  image: IMAGES.communityKitchen,
-  stats: [
-    { value: '1,850', label: 'Meals' },
-    { value: '12', label: 'Volunteers' },
-    { value: '6', label: 'Communities' },
-  ],
-};
+export { FEATURED_PROJECT } from './homeFeaturedProject';

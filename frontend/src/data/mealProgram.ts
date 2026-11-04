@@ -1,10 +1,10 @@
 import { IMAGES } from './projects';
 
 export const MEAL_IMAGES = {
-  proteinPower: '/images/meal_protein_power_1790675891041.jpg',
-  nutritiousVeg: '/images/meal_nutritious_veg_1790675909708.jpg',
-  chickenProtein: '/images/meal_chicken_protein_1790675922899.jpg',
-  kidsNutrition: '/images/meal_kids_nutrition_1790675937269.jpg',
+  proteinPower: '/images/meal_protein_power_1790675891041.webp',
+  nutritiousVeg: '/images/meal_nutritious_veg_1790675909708.webp',
+  chickenProtein: '/images/meal_chicken_protein_1790675922899.webp',
+  kidsNutrition: '/images/meal_kids_nutrition_1790675937269.webp',
 };
 
 // ============================================================================

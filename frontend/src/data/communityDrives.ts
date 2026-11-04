@@ -132,7 +132,7 @@ export const RECENT_OCCASIONS: OccasionSample[] = [
     date: '02 Oct 2026',
     mealsServed: 100,
     centerName: 'Secunderabad Slum Children Nutrition Center',
-    image: '/images/meal_protein_power_1790675891041.jpg',
+    image: '/images/meal_protein_power_1790675891041.webp',
   },
   {
     id: 'occ-02',
@@ -143,7 +143,7 @@ export const RECENT_OCCASIONS: OccasionSample[] = [
     date: '28 Sep 2026',
     mealsServed: 250,
     centerName: 'Osmania Hospital Caregivers Courtyard',
-    image: '/images/project_community_kitchen_1790673027388.jpg',
+    image: '/images/project_community_kitchen_1790673027388.webp',
   },
   {
     id: 'occ-03',
@@ -154,7 +154,7 @@ export const RECENT_OCCASIONS: OccasionSample[] = [
     date: '24 Sep 2026',
     mealsServed: 50,
     centerName: 'Sangareddy Destitute & Abandoned Elders Home',
-    image: '/images/meal_nutritious_veg_1790675909708.jpg',
+    image: '/images/meal_nutritious_veg_1790675909708.webp',
   },
 ];
 

@@ -127,7 +127,7 @@ export const CelebrateAndGive: React.FC = () => {
         style={{
           backgroundImage: `
       linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
-      url("/images/Kindness%20in%20Every%20Gift.png")
+      url("/images/Kindness%20in%20Every%20Gift.webp")
     `,
           backgroundSize: "cover",
           backgroundPosition: "center",

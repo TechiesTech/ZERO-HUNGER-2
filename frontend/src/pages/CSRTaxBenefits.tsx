@@ -365,8 +365,12 @@ export const CSRTaxBenefits: React.FC = () => {
           <div className="lg:col-span-4 flex justify-center lg:justify-start">
             <div className="relative w-full max-w-[300px] sm:max-w-[340px] lg:max-w-[380px]">
               <img
-                src="/assets/images/CsrAndTax.png"
+                src="/assets/images/CsrAndTax.webp"
                 alt="Statutory Compliance & Tax Clearance Illustration"
+                width={1639}
+                height={960}
+                loading="lazy"
+                decoding="async"
                 className="w-full h-auto object-contain drop-shadow-md"
               />
             </div>

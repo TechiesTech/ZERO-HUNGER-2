@@ -17,6 +17,7 @@ interface PrincipleBannerItem {
   image: string;
   imageAlt: string;
   href: string;
+  linkLabel: string;
 }
 
 const PRINCIPLE_BANNERS: PrincipleBannerItem[] = [
@@ -32,6 +33,7 @@ const PRINCIPLE_BANNERS: PrincipleBannerItem[] = [
     image: IMAGES.heroMeals,
     imageAlt: 'Volunteer serving warm meals with dignity in Hyderabad',
     href: '/projects/community-meal-program',
+    linkLabel: 'Explore the community meal program',
   },
   {
     index: '02',
@@ -45,6 +47,7 @@ const PRINCIPLE_BANNERS: PrincipleBannerItem[] = [
     image: IMAGES.schoolNutrition,
     imageAlt: 'Joyful school children receiving nutritious midday meals',
     href: '/projects/school-nutrition-initiative',
+    linkLabel: 'Explore the school nutrition initiative',
   },
   {
     index: '03',
@@ -58,6 +61,7 @@ const PRINCIPLE_BANNERS: PrincipleBannerItem[] = [
     image: MEAL_IMAGES.proteinPower,
     imageAlt: 'Nutritious freshly prepared Protein Power Meal Box',
     href: '/track-meal?token=ZH-2026-A8F42K',
+    linkLabel: 'Track a sponsored meal',
   },
   {
     index: '04',
@@ -71,6 +75,7 @@ const PRINCIPLE_BANNERS: PrincipleBannerItem[] = [
     image: IMAGES.communityKitchen,
     imageAlt: 'Community chefs and volunteers inside Secunderabad kitchen',
     href: '/projects/central-community-kitchen',
+    linkLabel: 'Explore the community kitchen',
   },
   {
     index: '05',
@@ -84,6 +89,7 @@ const PRINCIPLE_BANNERS: PrincipleBannerItem[] = [
     image: IMAGES.womenSupport,
     imageAlt: 'Women agricultural cooperative members holding fresh greens',
     href: '/projects/women-and-family-food-sovereignty',
+    linkLabel: 'Explore women-led food programs',
   },
 ];
 
@@ -209,7 +215,7 @@ export const FivePrinciplesShowcase: React.FC = () => {
                       to={item.href}
                       className="inline-flex items-center gap-2 bg-white hover:bg-[#122023] text-[#122023] hover:text-white px-5 py-2.5 sm:py-3 rounded-[8px] text-xs font-bold tracking-tight shadow-xs transition-colors duration-200"
                     >
-                      <span>Learn more</span>
+                      <span>{item.linkLabel}</span>
                       <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
                     </Link>
                   </div>

@@ -1,9 +1,9 @@
 import React from 'react';
-import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { ArrowDown, ArrowUpRight } from 'lucide-react';
 import { Button } from './Button';
 import { EditorialImage } from './EditorialImage';
-import { IMAGES } from '../data/projects';
+import { IMAGES } from '../data/images';
 import { SupportTab } from './SupportModal';
 
 interface HeroProps {
@@ -37,8 +37,6 @@ const FLOATING_CARDS = [
 
 export const Hero: React.FC<HeroProps> = ({ onOpenSupport }) => {
   const prefersReducedMotion = useReducedMotion();
-  const { scrollY } = useScroll();
-  const imageY = useTransform(scrollY, [0, 600], [0, prefersReducedMotion ? 0 : 28]);
 
   const scrollToImpact = () => {
     const el = document.getElementById('impact-section');
@@ -147,13 +145,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenSupport }) => {
 
           {/* RIGHT COLUMN: Large Humanitarian Photograph + Vibrant Floating Ledger Cards */}
           <div className="col-span-1 md:col-span-6 lg:col-span-6 xl:col-span-6 relative md:pl-4 lg:pl-6 pt-5 md:pt-8 lg:pt-12 xl:pt-14 w-full">
-            <motion.div
-              style={{ y: imageY }}
-              initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.85, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="relative mx-auto max-w-md xs:max-w-lg md:max-w-none lg:max-w-122.5 xl:max-w-132.5"
-            >
+            <div className="relative mx-auto max-w-md xs:max-w-lg md:max-w-none lg:max-w-122.5 xl:max-w-132.5">
               {/* Main Image Frame */}
               <div className="relative rounded-[14px] sm:rounded-2xl overflow-hidden border border-white/15 shadow-2xl aspect-4/3 w-full">
                 <EditorialImage
@@ -211,7 +203,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenSupport }) => {
                   </div>
                 ))}
               </div>
-            </motion.div>
+            </div>
           </div>
         </div>
 

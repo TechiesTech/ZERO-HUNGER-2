@@ -19,6 +19,7 @@ interface MissionProgramCard {
   image: string;
   exploreHref: string;
   learnHref: string;
+  learnLabel: string;
   projectSlug: string;
 }
 
@@ -31,6 +32,7 @@ const MISSION_PROGRAMS: MissionProgramCard[] = [
     image: MEAL_IMAGES.proteinPower,
     exploreHref: "/meal-box",
     learnHref: "/track-meal?token=ZH-2026-A8F42K",
+    learnLabel: "Track a sponsored meal",
     projectSlug: "community-meal-program",
   },
   {
@@ -41,6 +43,7 @@ const MISSION_PROGRAMS: MissionProgramCard[] = [
     image: IMAGES.schoolNutrition,
     exploreHref: "/projects/school-nutrition-initiative",
     learnHref: "/impact",
+    learnLabel: "View school nutrition impact",
     projectSlug: "school-nutrition-initiative",
   },
   {
@@ -51,6 +54,7 @@ const MISSION_PROGRAMS: MissionProgramCard[] = [
     image: IMAGES.communityKitchen,
     exploreHref: "/projects/central-community-kitchen",
     learnHref: "/about",
+    learnLabel: "Learn about our kitchen",
     projectSlug: "central-community-kitchen",
   },
   {
@@ -61,6 +65,7 @@ const MISSION_PROGRAMS: MissionProgramCard[] = [
     image: IMAGES.emergencyRelief,
     exploreHref: "/projects/emergency-food-relief-corps",
     learnHref: "/impact",
+    learnLabel: "View emergency relief impact",
     projectSlug: "emergency-food-relief-corps",
   },
   {
@@ -71,6 +76,7 @@ const MISSION_PROGRAMS: MissionProgramCard[] = [
     image: IMAGES.womenSupport,
     exploreHref: "/projects/women-and-family-food-sovereignty",
     learnHref: "/projects",
+    learnLabel: "View women-led projects",
     projectSlug: "women-and-family-food-sovereignty",
   },
   {
@@ -81,6 +87,7 @@ const MISSION_PROGRAMS: MissionProgramCard[] = [
     image: IMAGES.heroMeals,
     exploreHref: "/projects/community-meal-program",
     learnHref: "/track-meal",
+    learnLabel: "Track a community meal",
     projectSlug: "community-meal-program",
   },
 ];
@@ -215,7 +222,7 @@ export const MissionProgramsShowcase: React.FC<
                     {program.description}
                   </p>
 
-                  {/* Dual Pill/Rounded Buttons: Green "Explore programs ↗" + White "Learn more ↗" */}
+                  {/* Dual pill buttons link to the program and related details. */}
                   <div className="mt-6 grid grid-cols-2 gap-2.5">
                     <Link
                       to={program.exploreHref}
@@ -227,9 +234,9 @@ export const MissionProgramsShowcase: React.FC<
 
                     <Link
                       to={program.learnHref}
-                      className="rounded-[10px] bg-white hover:bg-[#F2F4F3] text-[#080808] py-3 px-3 text-xs font-semibold inline-flex items-center justify-center gap-1 transition-colors whitespace-nowrap"
+                      className="rounded-[10px] bg-white hover:bg-[#F2F4F3] text-[#080808] py-3 px-3 text-xs font-semibold inline-flex items-center justify-center gap-1 text-center leading-tight transition-colors"
                     >
-                      <span>Learn more</span>
+                      <span>{program.learnLabel}</span>
                       <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
                     </Link>
                   </div>
