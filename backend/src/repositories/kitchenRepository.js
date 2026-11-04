@@ -16,14 +16,19 @@ const getAllKitchens = async (filter, skip, limit) => {
 };
 
 const findOrdersForKitchen = (kitchenId) =>
-    Order.find({
-        kitchenId,
-        isDeleted: false,
-        paymentStatus: 'success',
-        customerMealStatus: { $in: ['confirmed', 'preparing', 'readyforpickup'] },
-    })
-        .sort({ createdAt: 1 })
-        .lean();
+    Order.aggregate([
+        {
+            $match: {
+                kitchenId,
+                isDeleted: false,
+                paymentStatus: 'success',
+                customerMealStatus: { $in: ['confirmed', 'preparing', 'readyforpickup'] },
+            },
+        },
+        { $sort: { createdAt: 1 } },
+        { $lookup: { from: 'orderItems', localField: '_id', foreignField: 'orderId', as: 'items' } },
+        { $unset: ['items.orderId'] },
+    ]);
 
 const moveOrderStatus = (orderId, kitchenId, from, to, stampField) =>
     Order.findOneAndUpdate(

@@ -41,7 +41,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const response = await authApi.login(email, password);
-    setAdmin(response.data.admin);
+    setAdmin({
+      _id: response.data.admin.id,
+      name: response.data.admin.name,
+      email: response.data.admin.email,
+      role: response.data.admin.role,
+    });
   };
 
   const logout = async () => {

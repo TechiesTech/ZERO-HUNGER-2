@@ -33,6 +33,28 @@ export interface OrderStats {
   totalSponsoredMeals: number;
 }
 
+export interface KitchenOrder {
+  _id: string;
+  orderNumber: string;
+  customerName: string;
+  deliveryAddress: {
+    addressLine1: string;
+    addressLine2?: string;
+    area: string;
+    landmark?: string;
+    city: string;
+    state: string;
+    pincode: string;
+  };
+  items: Array<{
+    productName: string;
+    quantity: number;
+  }>;
+  totalAmountInr: number;
+  customerMealStatus: 'confirmed' | 'preparing' | 'readyforpickup';
+  createdAt: string;
+}
+
 export function useMeals() {
   const [meals, setMeals] = useState<Meal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,6 +99,42 @@ export function useMeals() {
   };
 
   return { meals, loading, error, fetchMeals, createMeal, updateMeal, deleteMeal, uploadImage };
+}
+
+export function useKitchenOrders() {
+  const [orders, setOrders] = useState<KitchenOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchPaidOrders = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.get<{ success: boolean; data: KitchenOrder[] }>('/api/kitchen/getPaidOrders');
+      setOrders(res.data);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load kitchen orders');
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPaidOrders();
+  }, [fetchPaidOrders]);
+
+  const changeOrderStatus = async (orderId: string, action: 'startPreparing' | 'markReady') => {
+    setError(null);
+    try {
+      await api.patch(`/api/kitchen/${action}/${orderId}`, {});
+      await fetchPaidOrders();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to update order');
+    }
+  };
+
+  return { orders, loading, error, fetchPaidOrders, changeOrderStatus };
 }
 
 export function useOrders() {

@@ -6,12 +6,12 @@ import {
   Truck,
   AlertCircle,
   Search,
-  Filter,
   Trash2,
-  X,
   Loader2,
+  RefreshCw,
 } from 'lucide-react';
-import { useOrders, type Order } from '@/hooks';
+import { useAuth } from '@/contexts/AuthContext';
+import { useKitchenOrders, useOrders, type KitchenOrder, type Order } from '@/hooks';
 
 /* ── Stat card for Orders ── */
 function OrderStat({ label, value, icon, accent }: {
@@ -47,7 +47,115 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-export function Orders(): React.ReactElement {
+function KitchenOrders(): React.ReactElement {
+  const { orders, loading, error, fetchPaidOrders, changeOrderStatus } = useKitchenOrders();
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+
+  const handleAction = async (order: KitchenOrder, action: 'startPreparing' | 'markReady') => {
+    setUpdatingOrderId(order._id);
+    await changeOrderStatus(order._id, action);
+    setUpdatingOrderId(null);
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="flex items-end justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-widest text-[#4EDBE2] font-bold font-mono-tabular">
+            Kitchen Queue
+          </p>
+          <h1 className="text-2xl font-bold text-white mt-1 font-display-sans">Paid Orders</h1>
+          <p className="text-sm text-white/40 mt-1">Prepare paid orders assigned to your kitchen.</p>
+        </div>
+        <button
+          onClick={fetchPaidOrders}
+          disabled={loading}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#122023] border border-white/10 text-sm text-white/70 hover:text-white hover:border-[#49E619]/40 transition-colors cursor-pointer disabled:opacity-50"
+        >
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          Refresh
+        </button>
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+          <AlertCircle size={16} />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="py-16 text-center text-white/30 text-sm flex items-center justify-center gap-2">
+          <Loader2 size={16} className="animate-spin" /> Loading paid orders…
+        </div>
+      ) : orders.length === 0 ? (
+        <div className="py-16 text-center text-white/30 text-sm">No paid orders in your kitchen queue.</div>
+      ) : (
+        <div className="grid gap-4">
+          {orders.map((order) => {
+            const address = order.deliveryAddress;
+            const addressText = address
+              ? [address.addressLine1, address.addressLine2, address.area, address.city, address.state, address.pincode]
+                  .filter(Boolean)
+                  .join(', ')
+              : 'No delivery address';
+
+            return (
+              <article key={order._id} className="rounded-2xl bg-[#0D1719] border border-white/8 p-5 space-y-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-mono-tabular text-[#4EDBE2] font-bold">{order.orderNumber}</p>
+                    <p className="text-sm font-medium text-white mt-1">{order.customerName}</p>
+                    <p className="text-xs text-white/40 mt-1">{addressText}</p>
+                  </div>
+                  <div className="text-right">
+                    <StatusBadge status={order.customerMealStatus} />
+                    <p className="text-sm font-bold text-[#49E619] mt-2">₹{order.totalAmountInr}</p>
+                  </div>
+                </div>
+
+                <ul className="border-t border-white/8 pt-3 space-y-2">
+                  {order.items.map((item, index) => (
+                    <li key={`${item.productName}-${index}`} className="flex justify-between gap-4 text-sm">
+                      <span className="text-white/75">{item.productName}</span>
+                      <span className="text-white/45">× {item.quantity}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="flex justify-end border-t border-white/8 pt-3">
+                  {order.customerMealStatus === 'confirmed' && (
+                    <button
+                      onClick={() => handleAction(order, 'startPreparing')}
+                      disabled={updatingOrderId === order._id}
+                      className="px-4 py-2 rounded-lg bg-[#4EDBE2] text-[#080808] text-xs font-bold hover:brightness-110 disabled:opacity-50"
+                    >
+                      {updatingOrderId === order._id ? 'Updating…' : 'Start Preparing'}
+                    </button>
+                  )}
+                  {order.customerMealStatus === 'preparing' && (
+                    <button
+                      onClick={() => handleAction(order, 'markReady')}
+                      disabled={updatingOrderId === order._id}
+                      className="px-4 py-2 rounded-lg bg-[#B9FF2C] text-[#080808] text-xs font-bold hover:brightness-110 disabled:opacity-50"
+                    >
+                      {updatingOrderId === order._id ? 'Updating…' : 'Mark Ready'}
+                    </button>
+                  )}
+                  {order.customerMealStatus === 'readyforpickup' && (
+                    <span className="text-xs text-white/40">Waiting for rider pickup</span>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AdminOrders(): React.ReactElement {
   const { orders, stats, loading, error, fetchOrders, updateStatus, deleteOrder: deleteOrderById } = useOrders();
 
   const [search, setSearch] = useState('');
@@ -257,4 +365,9 @@ export function Orders(): React.ReactElement {
       </div>
     </div>
   );
+}
+
+export function Orders(): React.ReactElement {
+  const { admin } = useAuth();
+  return admin?.role === 'kitchen' ? <KitchenOrders /> : <AdminOrders />;
 }
