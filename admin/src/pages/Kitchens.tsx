@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, MapPin, Phone, Mail, X, Check, AlertCircle, RefreshCw } from 'lucide-react';
+import { Plus, MapPin, Phone, Mail, X, Check, AlertCircle, RefreshCw, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { api } from '@/services/adminApi';
 
 interface Kitchen {
@@ -26,12 +26,22 @@ interface CreateKitchenForm {
   password: string;
 }
 
+interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 export function Kitchens(): React.ReactElement {
   const [kitchens, setKitchens] = useState<Kitchen[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [search, setSearch] = useState('');
+  const [isActiveFilter, setIsActiveFilter] = useState<boolean | undefined>(undefined);
+  const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [formData, setFormData] = useState<CreateKitchenForm>({
     name: '',
     email: '',
@@ -42,12 +52,21 @@ export function Kitchens(): React.ReactElement {
     password: '',
   });
 
-  const fetchKitchens = async () => {
+  const fetchKitchens = async (page = 1) => {
     try {
       setLoading(true);
       setError('');
-      const response = await api.get<{ success: boolean; data: Kitchen[] }>('/api/kitchen/getAllKitchens');
-      setKitchens(response.data);
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      params.append('limit', '10');
+      if (search) params.append('search', search);
+      if (isActiveFilter !== undefined) params.append('isActive', isActiveFilter.toString());
+
+      const response = await api.get<{ success: boolean; data: { kitchens: Kitchen[]; pagination: Pagination } }>(
+        `/api/kitchen/getAllKitchens?${params.toString()}`
+      );
+      setKitchens(response.data.kitchens);
+      setPagination(response.data.pagination);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch kitchens');
     } finally {
@@ -56,8 +75,8 @@ export function Kitchens(): React.ReactElement {
   };
 
   useEffect(() => {
-    fetchKitchens();
-  }, []);
+    fetchKitchens(1);
+  }, [search, isActiveFilter]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,11 +105,17 @@ export function Kitchens(): React.ReactElement {
         longitude: '',
         password: '',
       });
-      fetchKitchens();
+      fetchKitchens(pagination.page);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create kitchen');
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= pagination.totalPages) {
+      fetchKitchens(newPage);
     }
   };
 
@@ -119,9 +144,32 @@ export function Kitchens(): React.ReactElement {
         <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
           <AlertCircle size={16} />
           <span>{error}</span>
-          <button onClick={fetchKitchens} className="ml-auto underline text-xs cursor-pointer">Retry</button>
+          <button onClick={() => fetchKitchens(pagination.page)} className="ml-auto underline text-xs cursor-pointer">Retry</button>
         </div>
       )}
+
+      {/* Search and Filter */}
+      <div className="flex items-center gap-4">
+        <div className="flex-1 relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name, email, or phone..."
+            className="w-full pl-10 pr-4 py-2.5 bg-[#0D1719] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#49E619]/50 transition-colors"
+          />
+        </div>
+        <select
+          value={isActiveFilter === undefined ? '' : isActiveFilter.toString()}
+          onChange={(e) => setIsActiveFilter(e.target.value === '' ? undefined : e.target.value === 'true')}
+          className="px-4 py-2.5 bg-[#0D1719] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#49E619]/50 transition-colors"
+        >
+          <option value="">All Status</option>
+          <option value="true">Active</option>
+          <option value="false">Inactive</option>
+        </select>
+      </div>
 
       {/* Kitchens Grid */}
       {loading ? (
@@ -133,50 +181,80 @@ export function Kitchens(): React.ReactElement {
           <p className="text-white/40 text-sm">No kitchens found. Add your first kitchen partner.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {kitchens.map((kitchen) => (
-            <div
-              key={kitchen._id}
-              className="rounded-2xl bg-[#0D1719] border border-white/8 p-5 hover:border-[#49E619]/30 transition-colors"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <h3 className="text-base font-bold text-white">{kitchen.name}</h3>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <div className={`w-2 h-2 rounded-full ${kitchen.isActive ? 'bg-[#49E619]' : 'bg-red-500'}`} />
-                    <span className="text-xs text-white/40">{kitchen.isActive ? 'Active' : 'Inactive'}</span>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {kitchens.map((kitchen) => (
+              <div
+                key={kitchen._id}
+                className="rounded-2xl bg-[#0D1719] border border-white/8 p-5 hover:border-[#49E619]/30 transition-colors"
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <h3 className="text-base font-bold text-white">{kitchen.name}</h3>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <div className={`w-2 h-2 rounded-full ${kitchen.isActive ? 'bg-[#49E619]' : 'bg-red-500'}`} />
+                      <span className="text-xs text-white/40">{kitchen.isActive ? 'Active' : 'Inactive'}</span>
+                    </div>
                   </div>
+                </div>
+
+                <div className="space-y-2.5 text-sm">
+                  <div className="flex items-center gap-2 text-white/60">
+                    <Mail size={14} />
+                    <span className="truncate">{kitchen.email}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-white/60">
+                    <Phone size={14} />
+                    <span>{kitchen.phone}</span>
+                  </div>
+                  {kitchen.address && (
+                    <div className="flex items-start gap-2 text-white/60">
+                      <MapPin size={14} className="mt-0.5 shrink-0" />
+                      <span className="text-xs line-clamp-2">{kitchen.address}</span>
+                    </div>
+                  )}
+                  {kitchen.location && (
+                    <div className="text-xs text-white/30 font-mono-tabular">
+                      {kitchen.location.latitude.toFixed(4)}, {kitchen.location.longitude.toFixed(4)}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-white/5 text-xs text-white/30">
+                  Added {new Date(kitchen.createdAt).toLocaleDateString('en-IN')}
                 </div>
               </div>
+            ))}
+          </div>
 
-              <div className="space-y-2.5 text-sm">
-                <div className="flex items-center gap-2 text-white/60">
-                  <Mail size={14} />
-                  <span className="truncate">{kitchen.email}</span>
-                </div>
-                <div className="flex items-center gap-2 text-white/60">
-                  <Phone size={14} />
-                  <span>{kitchen.phone}</span>
-                </div>
-                {kitchen.address && (
-                  <div className="flex items-start gap-2 text-white/60">
-                    <MapPin size={14} className="mt-0.5 shrink-0" />
-                    <span className="text-xs line-clamp-2">{kitchen.address}</span>
-                  </div>
-                )}
-                {kitchen.location && (
-                  <div className="text-xs text-white/30 font-mono-tabular">
-                    {kitchen.location.latitude.toFixed(4)}, {kitchen.location.longitude.toFixed(4)}
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-4 pt-4 border-t border-white/5 text-xs text-white/30">
-                Added {new Date(kitchen.createdAt).toLocaleDateString('en-IN')}
+          {/* Pagination */}
+          {pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-white/40">
+                Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} kitchens
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handlePageChange(pagination.page - 1)}
+                  disabled={pagination.page === 1}
+                  className="p-2 rounded-lg bg-[#0D1719] border border-white/10 text-white/60 hover:text-white hover:border-[#49E619]/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="text-sm text-white/60">
+                  Page {pagination.page} of {pagination.totalPages}
+                </span>
+                <button
+                  onClick={() => handlePageChange(pagination.page + 1)}
+                  disabled={pagination.page === pagination.totalPages}
+                  className="p-2 rounded-lg bg-[#0D1719] border border-white/10 text-white/60 hover:text-white hover:border-[#49E619]/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight size={16} />
+                </button>
               </div>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
       {/* Create Modal */}
