@@ -2,11 +2,15 @@ import mongoose from 'mongoose';
 import { Meal } from '../models/schemas/mealSchema.js';
 import { Order } from '../models/schemas/orderSchema.js';
 import { OrderItem } from '../models/schemas/orderItemSchema.js';
+import { Kitchen } from '../models/schemas/kitchenSchema.js';
 
 const findActiveMealsByIds = async (mealIds) =>
     Meal.find({ _id: { $in: mealIds }, isDeleted: false, isAvailable: true })
         .select('mealName priceInRupees')
         .lean();
+
+const findActiveKitchen = () =>
+    Kitchen.findOne({ isActive: true }).sort({ createdAt: 1 }).select('_id').lean();
 
 const createOrderWithItems = async (orderData, orderItems) => {
     const session = await mongoose.startSession();
@@ -41,6 +45,7 @@ const trackOrder = async (orderNumber, customerEmail) => {
                 'deliveryLocation',
                 'paymentId',
                 'assignedRiderId',
+                'kitchenId',
                 'isDeleted',
                 'deletedAt',
                 'items.orderId',
@@ -63,6 +68,7 @@ const trackMyOrders = async (pairs) =>
                 'deliveryLocation',
                 'paymentId',
                 'assignedRiderId',
+                'kitchenId',
                 'isDeleted',
                 'deletedAt',
                 'items.orderId',
@@ -107,6 +113,7 @@ const trackLiveOrder = async (orderNumber, customerEmail) => {
 
     return order || null;
 };
+
 const cancelOrder = async (orderNumber, customerEmail) =>
     Order.findOneAndUpdate(
         {
@@ -146,11 +153,11 @@ const getOrderById = async (orderId) => {
     return order || null;
 };
 
-// TODO: require paymentStatus success before moving to preparing (when payments are built)
 const updateOrderStatus = async (orderId, previousStatus, newStatus, assignedRiderId) => {
     const canMove = { $eq: ['$customerMealStatus', previousStatus] };
     const timeField = {
         preparing: 'statusTimestamps.preparingAt',
+        readyforpickup: 'statusTimestamps.readyAt',
         outfordelivery: 'statusTimestamps.outForDeliveryAt',
         delivered: 'statusTimestamps.deliveredAt',
     }[newStatus];
@@ -230,6 +237,7 @@ const updateDeliveryDetails = async ({ orderNumber, customerEmail, ...changes })
 
 export {
     findActiveMealsByIds,
+    findActiveKitchen,
     createOrderWithItems,
     trackOrder,
     trackMyOrders,

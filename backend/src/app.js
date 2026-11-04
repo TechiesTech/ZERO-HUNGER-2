@@ -9,6 +9,7 @@ import errorHandler from './middleware/errorHandler.js';
 import notFoundHandler from './middleware/notFoundHandler.js';
 import { authRouter } from './routes/authRoutes.js';
 import AppError from './utils/appError.js';
+import kitchenRoutes from './routes/kitchenRoutes.js';
 
 const app = express();
 
@@ -51,6 +52,7 @@ app.use('/api/meals', mealRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/auth', authRouter);
 app.use('/api/riders', riderRoutes);
+app.use('/api/kitchen', kitchenRoutes);
 
 // 404 & Centralized Error Handlers
 app.use(notFoundHandler);
