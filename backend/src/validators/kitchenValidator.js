@@ -11,5 +11,10 @@ const createKitchenSchema = Joi.object({
     }),
     password: Joi.string().min(8).max(72).required(),
 });
-
-export { createKitchenSchema };
+const getAllKitchensSchema = Joi.object({
+    search: Joi.string().trim().max(80),
+    isActive: Joi.boolean(),
+    page: Joi.number().integer().min(1).default(1),
+    limit: Joi.number().integer().min(1).max(100).default(10),
+});
+export { createKitchenSchema, getAllKitchensSchema };

@@ -1,4 +1,19 @@
+import { Kitchen } from '../models/schemas/kitchenSchema.js';
 import { Order } from '../models/schemas/orderSchema.js';
+
+const createKitchen = async (data) => {
+    const kitchen = await Kitchen.create(data);
+    const { passwordHash, ...safe } = kitchen.toObject();
+    return safe;
+};
+
+const getAllKitchens = async (filter, skip, limit) => {
+    const [kitchens, total] = await Promise.all([
+        Kitchen.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+        Kitchen.countDocuments(filter),
+    ]);
+    return { kitchens, total };
+};
 
 const findOrdersForKitchen = (kitchenId) =>
     Order.find({
@@ -17,4 +32,4 @@ const moveOrderStatus = (orderId, kitchenId, from, to, stampField) =>
         { new: true, runValidators: true }
     ).lean();
 
-export { findOrdersForKitchen, moveOrderStatus };
+export { createKitchen, getAllKitchens, findOrdersForKitchen, moveOrderStatus };
