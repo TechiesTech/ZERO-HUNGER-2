@@ -27,12 +27,6 @@ const createRider = async (body) => {
     }
 };
 
-const updateRiderLocation = async (riderId, payload) => {
-    const rider = await riderRepository.updateLocationById(riderId, payload);
-    if (!rider) throw new AppError('Rider not found', 404);
-    return rider;
-};
-
 const updateRider = async (riderId, body) => {
     const updates = { ...body }; // safe: Joi rejects unknown fields
     if (updates.phone) updates.phone = updates.phone.replace(/\D/g, '').slice(-10);
@@ -75,7 +69,6 @@ const deleteRider = async (riderId) => {
 };
 export {
     createRider,
-    updateRiderLocation,
     updateRider,
     getAllRiders,
     getRiderById,

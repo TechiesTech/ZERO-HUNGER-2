@@ -28,17 +28,19 @@ const orderSchema = new Schema(
     sponsoredMealsCount: { type: Number, min: 0, default: 0, validate: Number.isInteger },
     customerMealStatus: {
       type: String,
-      enum: ['confirmed', 'preparing', 'outfordelivery', 'delivered', 'cancelled'],
+      enum: ['confirmed', 'preparing', 'readyforpickup', 'outfordelivery', 'delivered', 'cancelled'],
       default: 'confirmed',
     },
     statusTimestamps: {
       preparingAt: { type: Date, default: null },
+      readyAt: { type: Date, default: null },
       outForDeliveryAt: { type: Date, default: null },
       deliveredAt: { type: Date, default: null },
       cancelledAt: { type: Date, default: null },
     },
     estimatedDeliveryAt: { type: Date, default: null },
-    assignedRiderId: { type: Schema.Types.ObjectId, ref: 'Riders', default: null },
+    kitchenId: { type: Schema.Types.ObjectId, ref: 'Kitchen', default: null },
+    assignedRiderId: { type: Schema.Types.ObjectId, ref: 'Rider', default: null },
     isDeleted: { type: Boolean, default: false },
     deletedAt: { type: Date, default: null },
   },
@@ -51,6 +53,8 @@ orderSchema.index({ isDeleted: 1, customerMealStatus: 1, createdAt: -1 });
 orderSchema.index({ isDeleted: 1, paymentStatus: 1, createdAt: -1 });
 orderSchema.index({ customerEmail: 1, createdAt: -1 });
 orderSchema.index({ 'deliveryAddress.pincode': 1 });
+orderSchema.index({ kitchenId: 1, customerMealStatus: 1, createdAt: 1 });
+orderSchema.index({ kitchenId: 1, isDeleted: 1, paymentStatus: 1, customerMealStatus: 1, createdAt: 1 });
 orderSchema.index(
   { assignedRiderId: 1 },
   { partialFilterExpression: { assignedRiderId: { $type: 'objectId' } } }

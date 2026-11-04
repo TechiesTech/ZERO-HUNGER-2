@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import AppError from '../utils/appError.js';
 import * as orderRepository from '../repositories/orderRepository.js';
+import * as riderRepository from '../repositories/riderRepository.js';
 import { getCachedRoute } from './routeService.js';
 
 const createOrder = async (body) => {
@@ -24,6 +25,10 @@ const createOrder = async (body) => {
             sponsoredChildMeals: quantity,
         };
     });
+
+    const kitchen = await orderRepository.findActiveKitchen();
+    if (!kitchen) throw new AppError('No kitchen is available right now', 503);
+
     const orderData = {
         customerName: body.customerName,
         customerEmail: body.customerEmail,
@@ -31,6 +36,7 @@ const createOrder = async (body) => {
         deliveryAddress: body.deliveryAddress,
         deliveryLocation: body.deliveryLocation,
         paymentMethod: body.paymentMethod,
+        kitchenId: kitchen._id,
         totalAmountInr: orderItems.reduce((sum, item) => sum + item.totalPriceInr, 0),
         sponsoredMealsCount: orderItems.reduce((sum, item) => sum + item.sponsoredChildMeals, 0),
     };
@@ -85,6 +91,7 @@ const trackLiveOrder = async ({ orderNumber, customerEmail }) => {
             : [
                 { status: 'confirmed', at: order.createdAt },
                 { status: 'preparing', at: times.preparingAt || null },
+                { status: 'readyforpickup', at: times.readyAt || null },
                 { status: 'outfordelivery', at: times.outForDeliveryAt || null },
                 { status: 'delivered', at: times.deliveredAt || null },
             ];
@@ -140,6 +147,7 @@ const cancelOrder = async ({ orderNumber, customerEmail }) => {
     }
     return order;
 };
+
 const getAllOrders = async ({ customerMealStatus, paymentStatus, search, from, to, page, limit }) => {
     const filter = { isDeleted: false };
     if (customerMealStatus) filter.customerMealStatus = customerMealStatus;
@@ -169,7 +177,7 @@ const getOrderById = async (orderId) => {
 };
 
 const updateOrderStatus = async (orderId, { customerMealStatus, assignedRiderId }) => {
-    const statusFlow = ['confirmed', 'preparing', 'outfordelivery', 'delivered'];
+    const statusFlow = ['confirmed', 'preparing', 'readyforpickup', 'outfordelivery', 'delivered'];
     const previousStatus = statusFlow[statusFlow.indexOf(customerMealStatus) - 1];
     if (!previousStatus) {
         throw new AppError('Order cannot be moved back to confirmed', 409);
@@ -237,6 +245,7 @@ const updateDeliveryDetails = async (payload) => {
     }
     return order;
 };
+
 export {
     createOrder,
     trackOrder,

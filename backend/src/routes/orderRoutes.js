@@ -23,7 +23,7 @@ import {
     updateDeliveryDetailsSchema,
 } from '../validators/orderValidator.js';
 import validate from '../middleware/validate.js';
-import adminAuth from '../middleware/adminAuth.js';
+import requireRole from '../middleware/requireRole.js';
 import {
     createOrderLimiter,
     trackOrderLimiter,
@@ -42,17 +42,17 @@ router.patch('/updateDeliveryDetails', updateOrderLimiter, validate(updateDelive
 router.patch('/cancelOrder', updateOrderLimiter, validate(cancelOrderSchema), cancelOrder);
 router.post('/trackLiveOrder', trackLiveOrderLimiter, validate(trackOrderSchema), trackLiveOrder);
 
-// Admin endpoints (protected by adminAuth)
-router.get('/getAllOrders', adminAuth, validate(getAllOrdersSchema, 'query'), getAllOrders);
-router.get('/getOrderById/:orderId', adminAuth, validate(orderIdParamSchema, 'params'), getOrderById);
-router.get('/getOrderStats', adminAuth, getOrderStats);
+// Admin endpoints (admin role only)
+router.get('/getAllOrders', requireRole('admin'), validate(getAllOrdersSchema, 'query'), getAllOrders);
+router.get('/getOrderById/:orderId', requireRole('admin'), validate(orderIdParamSchema, 'params'), getOrderById);
+router.get('/getOrderStats', requireRole('admin'), getOrderStats);
 router.patch(
     '/updateOrderStatus/:orderId',
-    adminAuth,
+    requireRole('admin'),
     validate(orderIdParamSchema, 'params'),
     validate(updateOrderStatusSchema),
     updateOrderStatus
 );
-router.delete('/deleteOrder/:orderId', adminAuth, validate(orderIdParamSchema, 'params'), deleteOrder);
+router.delete('/deleteOrder/:orderId', requireRole('admin'), validate(orderIdParamSchema, 'params'), deleteOrder);
 
 export default router;

@@ -87,6 +87,15 @@ npm run dev
 # Health check: http://localhost:5000/health
 ```
 
+## Rider Authentication
+
+The backend requires `JWT_SECRET` and `RIDER_JWT_SECRET` to each contain at least
+32 characters. They must be different values; configure both in the backend
+environment and deployment settings. Rider routes use `/api/riders`: management
+routes require an admin cookie, while `/login`, `/logout`, `/me`, and
+`/updateRiderLocation` use the separate `riderToken` cookie. Admins set a rider's
+initial password through `PATCH /api/riders/setRiderPassword/:riderId`.
+
 ---
 
 ## Scripts

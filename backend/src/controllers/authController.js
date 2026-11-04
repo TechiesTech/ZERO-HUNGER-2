@@ -1,8 +1,8 @@
-import * as adminService from '../services/adminService.js';
+import * as authService from '../services/authService.js';
 
 const login = async (req, res, next) => {
     try {
-        const { token, admin } = await adminService.login(req.body);
+        const { token, admin } = await authService.login(req.body);
         res.cookie('adminToken', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -18,7 +18,7 @@ const login = async (req, res, next) => {
 
 const logout = async (req, res, next) => {
     try {
-        await adminService.logout(req.admin._id);
+        await authService.logout(req.admin._id, req.admin.role);
         res.clearCookie('adminToken', {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',

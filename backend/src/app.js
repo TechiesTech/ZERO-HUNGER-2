@@ -7,9 +7,9 @@ import orderRoutes from './routes/orderRoutes.js';
 import riderRoutes from './routes/riderRoutes.js';
 import errorHandler from './middleware/errorHandler.js';
 import notFoundHandler from './middleware/notFoundHandler.js';
-import { adminRouter } from './routes/adminRoutes.js';
-import adminAuth from './middleware/adminAuth.js';
+import { authRouter } from './routes/authRoutes.js';
 import AppError from './utils/appError.js';
+import kitchenRoutes from './routes/kitchenRoutes.js';
 
 const app = express();
 
@@ -50,8 +50,9 @@ app.get('/health', (_req, res) => {
 // API Routes
 app.use('/api/meals', mealRoutes);
 app.use('/api/orders', orderRoutes);
-app.use('/api/admin', adminRouter);
-app.use('/api/riders', adminAuth, riderRoutes);
+app.use('/api/auth', authRouter);
+app.use('/api/riders', riderRoutes);
+app.use('/api/kitchen', kitchenRoutes);
 
 // 404 & Centralized Error Handlers
 app.use(notFoundHandler);

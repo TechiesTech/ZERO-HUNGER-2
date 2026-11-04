@@ -8,6 +8,14 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
   console.error('JWT_SECRET is missing or shorter than 32 characters');
   process.exit(1);
 }
+if (!process.env.RIDER_JWT_SECRET || process.env.RIDER_JWT_SECRET.length < 32) {
+  console.error('RIDER_JWT_SECRET is missing or shorter than 32 characters');
+  process.exit(1);
+}
+if (process.env.RIDER_JWT_SECRET === process.env.JWT_SECRET) {
+  console.error('RIDER_JWT_SECRET must be different from JWT_SECRET');
+  process.exit(1);
+}
 const startServer = async () => {
   try {
     await connectDB();
