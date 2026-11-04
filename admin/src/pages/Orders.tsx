@@ -10,13 +10,8 @@ import {
   Trash2,
   X,
   Loader2,
-<<<<<<< Updated upstream
-} from 'lucide-react';
-import { useOrders, type Order } from '@/hooks';
-=======
   RefreshCw,
   History,
-  X,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -26,7 +21,6 @@ import {
   type KitchenOrder,
   type OrderDetails,
 } from '@/hooks';
->>>>>>> Stashed changes
 
 /* ── Stat card for Orders ── */
 function OrderStat({ label, value, icon, accent }: {
@@ -64,10 +58,6 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-<<<<<<< Updated upstream
-export function Orders(): React.ReactElement {
-  const { orders, stats, loading, error, fetchOrders, updateStatus, deleteOrder: deleteOrderById } = useOrders();
-=======
 function KitchenOrders(): React.ReactElement {
   const { orders, loading, error, fetchPaidOrders, changeOrderStatus } = useKitchenOrders();
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
@@ -142,6 +132,9 @@ function KitchenOrders(): React.ReactElement {
                       <span className="text-white/45">× {item.quantity}</span>
                     </li>
                   ))}
+                  {order.items.length === 0 && (
+                    <li className="text-sm text-white/40">No item details available for this order.</li>
+                  )}
                 </ul>
 
                 <div className="flex justify-end border-t border-white/8 pt-3">
@@ -281,7 +274,6 @@ function AdminOrders(): React.ReactElement {
     deleteOrder: deleteOrderById,
   } = useOrders();
   const { riders, error: riderError, assignRider, unassignRider } = useDeliveryAssignments();
->>>>>>> Stashed changes
 
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
@@ -606,4 +598,9 @@ function AdminOrders(): React.ReactElement {
       )}
     </div>
   );
+}
+
+export function Orders(): React.ReactElement {
+  const { admin } = useAuth();
+  return admin?.role === 'kitchen' ? <KitchenOrders /> : <AdminOrders />;
 }

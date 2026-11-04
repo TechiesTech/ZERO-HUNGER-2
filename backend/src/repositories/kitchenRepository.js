@@ -1,5 +1,6 @@
 import { Kitchen } from '../models/schemas/kitchenSchema.js';
 import { Order } from '../models/schemas/orderSchema.js';
+import { OrderItem } from '../models/schemas/orderItemSchema.js';
 
 const createKitchen = async (data) => {
     const kitchen = await Kitchen.create(data);
@@ -18,8 +19,8 @@ const getAllKitchens = async (filter, skip, limit) => {
 const getActiveKitchens = () =>
     Kitchen.find({ isActive: true }).select('name address location').sort({ name: 1 }).lean();
 
-const findOrdersForKitchen = (kitchenId) =>
-    Order.find({
+const findOrdersForKitchen = async (kitchenId) => {
+    const orders = await Order.find({
         kitchenId,
         isDeleted: false,
         paymentStatus: 'success',
@@ -27,6 +28,23 @@ const findOrdersForKitchen = (kitchenId) =>
     })
         .sort({ createdAt: 1 })
         .lean();
+
+    if (orders.length === 0) return [];
+
+    const items = await OrderItem.find({ orderId: { $in: orders.map(({ _id }) => _id) } }).lean();
+    const itemsByOrderId = new Map();
+    for (const item of items) {
+        const key = String(item.orderId);
+        const orderItems = itemsByOrderId.get(key) || [];
+        orderItems.push(item);
+        itemsByOrderId.set(key, orderItems);
+    }
+
+    return orders.map((order) => ({
+        ...order,
+        items: itemsByOrderId.get(String(order._id)) || [],
+    }));
+};
 
 const moveOrderStatus = (orderId, kitchenId, from, to, stampField) =>
     Order.findOneAndUpdate(
