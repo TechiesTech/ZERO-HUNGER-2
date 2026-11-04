@@ -1,16 +1,29 @@
 import bcrypt from 'bcryptjs';
 import AppError from '../utils/appError.js';
-import * as authRepository from '../repositories/authRepository.js';
 import * as kitchenRepository from '../repositories/kitchenRepository.js';
 
 const createKitchen = async ({ password, ...rest }) => {
     const passwordHash = await bcrypt.hash(password, 12);
     try {
-        return await authRepository.createKitchen({ ...rest, passwordHash });
+        return await kitchenRepository.createKitchen({ ...rest, passwordHash });
     } catch (error) {
         if (error.code === 11000) throw new AppError('A kitchen with this email already exists', 409);
         throw error;
     }
+};
+
+const getAllKitchens = async ({ search, isActive, page, limit }) => {
+    const filter = {};
+    if (isActive !== undefined) filter.isActive = isActive;
+    if (search) {
+        const pattern = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+        filter.$or = [{ name: pattern }, { email: pattern }, { phone: pattern }];
+    }
+    const { kitchens, total } = await kitchenRepository.getAllKitchens(filter, (page - 1) * limit, limit);
+    return {
+        kitchens,
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
 };
 
 const getPaidOrders = (kitchenId) => kitchenRepository.findOrdersForKitchen(kitchenId);
@@ -27,4 +40,4 @@ const markReady = async (orderId, kitchenId) => {
     return order;
 };
 
-export { createKitchen, getPaidOrders, startPreparing, markReady };
+export { createKitchen, getAllKitchens, getPaidOrders, startPreparing, markReady };
