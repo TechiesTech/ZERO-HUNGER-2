@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, UtensilsCrossed, ShoppingBag, Bike, LogOut } from 'lucide-react';
+import { LayoutDashboard, UtensilsCrossed, ShoppingBag, Bike, LogOut, ChefHat } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface NavItem {
@@ -14,6 +14,7 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
   { to: '/meals',     label: 'Meals',     icon: <UtensilsCrossed size={18} /> },
   { to: '/orders',    label: 'Orders',    icon: <ShoppingBag size={18} /> },
   { to: '/riders',    label: 'Riders',    icon: <Bike size={18} /> },
+  { to: '/kitchens',  label: 'Kitchens',  icon: <ChefHat size={18} /> },
 ];
 
 const KITCHEN_NAV_ITEMS: NavItem[] = [

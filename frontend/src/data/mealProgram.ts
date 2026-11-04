@@ -43,6 +43,7 @@ export interface MealProduct {
 
 export interface Order {
   id: string;
+  orderNumber?: string;
   userId: string;
   customerName: string;
   customerEmail: string;
@@ -50,7 +51,14 @@ export interface Order {
   deliveryAddress: string;
   totalAmountInr: number;
   sponsoredMealsCount: number;
-  customerMealStatus: 'CONFIRMED' | 'PREPARING_IN_KITCHEN' | 'OUT_FOR_DELIVERY' | 'DELIVERED_TO_CUSTOMER';
+  customerMealStatus:
+    | 'CONFIRMED'
+    | 'PREPARING'
+    | 'READYFORPICKUP'
+    | 'OUTFORDELIVERY'
+    | 'DELIVERED'
+    | 'CANCELLED';
+  paymentStatus?: Payment['status'];
   createdAt: string;
 }
 

@@ -53,8 +53,6 @@ const trackOrder = async (orderNumber, customerEmail) => {
         { $lookup: { from: 'orderItems', localField: '_id', foreignField: 'orderId', as: 'items' } },
         {
             $unset: [
-                'customerPhone',
-                'deliveryAddress',
                 'deliveryLocation',
                 'paymentId',
                 'assignedRiderId',

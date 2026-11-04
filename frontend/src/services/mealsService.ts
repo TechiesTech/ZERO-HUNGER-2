@@ -7,6 +7,7 @@ import { api } from './apiClient';
 
 export interface Meal {
   _id: string;
+  kitchenId: string;
   mealName: string;
   mealSlug: string;
   description: string;
@@ -53,12 +54,14 @@ export function toMealProduct(meal: Meal) {
 }
 
 export async function getAllMeals(query?: {
+  kitchenId?: string;
   page?: number;
   limit?: number;
   category?: string;
   isAvailable?: boolean;
 }): Promise<MealsResponse> {
   const params = new URLSearchParams();
+  if (query?.kitchenId) params.append('kitchenId', query.kitchenId);
   if (query?.page) params.append('page', query.page.toString());
   if (query?.limit) params.append('limit', query.limit.toString());
   if (query?.category) params.append('category', query.category);
@@ -74,4 +77,3 @@ export async function getMealBySlug(slug: string): Promise<Meal> {
   if (!meal) throw new Error(`Meal with slug "${slug}" not found`);
   return meal;
 }
-

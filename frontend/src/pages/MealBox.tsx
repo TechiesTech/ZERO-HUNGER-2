@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   ArrowDown,
@@ -24,6 +24,7 @@ import {
 } from '../data/mealProgram';
 import { useMealProgram } from '../context/MealProgramContext';
 import { useMeals } from '../hooks';
+import { getActiveKitchens, type Kitchen } from '../services/kitchenService';
 import { EditorialImage } from '../components/EditorialImage';
 import { ScrollReveal } from '../components/ScrollReveal';
 import { PlateToHandsSteps } from '../components/PlateToHandsSteps';
@@ -47,22 +48,33 @@ export const MealBox: React.FC = () => {
     addToCart,
     updateQuantity,
     removeFromCart,
+    clearCart,
     placeOrder,
   } = useMealProgram();
 
-  const { meals: backendMeals, loading: mealsLoading } = useMeals();
+  const [kitchens, setKitchens] = useState<Kitchen[]>([]);
+  const [kitchensLoading, setKitchensLoading] = useState(true);
+  const [kitchensError, setKitchensError] = useState('');
+  const [selectedKitchenId, setSelectedKitchenId] = useState('');
+  const { meals: backendMeals, loading: mealsLoading, error: mealsError } = useMeals(selectedKitchenId || null);
 
   const [activeCategory, setActiveCategory] = useState<MealCategory>('ALL');
   const [checkoutStep, setCheckoutStep] = useState<'CART' | 'CHECKOUT' | 'CONFIRMED'>('CART');
   const [submitting, setSubmitting] = useState(false);
 
   // Customer checkout fields
-  const [customerName, setCustomerName] = useState('Philip');
-  const [customerEmail, setCustomerEmail] = useState('philip@zerohunger.org');
-  const [customerPhone, setCustomerPhone] = useState('+91 98480 12345');
-  const [deliveryAddress, setDeliveryAddress] = useState(
-    'Plot 42, Road No. 12, Banjara Hills, Hyderabad'
-  );
+  const [customerName, setCustomerName] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState({
+    addressLine1: '',
+    addressLine2: '',
+    area: '',
+    landmark: '',
+    city: '',
+    state: '',
+    pincode: '',
+  });
   const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'CARD' | 'NET_BANKING'>('UPI');
   const [formError, setFormError] = useState('');
 
@@ -70,6 +82,25 @@ export const MealBox: React.FC = () => {
   const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null);
   const [confirmedTokens, setConfirmedTokens] = useState<CharityToken[]>([]);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getActiveKitchens()
+      .then((activeKitchens) => {
+        if (!active) return;
+        setKitchens(activeKitchens);
+        if (activeKitchens.length === 1) setSelectedKitchenId(activeKitchens[0]._id);
+      })
+      .catch((error: unknown) => {
+        if (active) setKitchensError(error instanceof Error ? error.message : 'Failed to load kitchens');
+      })
+      .finally(() => {
+        if (active) setKitchensLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const filteredProducts =
     activeCategory === 'ALL'
@@ -92,8 +123,16 @@ export const MealBox: React.FC = () => {
 
   const handleCompletePayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerName.trim() || !customerEmail.trim() || !deliveryAddress.trim()) {
-      setFormError('Please provide your name, email, and delivery address for your meal.');
+    if (
+      !customerName.trim() ||
+      !customerEmail.trim() ||
+      !deliveryAddress.addressLine1.trim() ||
+      !deliveryAddress.area.trim() ||
+      !deliveryAddress.city.trim() ||
+      !deliveryAddress.state.trim() ||
+      !deliveryAddress.pincode.trim()
+    ) {
+      setFormError('Please complete your name, email, and required delivery address fields.');
       return;
     }
     setFormError('');
@@ -249,6 +288,43 @@ export const MealBox: React.FC = () => {
       ====================================================================== */}
       <section id="meal-box-catalog" className="bg-[#122023] py-18 sm:py-24">
         <div className="max-w-[1360px] mx-auto px-5 sm:px-8 lg:px-12">
+          <div className="mb-8 rounded-[12px] border border-white/12 bg-[#080808]/50 p-5">
+            <label htmlFor="kitchen-picker" className="block text-xs font-mono-tabular font-bold uppercase tracking-widest text-[#49E619] mb-2">
+              Choose a kitchen
+            </label>
+            {kitchensLoading ? (
+              <p className="text-sm text-white/60">Loading available kitchens…</p>
+            ) : kitchensError ? (
+              <p role="alert" className="text-sm text-red-300">{kitchensError}</p>
+            ) : kitchens.length === 0 ? (
+              <p className="text-sm text-white/60">There are no active kitchens available right now.</p>
+            ) : (
+              <>
+                <select
+                  id="kitchen-picker"
+                  value={selectedKitchenId}
+                  onChange={(event) => {
+                    if (event.target.value === selectedKitchenId) return;
+                    clearCart();
+                    setCheckoutStep('CART');
+                    setSelectedKitchenId(event.target.value);
+                  }}
+                  className="w-full max-w-xl rounded-[8px] bg-[#080808] border border-white/20 px-3 py-3 text-sm text-white focus:outline-none focus:border-[#49E619]"
+                >
+                  <option value="">Select a kitchen to see its menu</option>
+                  {kitchens.map((kitchen) => (
+                    <option key={kitchen._id} value={kitchen._id}>{kitchen.name}</option>
+                  ))}
+                </select>
+                {selectedKitchenId && (
+                  <p className="mt-2 text-xs text-white/50">
+                    {kitchens.find((kitchen) => kitchen._id === selectedKitchenId)?.address}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+
           {/* Category Filter Tabs */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 mb-12 border-b border-white/12">
             <div>
@@ -290,6 +366,16 @@ export const MealBox: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
             {/* LEFT 8 COLUMNS: Meal Box Product Grid */}
             <div className="lg:col-span-8">
+              {!selectedKitchenId && !kitchensLoading && kitchens.length > 0 && (
+                <div className="mb-5 rounded-xl border border-white/10 bg-[#080808]/40 p-5 text-sm text-white/60">
+                  Select a kitchen above to browse its available meals.
+                </div>
+              )}
+              {mealsError && (
+                <div role="alert" className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
+                  Could not load this kitchen’s meals: {mealsError}
+                </div>
+              )}
               <motion.div
                 layout
                 className="grid grid-cols-1 sm:grid-cols-2 gap-6"
@@ -423,6 +509,11 @@ export const MealBox: React.FC = () => {
                     );
                   })}
                 </AnimatePresence>
+                {!mealsLoading && selectedKitchenId && filteredProducts.length === 0 && !mealsError && (
+                  <p className="col-span-full rounded-xl border border-white/10 bg-[#080808]/40 p-8 text-center text-sm text-white/55">
+                    No available meals in this kitchen match the selected category.
+                  </p>
+                )}
               </motion.div>
             </div>
 
@@ -433,46 +524,59 @@ export const MealBox: React.FC = () => {
             >
               <div className="rounded-[18px] bg-[#F2F4F3] text-[#122023] border border-white/20 shadow-2xl p-6 sm:p-7">
                 {/* =========================================================
-                    STATE 3: ORDER CONFIRMED & UNIQUE TOKEN GENERATED
+                    STATE 3: ORDER CREATED
                 ========================================================== */}
                 {checkoutStep === 'CONFIRMED' && confirmedOrder ? (
                   <div>
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-[6px] bg-[#49E619] text-[#122023] text-xs font-mono-tabular font-bold uppercase tracking-widest mb-4">
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>ORDER CONFIRMED ✓</span>
+                      <span>ORDER SUBMITTED</span>
                     </div>
 
                     <h3 className="font-display-sans uppercase text-2xl font-black text-[#122023]">
-                      Thank you for helping us nourish another child.
+                      Your order request has been submitted.
                     </h3>
+                    <p className="mt-2 text-sm text-[#122023]/75">
+                      Order <strong>{confirmedOrder.orderNumber}</strong> is awaiting payment. No payment has been processed.
+                    </p>
+                    <Link
+                      to={`/track-order?orderNumber=${encodeURIComponent(confirmedOrder.orderNumber || '')}&email=${encodeURIComponent(confirmedOrder.customerEmail)}`}
+                      className="mt-3 inline-flex text-sm font-bold text-[#188D44] underline"
+                    >
+                      View your order status
+                    </Link>
 
-                    {/* Prominent Token Box */}
-                    <div className="mt-5 rounded-[12px] bg-[#122023] text-white p-5">
-                      <span className="text-[10px] font-mono-tabular uppercase tracking-[0.2em] text-white/60 block">
-                        YOUR MEAL TOKEN
-                      </span>
-
-                      {confirmedTokens.map((tok) => (
-                        <div
-                          key={tok.id}
-                          className="mt-2 flex items-center justify-between gap-2 pt-2 border-t border-white/10 first:border-t-0 first:pt-0"
-                        >
-                          <span className="font-mono-tabular text-xl sm:text-2xl font-bold text-[#49E619] tracking-wider">
-                            {tok.tokenNumber}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleCopyToken(tok.tokenNumber)}
-                            className="inline-flex items-center gap-1 rounded-[6px] text-[11px] font-mono-tabular uppercase tracking-wider bg-white/10 hover:bg-[#49E619] hover:text-[#080808] px-2.5 py-1.5 text-white transition-colors cursor-pointer"
+                    {confirmedTokens.length > 0 ? (
+                      <div className="mt-5 rounded-[12px] bg-[#122023] text-white p-5">
+                        <span className="text-[10px] font-mono-tabular uppercase tracking-[0.2em] text-white/60 block">
+                          YOUR MEAL TOKEN
+                        </span>
+                        {confirmedTokens.map((tok) => (
+                          <div
+                            key={tok.id}
+                            className="mt-2 flex items-center justify-between gap-2 pt-2 border-t border-white/10 first:border-t-0 first:pt-0"
                           >
-                            <Copy className="w-3 h-3" />
-                            <span>
-                              {copiedToken === tok.tokenNumber ? 'Copied' : 'Copy'}
+                            <span className="font-mono-tabular text-xl sm:text-2xl font-bold text-[#49E619] tracking-wider">
+                              {tok.tokenNumber}
                             </span>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyToken(tok.tokenNumber)}
+                              className="inline-flex items-center gap-1 rounded-[6px] text-[11px] font-mono-tabular uppercase tracking-wider bg-white/10 hover:bg-[#49E619] hover:text-[#080808] px-2.5 py-1.5 text-white transition-colors cursor-pointer"
+                            >
+                              <Copy className="w-3 h-3" />
+                              <span>
+                                {copiedToken === tok.tokenNumber ? 'Copied' : 'Copy'}
+                              </span>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-5 rounded-xl border border-[#122023]/15 bg-white p-4 text-sm text-[#122023]/70">
+                        Charity meal-token tracking is not available for this order yet.
+                      </p>
+                    )}
 
                     {/* Clear Dual-Stream Summary: Customer Meal vs Sponsored Child Meal */}
                     <div className="mt-5 space-y-3 text-xs border-y border-[#122023]/12 py-4">
@@ -481,15 +585,13 @@ export const MealBox: React.FC = () => {
                           1. YOUR PURCHASED MEAL (FOR YOU)
                         </span>
                         <div className="font-bold text-[#122023] text-sm mt-0.5 flex items-center justify-between">
-                          <span>
-                            {confirmedTokens[0]?.productName || 'Protein Power Meal'}
-                          </span>
+                          <span>Order total</span>
                           <span className="font-mono-tabular">
                             ₹{confirmedOrder.totalAmountInr}
                           </span>
                         </div>
                         <span className="mt-1 inline-block text-[11px] text-[#188D44] font-semibold">
-                          Status: Kitchen Preparing for {confirmedOrder.deliveryAddress}
+                          Order status: {confirmedOrder.customerMealStatus.toLowerCase()} · Payment: {confirmedOrder.paymentStatus?.toLowerCase() || 'pending'}
                         </span>
                       </div>
 
@@ -503,31 +605,26 @@ export const MealBox: React.FC = () => {
                           for a child
                         </div>
                         <span className="mt-1 inline-block text-[11px] text-[#122023]/85">
-                          Assigned Beneficiary ID:{' '}
-                          <strong className="font-mono-tabular text-[#122023]">
-                            {confirmedTokens[0]?.beneficiaryId || 'ZH-10482'}
-                          </strong>{' '}
-                          ({confirmedTokens[0]?.deliveryLocation})
+                          Sponsorship allocation is pending payment confirmation.
                         </span>
                       </div>
                     </div>
 
                     <div className="mt-6 space-y-3">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          navigate(
-                            `/track-meal?token=${encodeURIComponent(
-                              confirmedTokens[0]?.tokenNumber || 'ZH-2026-A8F42K'
-                            )}`
-                          )
-                        }
-                        className="w-full py-4 px-5 rounded-[10px] bg-[#49E619] hover:bg-[#3cd110] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-widest inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                      >
-                        <span>TRACK YOUR IMPACT</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </button>
-
+                      {confirmedTokens.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigate(
+                              `/track-meal?token=${encodeURIComponent(confirmedTokens[0].tokenNumber)}`
+                            )
+                          }
+                          className="w-full py-4 px-5 rounded-[10px] bg-[#49E619] hover:bg-[#3cd110] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-widest inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                        >
+                          <span>TRACK YOUR IMPACT</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => setCheckoutStep('CART')}
@@ -564,13 +661,15 @@ export const MealBox: React.FC = () => {
                           Add any ₹150 meal box from the menu to nourish yourself
                           and sponsor a linked hot meal for a child.
                         </p>
-                        <button
-                          type="button"
-                          onClick={() => addToCart(backendMeals[0])}
-                          className="mt-5 px-5 py-3 rounded-[10px] bg-[#49E619] hover:bg-[#B9FF2C] text-[#080808] font-mono-tabular text-[11px] font-bold uppercase tracking-widest transition-colors cursor-pointer"
-                        >
-                          + Quick Add {backendMeals[0]?.name || 'Meal'} (₹{backendMeals[0]?.priceInr || 150})
-                        </button>
+                        {backendMeals.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => addToCart(backendMeals[0])}
+                            className="mt-5 px-5 py-3 rounded-[10px] bg-[#49E619] hover:bg-[#B9FF2C] text-[#080808] font-mono-tabular text-[11px] font-bold uppercase tracking-widest transition-colors cursor-pointer"
+                          >
+                            + Quick Add {backendMeals[0].name} (₹{backendMeals[0].priceInr})
+                          </button>
+                        )}
                       </div>
                     ) : (
                       <>
@@ -759,25 +858,45 @@ export const MealBox: React.FC = () => {
                               </div>
                             </div>
 
-                            <div>
-                              <label className="block text-[11px] font-mono-tabular uppercase text-[#122023]/70 mb-1">
-                                Your Meal Delivery Address
-                              </label>
-                              <input
-                                type="text"
-                                value={deliveryAddress}
-                                onChange={(e) =>
-                                  setDeliveryAddress(e.target.value)
-                                }
-                                className="w-full rounded-[8px] bg-white border border-[#122023]/20 px-3 py-2 text-xs text-[#122023] focus:outline-none focus:border-[#122023]"
-                                required
-                              />
+                            <div className="grid grid-cols-2 gap-2.5">
+                              {([
+                                ['addressLine1', 'Address line 1', true],
+                                ['addressLine2', 'Address line 2', false],
+                                ['area', 'Area', true],
+                                ['landmark', 'Landmark', false],
+                                ['city', 'City', true],
+                                ['state', 'State', true],
+                                ['pincode', 'PIN code', true],
+                              ] as const).map(([field, label, required]) => (
+                                <div key={field} className={field === 'addressLine1' ? 'col-span-2' : ''}>
+                                  <label htmlFor={`delivery-${field}`} className="block text-[11px] font-mono-tabular uppercase text-[#122023]/70 mb-1">
+                                    {label}{required ? ' *' : ''}
+                                  </label>
+                                  <input
+                                    id={`delivery-${field}`}
+                                    type="text"
+                                    inputMode={field === 'pincode' ? 'numeric' : undefined}
+                                    pattern={field === 'pincode' ? '[1-9][0-9]{5}' : undefined}
+                                    maxLength={field === 'pincode' ? 6 : undefined}
+                                    value={deliveryAddress[field]}
+                                    onChange={(event) => setDeliveryAddress((current) => ({
+                                      ...current,
+                                      [field]: event.target.value,
+                                    }))}
+                                    className="w-full rounded-[8px] bg-white border border-[#122023]/20 px-3 py-2 text-xs text-[#122023] focus:outline-none focus:border-[#122023]"
+                                    required={required}
+                                  />
+                                </div>
+                              ))}
                             </div>
 
                             <div>
                               <label className="block text-[11px] font-mono-tabular uppercase text-[#122023]/70 mb-1">
                                 Payment Method
                               </label>
+                              <p className="mb-2 text-[11px] text-[#122023]/60">
+                                Payments are not processed yet; this selection is saved as a preference and the order remains pending payment.
+                              </p>
                               <div className="grid grid-cols-3 gap-2">
                                 {(['UPI', 'CARD', 'NET_BANKING'] as const).map(
                                   (method) => (
@@ -807,7 +926,7 @@ export const MealBox: React.FC = () => {
                               className="w-full py-4 px-5 rounded-[10px] bg-[#49E619] hover:bg-[#3cd110] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-widest inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
                             >
                               <ShieldCheck className="w-4 h-4" />
-                              <span>PAY ₹{cartTotalInr} & GENERATE TOKEN</span>
+                              <span>PLACE ORDER · ₹{cartTotalInr}</span>
                             </button>
                           </form>
                         )}
