@@ -5,8 +5,8 @@ interface Admin {
   _id: string;
   name: string;
   email: string;
-  role: string;
-  kitchenId?: string;
+  role: 'admin' | 'kitchen';
+  kitchenId?: string | null;
 }
 
 interface AuthContextType {
@@ -40,13 +40,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const response = await authApi.login(email, password);
-    setAdmin({
-      _id: response.data.admin.id,
-      name: response.data.admin.name,
-      email: response.data.admin.email,
-      role: response.data.admin.role,
-    });
+    await authApi.login(email, password);
+    const response = await authApi.getMe();
+    setAdmin(response.data);
   };
 
   const logout = async () => {

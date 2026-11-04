@@ -26,8 +26,9 @@ const createOrder = async (body) => {
         };
     });
 
-    const kitchen = await orderRepository.findActiveKitchen();
-    if (!kitchen) throw new AppError('No kitchen is available right now', 503);
+    if (new Set(meals.map((meal) => String(meal.kitchenId))).size > 1) {
+        throw new AppError('All meals in one order must be from the same kitchen', 400);
+    }
 
     const orderData = {
         customerName: body.customerName,
@@ -36,7 +37,7 @@ const createOrder = async (body) => {
         deliveryAddress: body.deliveryAddress,
         deliveryLocation: body.deliveryLocation,
         paymentMethod: body.paymentMethod,
-        kitchenId: kitchen._id,
+        kitchenId: meals[0].kitchenId,
         totalAmountInr: orderItems.reduce((sum, item) => sum + item.totalPriceInr, 0),
         sponsoredMealsCount: orderItems.reduce((sum, item) => sum + item.sponsoredChildMeals, 0),
     };
@@ -176,47 +177,6 @@ const getOrderById = async (orderId) => {
     return order;
 };
 
-const updateOrderStatus = async (orderId, { customerMealStatus, assignedRiderId }) => {
-    const statusFlow = ['confirmed', 'preparing', 'readyforpickup', 'outfordelivery', 'delivered'];
-    const previousStatus = statusFlow[statusFlow.indexOf(customerMealStatus) - 1];
-    if (!previousStatus) {
-        throw new AppError('Order cannot be moved back to confirmed', 409);
-    }
-    if (assignedRiderId) {
-        const rider = await riderRepository.findAssignableRiderById(assignedRiderId);
-        if (!rider) throw new AppError('Rider not found or inactive', 404);
-    }
-    const order = await orderRepository.updateOrderStatus(
-        orderId,
-        previousStatus,
-        customerMealStatus,
-        assignedRiderId
-    );
-    if (!order) throw new AppError('Order not found', 404);
-    const current = order.customerMealStatus;
-    if (current === customerMealStatus) {
-        throw new AppError(`Order is already ${current}`, 409);
-    }
-    if (current === 'cancelled') {
-        throw new AppError('Cancelled orders cannot be changed', 409);
-    }
-    if (current !== previousStatus) {
-        const nextStatus = statusFlow[statusFlow.indexOf(current) + 1];
-        throw new AppError(
-            nextStatus
-                ? `Status can only move from ${current} to ${nextStatus}`
-                : 'Order is already delivered',
-            409
-        );
-    }
-    return {
-        ...order,
-        customerMealStatus,
-        ...(assignedRiderId && { assignedRiderId }),
-        updatedAt: new Date(),
-    };
-};
-
 const getOrderStats = async () => {
     const istNow = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
     istNow.setUTCHours(0, 0, 0, 0);
@@ -254,7 +214,6 @@ export {
     cancelOrder,
     getAllOrders,
     getOrderById,
-    updateOrderStatus,
     getOrderStats,
     deleteOrder,
     updateDeliveryDetails,

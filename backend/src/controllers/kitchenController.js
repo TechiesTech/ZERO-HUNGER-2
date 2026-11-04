@@ -18,6 +18,15 @@ const getAllKitchens = async (req, res, next) => {
     }
 };
 
+const getActiveKitchens = async (_req, res, next) => {
+    try {
+        const data = await kitchenService.getActiveKitchens();
+        return res.status(200).json({ success: true, data });
+    } catch (error) {
+        return next(error);
+    }
+};
+
 const getPaidOrders = async (req, res, next) => {
     try {
         const data = await kitchenService.getPaidOrders(req.admin.kitchenId);
@@ -45,4 +54,4 @@ const markReady = async (req, res, next) => {
     }
 };
 
-export { createKitchen, getAllKitchens, getPaidOrders, startPreparing, markReady };
+export { createKitchen, getAllKitchens, getActiveKitchens, getPaidOrders, startPreparing, markReady };

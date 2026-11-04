@@ -9,9 +9,16 @@ import {
   Trash2,
   Loader2,
   RefreshCw,
+  History,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useKitchenOrders, useOrders, type KitchenOrder, type Order } from '@/hooks';
+import {
+  useDeliveryAssignments,
+  useKitchenOrders,
+  useOrders,
+  type KitchenOrder,
+  type OrderDetails,
+} from '@/hooks';
 
 /* ── Stat card for Orders ── */
 function OrderStat({ label, value, icon, accent }: {
@@ -33,6 +40,8 @@ function StatusBadge({ status }: { status: string }) {
   const config: Record<string, { color: string; label: string }> = {
     confirmed: { color: 'bg-[#B9FF2C] text-[#122023]', label: 'Confirmed' },
     preparing: { color: 'bg-[#4EDBE2] text-[#080808]', label: 'Preparing' },
+    readyforpickup: { color: 'bg-[#B9FF2C] text-[#122023]', label: 'Ready for Pickup' },
+    outfordelivery: { color: 'bg-[#FFB347] text-[#080808]', label: 'Out for Delivery' },
     out_for_delivery: { color: 'bg-[#FFB347] text-[#080808]', label: 'Out for Delivery' },
     delivered: { color: 'bg-[#49E619] text-[#080808]', label: 'Delivered' },
     cancelled: { color: 'bg-red-500 text-white', label: 'Cancelled' },
@@ -121,6 +130,9 @@ function KitchenOrders(): React.ReactElement {
                       <span className="text-white/45">× {item.quantity}</span>
                     </li>
                   ))}
+                  {order.items.length === 0 && (
+                    <li className="text-sm text-white/40">No item details available for this order.</li>
+                  )}
                 </ul>
 
                 <div className="flex justify-end border-t border-white/8 pt-3">
@@ -155,18 +167,128 @@ function KitchenOrders(): React.ReactElement {
   );
 }
 
+function DeliveryHistoryModal({
+  orderNumber,
+  details,
+  loading,
+  error,
+  onClose,
+}: {
+  orderNumber: string;
+  details: OrderDetails | null;
+  loading: boolean;
+  error: string | null;
+  onClose: () => void;
+}): React.ReactElement {
+  const formatDate = (value: string | null) => value ? new Date(value).toLocaleString() : '—';
+
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 p-4" onMouseDown={onClose}>
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delivery-history-title"
+        className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl border border-white/10 bg-[#0D1719] p-6 shadow-2xl"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-[#4EDBE2] font-bold">Order delivery</p>
+            <h2 id="delivery-history-title" className="mt-1 text-xl font-bold text-white">{orderNumber}</h2>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-2 text-white/50 hover:bg-white/10 hover:text-white" aria-label="Close delivery history">
+            <X size={18} />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 py-12 text-sm text-white/40">
+            <Loader2 size={16} className="animate-spin" /> Loading delivery history…
+          </div>
+        ) : error ? (
+          <div className="mt-5 flex items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-400">
+            <AlertCircle size={16} />
+            {error}
+          </div>
+        ) : !details?.deliveries.length ? (
+          <p className="py-12 text-center text-sm text-white/40">No rider assignments have been recorded for this order.</p>
+        ) : (
+          <ol className="mt-6 space-y-4">
+            {details.deliveries.map((delivery, index) => (
+              <li key={delivery._id} className="rounded-xl border border-white/8 bg-black/20 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-white">
+                      Delivery attempt {index + 1}
+                      <span className="ml-2 text-xs font-medium uppercase tracking-wide text-[#4EDBE2]">
+                        {delivery.status}
+                      </span>
+                    </p>
+                    <p className="mt-1 text-xs text-white/50">
+                      Rider: {delivery.rider?.name || 'Unknown rider'}
+                      {delivery.rider?.phone ? ` · ${delivery.rider.phone}` : ''}
+                    </p>
+                  </div>
+                  {delivery.photoUrl && (
+                    <a
+                      href={delivery.photoUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-semibold text-[#4EDBE2] hover:underline"
+                    >
+                      View proof photo
+                    </a>
+                  )}
+                </div>
+                <dl className="mt-4 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+                  <div><dt className="text-white/35">Assigned</dt><dd className="mt-0.5 text-white/70">{formatDate(delivery.assignedAt)}</dd></div>
+                  <div><dt className="text-white/35">Accepted</dt><dd className="mt-0.5 text-white/70">{formatDate(delivery.acceptedAt)}</dd></div>
+                  <div><dt className="text-white/35">Picked up</dt><dd className="mt-0.5 text-white/70">{formatDate(delivery.pickedUpAt)}</dd></div>
+                  <div><dt className="text-white/35">Delivered</dt><dd className="mt-0.5 text-white/70">{formatDate(delivery.deliveredAt)}</dd></div>
+                  {delivery.releasedAt && (
+                    <div className="sm:col-span-2">
+                      <dt className="text-white/35">Released by {delivery.releasedBy || '—'}</dt>
+                      <dd className="mt-0.5 text-white/70">{formatDate(delivery.releasedAt)}</dd>
+                    </div>
+                  )}
+                </dl>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+    </div>
+  );
+}
+
 function AdminOrders(): React.ReactElement {
-  const { orders, stats, loading, error, fetchOrders, updateStatus, deleteOrder: deleteOrderById } = useOrders();
+  const {
+    orders,
+    stats,
+    loading,
+    error,
+    fetchOrders,
+    fetchOrderDetails,
+    deleteOrder: deleteOrderById,
+  } = useOrders();
+  const { riders, error: riderError, assignRider, unassignRider } = useDeliveryAssignments();
 
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [selectedRiders, setSelectedRiders] = useState<Record<string, string>>({});
+  const [updatingAssignment, setUpdatingAssignment] = useState<string | null>(null);
+  const [deliveryHistory, setDeliveryHistory] = useState<OrderDetails | null>(null);
+  const [deliveryHistoryOrderNumber, setDeliveryHistoryOrderNumber] = useState('');
+  const [deliveryHistoryLoading, setDeliveryHistoryLoading] = useState(false);
+  const [deliveryHistoryError, setDeliveryHistoryError] = useState<string | null>(null);
 
   useEffect(() => {
     const statusMap: Record<string, string> = {
       'ALL': '',
       'confirmed': 'confirmed',
       'preparing': 'preparing',
+      'readyforpickup': 'readyforpickup',
       'out_for_delivery': 'outfordelivery',
       'delivered': 'delivered',
       'cancelled': 'cancelled',
@@ -185,6 +307,7 @@ function AdminOrders(): React.ReactElement {
     const statusMap: Record<string, string> = {
       'confirmed': 'confirmed',
       'preparing': 'preparing',
+      'readyforpickup': 'readyforpickup',
       'out_for_delivery': 'outfordelivery',
       'delivered': 'delivered',
       'cancelled': 'cancelled',
@@ -194,11 +317,49 @@ function AdminOrders(): React.ReactElement {
     return matchSearch && matchStatus;
   }) : [];
 
-  const handleStatusChange = async (orderId: string, newStatus: string) => {
+  const refreshCurrentOrders = async () => {
+    const status = filterStatus === 'out_for_delivery' ? 'outfordelivery' : filterStatus;
+    await fetchOrders(filterStatus === 'ALL' ? {} : { status });
+  };
+
+  const handleViewDeliveryHistory = async (orderId: string, orderNumber: string) => {
+    setDeliveryHistoryOrderNumber(orderNumber);
+    setDeliveryHistory(null);
+    setDeliveryHistoryError(null);
+    setDeliveryHistoryLoading(true);
     try {
-      await updateStatus(orderId, newStatus);
+      setDeliveryHistory(await fetchOrderDetails(orderId));
+    } catch (err: unknown) {
+      setDeliveryHistoryError(err instanceof Error ? err.message : 'Failed to load delivery history');
+    } finally {
+      setDeliveryHistoryLoading(false);
+    }
+  };
+
+  const handleAssignRider = async (orderId: string) => {
+    const riderId = selectedRiders[orderId];
+    if (!riderId) return;
+    setUpdatingAssignment(orderId);
+    try {
+      await assignRider(orderId, riderId);
+      setSelectedRiders((current) => ({ ...current, [orderId]: '' }));
+      await refreshCurrentOrders();
     } catch (err: any) {
-      alert(`Failed to update status: ${err.message}`);
+      alert(`Failed to assign rider: ${err.message}`);
+    } finally {
+      setUpdatingAssignment(null);
+    }
+  };
+
+  const handleUnassignRider = async (orderId: string) => {
+    setUpdatingAssignment(orderId);
+    try {
+      await unassignRider(orderId);
+      await refreshCurrentOrders();
+    } catch (err: any) {
+      alert(`Failed to unassign rider: ${err.message}`);
+    } finally {
+      setUpdatingAssignment(null);
     }
   };
 
@@ -241,6 +402,12 @@ function AdminOrders(): React.ReactElement {
           <span>{error}</span>
         </div>
       )}
+      {riderError && (
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+          <AlertCircle size={16} />
+          <span>Rider list unavailable: {riderError}</span>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
@@ -255,7 +422,7 @@ function AdminOrders(): React.ReactElement {
           />
         </div>
         <div className="flex gap-1.5 flex-wrap">
-          {['ALL', 'confirmed', 'preparing', 'out_for_delivery', 'delivered', 'cancelled'].map((status) => (
+          {['ALL', 'confirmed', 'preparing', 'readyforpickup', 'out_for_delivery', 'delivered', 'cancelled'].map((status) => (
             <button
               key={status}
               onClick={() => setFilterStatus(status)}
@@ -265,7 +432,7 @@ function AdminOrders(): React.ReactElement {
                   : 'bg-[#0D1719] text-white/50 border border-white/8 hover:border-[#4EDBE2] hover:text-white'
               }`}
             >
-              {status.replace('_', ' ')}
+              {status === 'readyforpickup' ? 'READY FOR PICKUP' : status.replace('_', ' ')}
             </button>
           ))}
         </div>
@@ -292,6 +459,7 @@ function AdminOrders(): React.ReactElement {
                   <th className="text-left px-5 py-3 text-[11px] text-white/40 uppercase tracking-wider font-medium">Status</th>
                   <th className="text-left px-5 py-3 text-[11px] text-white/40 uppercase tracking-wider font-medium">Sponsored</th>
                   <th className="text-left px-5 py-3 text-[11px] text-white/40 uppercase tracking-wider font-medium">Date</th>
+                  <th className="text-left px-5 py-3 text-[11px] text-white/40 uppercase tracking-wider font-medium">Delivery</th>
                   <th className="text-right px-5 py-3 text-[11px] text-white/40 uppercase tracking-wider font-medium">Actions</th>
                 </tr>
               </thead>
@@ -317,19 +485,69 @@ function AdminOrders(): React.ReactElement {
                     <td className="px-5 py-3 text-white/40 text-xs">
                       {new Date(order.createdAt).toLocaleDateString()}
                     </td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {order.paymentStatus === 'success' &&
+                        ['confirmed', 'preparing', 'readyforpickup'].includes(order.orderStatus) ? (
+                          order.assignedRiderId ? (
+                            <>
+                              <span className="text-xs text-white/60">
+                                {riders.find((rider) => rider._id === order.assignedRiderId)?.name || 'Rider assigned'}
+                              </span>
+                              <button
+                                onClick={() => handleUnassignRider(order._id)}
+                                disabled={updatingAssignment === order._id}
+                                className="px-2 py-1 rounded text-[10px] font-bold bg-white/10 text-white/70 hover:bg-white/20 disabled:opacity-50"
+                              >
+                                {updatingAssignment === order._id ? 'Updating…' : 'Unassign'}
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <select
+                                value={selectedRiders[order._id] || ''}
+                                onChange={(event) => setSelectedRiders((current) => ({
+                                  ...current,
+                                  [order._id]: event.target.value,
+                                }))}
+                                disabled={updatingAssignment === order._id}
+                                className="max-w-40 px-2 py-1 rounded bg-[#080808] border border-white/20 text-white/70 text-xs focus:outline-none focus:border-[#4EDBE2]"
+                              >
+                                <option value="">Choose rider</option>
+                                {riders.filter((rider) => rider.isAvailable && !rider.isBusy).map((rider) => (
+                                  <option key={rider._id} value={rider._id}>
+                                    {rider.name} · {rider.phone}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                onClick={() => handleAssignRider(order._id)}
+                                disabled={!selectedRiders[order._id] || updatingAssignment === order._id}
+                                className="px-2 py-1 rounded text-[10px] font-bold bg-[#4EDBE2] text-[#080808] disabled:opacity-40"
+                              >
+                                {updatingAssignment === order._id ? 'Assigning…' : 'Assign'}
+                              </button>
+                            </>
+                          )
+                        ) : order.assignedRiderId ? (
+                          <span className="text-xs text-white/60">
+                            {riders.find((rider) => rider._id === order.assignedRiderId)?.name || 'Rider assigned'}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-white/30">—</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-5 py-3 text-right">
                       <div className="flex items-center justify-end gap-1.5">
-                        <select
-                          value={order.orderStatus}
-                          onChange={(e) => handleStatusChange(order._id, e.target.value)}
-                          className="px-2 py-1 rounded bg-[#080808] border border-white/20 text-white/70 text-xs focus:outline-none focus:border-[#4EDBE2] cursor-pointer"
+                        <button
+                          onClick={() => handleViewDeliveryHistory(order._id, order.orderNumber)}
+                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs text-white/60 hover:bg-white/10 hover:text-white"
+                          title="View delivery history"
                         >
-                          <option value="confirmed">Confirmed</option>
-                          <option value="preparing">Preparing</option>
-                          <option value="out_for_delivery">Out for Delivery</option>
-                          <option value="delivered">Delivered</option>
-                          <option value="cancelled">Cancelled</option>
-                        </select>
+                          <History size={14} />
+                          History
+                        </button>
                         {deleteConfirm === order._id ? (
                           <div className="flex items-center gap-1">
                             <button
@@ -363,6 +581,19 @@ function AdminOrders(): React.ReactElement {
           </div>
         )}
       </div>
+      {(deliveryHistoryLoading || deliveryHistory || deliveryHistoryError) && (
+        <DeliveryHistoryModal
+          orderNumber={deliveryHistoryOrderNumber}
+          details={deliveryHistory}
+          loading={deliveryHistoryLoading}
+          error={deliveryHistoryError}
+          onClose={() => {
+            setDeliveryHistory(null);
+            setDeliveryHistoryError(null);
+            setDeliveryHistoryLoading(false);
+          }}
+        />
+      )}
     </div>
   );
 }

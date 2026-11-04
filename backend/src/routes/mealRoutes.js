@@ -9,13 +9,15 @@ import {
 
 const router = Router();
 
-// Public: Customers and Admin can browse meals
+// Public: donors, admin and kitchens can browse meals (filter by kitchenId)
 router.get('/getAllMeals', validate(getMealsQuerySchema, 'query'), getAllMeals);
 
-// Admin-only operations
-router.post('/createMeal', requireRole('admin'), validate(createMealSchema), createMeal);
-router.patch('/updateMealById/:mealId', requireRole('admin'), validate(mealIdParamSchema, 'params'), validate(updateMealSchema), updateMeal);
-router.post('/upload-image', requireRole('admin'), uploadImage, uploadMealImage);
-router.delete('/deleteMeal/:mealId', requireRole('admin'), validate(mealIdParamSchema, 'params'), deleteMeal);
+// Kitchen creates its own meals
+router.post('/createMeal', requireRole('kitchen'), validate(createMealSchema), createMeal);
+
+// Kitchen manages its own meals, admin can manage any meal
+router.patch('/updateMealById/:mealId', requireRole('admin', 'kitchen'), validate(mealIdParamSchema, 'params'), validate(updateMealSchema), updateMeal);
+router.post('/upload-image', requireRole('admin', 'kitchen'), uploadImage, uploadMealImage);
+router.delete('/deleteMeal/:mealId', requireRole('admin', 'kitchen'), validate(mealIdParamSchema, 'params'), deleteMeal);
 
 export default router;

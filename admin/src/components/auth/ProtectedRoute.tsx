@@ -19,8 +19,8 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Kitchen users can only access the Orders page
-  if (role === 'kitchen' && location.pathname !== '/orders' && location.pathname !== '/') {
+  // Kitchen users can manage their meals and process their own orders.
+  if (admin?.role === 'kitchen' && !['/orders', '/meals', '/'].includes(location.pathname)) {
     return <Navigate to="/orders" replace />;
   }
 

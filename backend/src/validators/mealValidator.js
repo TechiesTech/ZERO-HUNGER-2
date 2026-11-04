@@ -50,6 +50,9 @@ const mealIdParamSchema = Joi.object({
 });
 
 const getMealsQuerySchema = Joi.object({
+    kitchenId: Joi.string().pattern(mongoIdPattern).messages({
+    'string.pattern.base': 'kitchenId must be a valid id',
+}),
     category: Joi.string().trim().uppercase().valid(...MEAL_CATEGORIES),
     isAvailable: Joi.boolean(),
     page: Joi.number().integer().min(1).default(1),

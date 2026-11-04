@@ -23,6 +23,7 @@ import { LiveTracking } from './pages/LiveTracking';
 import { ZeptoTracking } from './pages/ZeptoTracking';
 import { CelebrateAndGive } from './pages/CelebrateAndGive';
 import { CSRTaxBenefits } from './pages/CSRTaxBenefits';
+import { OrderLookup } from './pages/OrderLookup';
 
 function AppContent() {
   const [supportModalOpen, setSupportModalOpen] = useState(false);
@@ -51,6 +52,7 @@ function AppContent() {
               element={<Home onOpenSupport={handleOpenSupport} />}
             />
             <Route path="/meal-box" element={<MealBox />} />
+            <Route path="/track-order" element={<OrderLookup />} />
             <Route path="/track-meal" element={<TrackMeal />} />
             <Route path="/live-tracking/:orderNumber" element={<LiveTracking />} />
             <Route path="/zepto-tracking/:orderId" element={<ZeptoTracking />} />

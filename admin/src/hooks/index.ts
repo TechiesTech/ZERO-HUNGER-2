@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/services/adminApi';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Meal, MealsResponse, SingleMealResponse, MealFormData, ImageUploadResponse } from '@/types';
 
 export interface Order {
@@ -16,6 +17,7 @@ export interface Order {
   paymentStatus: string;
   paymentMethod: string;
   orderStatus: string;
+  assignedRiderId: string | null;
   sponsoredMealsCount: number;
   deliveryDetails: any;
   createdAt: string;
@@ -24,13 +26,77 @@ export interface Order {
 
 export interface OrderStats {
   totalOrders: number;
-  totalRevenue: number;
+  ordersToday: number;
   pendingOrders: number;
   preparingOrders: number;
   outForDelivery: number;
   deliveredOrders: number;
   cancelledOrders: number;
-  totalSponsoredMeals: number;
+}
+
+interface BackendOrderStats {
+  totalOrders?: number;
+  ordersToday?: number;
+  byMealStatus?: Partial<Record<'confirmed' | 'preparing' | 'outfordelivery' | 'delivered' | 'cancelled', number>>;
+}
+
+function mapOrderStats(backendStats: BackendOrderStats): OrderStats {
+  return {
+    totalOrders: backendStats.totalOrders || 0,
+    ordersToday: backendStats.ordersToday || 0,
+    pendingOrders: backendStats.byMealStatus?.confirmed || 0,
+    preparingOrders: backendStats.byMealStatus?.preparing || 0,
+    outForDelivery: backendStats.byMealStatus?.outfordelivery || 0,
+    deliveredOrders: backendStats.byMealStatus?.delivered || 0,
+    cancelledOrders: backendStats.byMealStatus?.cancelled || 0,
+  };
+}
+
+export function useOrderStats() {
+  const { admin } = useAuth();
+  const [stats, setStats] = useState<OrderStats | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchStats = useCallback(async () => {
+    if (admin?.role !== 'admin') {
+      setStats(null);
+      setError(null);
+      return;
+    }
+
+    setError(null);
+    try {
+      const res = await api.get<{ success: boolean; data: BackendOrderStats }>('/api/orders/getOrderStats');
+      setStats(mapOrderStats(res.data));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load order statistics');
+    }
+  }, [admin?.role]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  return { stats, error, fetchStats };
+}
+
+export interface DeliveryHistory {
+  _id: string;
+  status: 'assigned' | 'accepted' | 'pickedup' | 'delivered' | 'rejected' | 'cancelled';
+  riderId: string;
+  rider?: { name: string; phone: string };
+  assignedAt: string;
+  acceptedAt: string | null;
+  pickedUpAt: string | null;
+  deliveredAt: string | null;
+  releasedAt: string | null;
+  releasedBy: 'rider' | 'admin' | null;
+  photoUrl: string;
+}
+
+export interface OrderDetails {
+  orderNumber: string;
+  deliveries: DeliveryHistory[];
 }
 
 export interface KitchenOrder {
@@ -55,7 +121,7 @@ export interface KitchenOrder {
   createdAt: string;
 }
 
-export function useMeals() {
+export function useMeals(kitchenId?: string | null) {
   const [meals, setMeals] = useState<Meal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,15 +129,34 @@ export function useMeals() {
   const fetchMeals = useCallback(async () => {
     setLoading(true);
     setError(null);
+    if (kitchenId === null) {
+      setMeals([]);
+      setError('Kitchen account is missing its kitchen ID. Sign out and sign in again.');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const res = await api.get<MealsResponse>('/api/meals/getAllMeals');
-      setMeals(res.data);
+      const fetchPage = (page: number) => {
+        const params = new URLSearchParams({ limit: '100', page: String(page) });
+        if (kitchenId) params.set('kitchenId', kitchenId);
+        return api.get<MealsResponse>(`/api/meals/getAllMeals?${params.toString()}`);
+      };
+
+      const firstPage = await fetchPage(1);
+      const remainingPages = await Promise.all(
+        Array.from(
+          { length: Math.max(0, firstPage.pagination.totalPages - 1) },
+          (_, index) => fetchPage(index + 2)
+        )
+      );
+      setMeals([firstPage, ...remainingPages].flatMap((response) => response.data));
     } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [kitchenId]);
 
   useEffect(() => { fetchMeals(); }, [fetchMeals]);
 
@@ -111,7 +196,10 @@ export function useKitchenOrders() {
     setError(null);
     try {
       const res = await api.get<{ success: boolean; data: KitchenOrder[] }>('/api/kitchen/getPaidOrders');
-      setOrders(res.data);
+      setOrders(Array.isArray(res.data) ? res.data.map((order) => ({
+        ...order,
+        items: Array.isArray(order.items) ? order.items : [],
+      })) : []);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load kitchen orders');
       setOrders([]);
@@ -138,12 +226,20 @@ export function useKitchenOrders() {
 }
 
 export function useOrders() {
+  const { admin } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState<OrderStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchOrders = useCallback(async (query?: any) => {
+    if (admin?.role !== 'admin') {
+      setOrders([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -172,6 +268,7 @@ export function useOrders() {
         paymentStatus: order.paymentStatus || 'pending',
         paymentMethod: order.paymentMethod || 'UPI',
         orderStatus: order.customerMealStatus || order.orderStatus || 'confirmed',
+        assignedRiderId: order.assignedRiderId ? String(order.assignedRiderId) : null,
         sponsoredMealsCount: order.sponsoredMealsCount || 0,
         deliveryDetails: order.deliveryDetails || {},
         createdAt: order.createdAt,
@@ -185,76 +282,35 @@ export function useOrders() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [admin?.role]);
 
   const fetchStats = useCallback(async () => {
-    try {
-      const res = await api.get<{ success: boolean; data: any }>('/api/orders/getOrderStats');
-      const backendStats = res.data;
-
-      const transformedStats: OrderStats = {
-        totalOrders: backendStats.totalOrders || 0,
-        totalRevenue: 0,
-        pendingOrders: backendStats.byMealStatus?.confirmed || 0,
-        preparingOrders: backendStats.byMealStatus?.preparing || 0,
-        outForDelivery: backendStats.byMealStatus?.outfordelivery || 0,
-        deliveredOrders: backendStats.byMealStatus?.delivered || 0,
-        cancelledOrders: backendStats.byMealStatus?.cancelled || 0,
-        totalSponsoredMeals: 0,
-      };
-
-      setStats(transformedStats);
-    } catch (err: any) {
-      console.error('Failed to fetch order stats:', err.message);
+    if (admin?.role !== 'admin') {
+      setStats(null);
+      return;
     }
-  }, []);
+
+    try {
+      const res = await api.get<{ success: boolean; data: BackendOrderStats }>('/api/orders/getOrderStats');
+      setStats(mapOrderStats(res.data));
+    } catch (err: any) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch order stats');
+    }
+  }, [admin?.role]);
+
+  const fetchOrderDetails = async (orderId: string) => {
+    if (admin?.role !== 'admin') throw new Error('Admin access is required to view order details.');
+    const res = await api.get<{ success: boolean; data: OrderDetails }>(`/api/orders/getOrderById/${orderId}`);
+    return res.data;
+  };
 
   useEffect(() => {
     fetchOrders();
     fetchStats();
   }, [fetchOrders, fetchStats]);
 
-  const updateStatus = async (orderId: string, status: string) => {
-    const statusMap: Record<string, string> = {
-      'confirmed': 'confirmed',
-      'preparing': 'preparing',
-      'out_for_delivery': 'outfordelivery',
-      'delivered': 'delivered',
-      'cancelled': 'cancelled',
-    };
-    const backendStatus = statusMap[status] || status;
-
-    const payload: any = { customerMealStatus: backendStatus };
-    if (backendStatus === 'outfordelivery') {
-      payload.assignedRiderId = '507f1f77bcf86cd799439011';
-    }
-
-    const res = await api.patch<{ success: boolean; data: any }>(`/api/orders/updateOrderStatus/${orderId}`, payload);
-    const updatedOrder = {
-      _id: res.data._id,
-      orderNumber: res.data.orderNumber,
-      customerName: res.data.customerName,
-      customerEmail: res.data.customerEmail,
-      customerPhone: res.data.customerPhone,
-      deliveryAddress: typeof res.data.deliveryAddress === 'string' ? res.data.deliveryAddress : JSON.stringify(res.data.deliveryAddress),
-      items: res.data.items || [],
-      subtotal: res.data.subtotal || 0,
-      tax: res.data.tax || 0,
-      total: res.data.totalAmountInr || res.data.total || 0,
-      paymentStatus: res.data.paymentStatus || 'pending',
-      paymentMethod: res.data.paymentMethod || 'UPI',
-      orderStatus: res.data.customerMealStatus || res.data.orderStatus || 'confirmed',
-      sponsoredMealsCount: res.data.sponsoredMealsCount || 0,
-      deliveryDetails: res.data.deliveryDetails || {},
-      createdAt: res.data.createdAt,
-      updatedAt: res.data.updatedAt,
-    };
-    setOrders((prev) => prev.map((o) => (o._id === orderId ? updatedOrder : o)));
-    await fetchStats();
-    return updatedOrder;
-  };
-
   const deleteOrderById = async (orderId: string) => {
+    if (admin?.role !== 'admin') throw new Error('Admin access is required to delete orders.');
     await api.delete(`/api/orders/deleteOrder/${orderId}`);
     setOrders((prev) => prev.filter((o) => o._id !== orderId));
     await fetchStats();
@@ -267,7 +323,58 @@ export function useOrders() {
     error,
     fetchOrders,
     fetchStats,
-    updateStatus,
+    fetchOrderDetails,
     deleteOrder: deleteOrderById,
   };
+}
+
+export interface DeliveryRider {
+  _id: string;
+  name: string;
+  phone: string;
+  isAvailable: boolean;
+  isBusy: boolean;
+}
+
+export function useDeliveryAssignments() {
+  const { admin } = useAuth();
+  const [riders, setRiders] = useState<DeliveryRider[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchRiders = useCallback(async () => {
+    if (admin?.role !== 'admin') {
+      setRiders([]);
+      setError(null);
+      return;
+    }
+
+    setError(null);
+    try {
+      const res = await api.get<{
+        success: boolean;
+        data: { riders: DeliveryRider[] };
+      }>('/api/riders/getAllRiders?isActive=true&limit=100');
+      setRiders(res.data.riders);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load riders');
+    }
+  }, [admin?.role]);
+
+  useEffect(() => {
+    fetchRiders();
+  }, [fetchRiders]);
+
+  const assignRider = async (orderId: string, riderId: string) => {
+    if (admin?.role !== 'admin') throw new Error('Admin access is required to assign riders.');
+    await api.patch(`/api/orders/assignRider/${orderId}`, { riderId });
+    await fetchRiders();
+  };
+
+  const unassignRider = async (orderId: string) => {
+    if (admin?.role !== 'admin') throw new Error('Admin access is required to unassign riders.');
+    await api.patch(`/api/orders/unassignRider/${orderId}`, {});
+    await fetchRiders();
+  };
+
+  return { riders, error, fetchRiders, assignRider, unassignRider };
 }

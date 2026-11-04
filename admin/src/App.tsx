@@ -10,12 +10,6 @@ import { Orders } from '@/pages/Orders';
 import { Riders } from '@/pages/Riders';
 import { Kitchens } from '@/pages/Kitchens';
 
-function RoleBasedRedirect() {
-  const { admin } = useAuth();
-  if (!admin) return <Navigate to="/login" replace />;
-  return <Navigate to={admin.role === 'kitchen' ? '/orders' : '/dashboard'} replace />;
-}
-
 export default function App(): React.ReactElement {
   return (
     <BrowserRouter>
@@ -31,7 +25,7 @@ export default function App(): React.ReactElement {
               </ProtectedRoute>
             }
           >
-            <Route index element={<RoleBasedRedirect />} />
+            <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/meals" element={<Meals />} />
             <Route path="/orders" element={<Orders />} />

@@ -13,6 +13,16 @@ import { riderLoginLimiter, riderLocationLimiter } from '../middleware/rateLimit
 import validate from '../middleware/validate.js';
 import requireRole from '../middleware/requireRole.js';
 import riderAuth from '../middleware/riderAuth.js';
+import uploadImage from '../middleware/uploadImage.js';
+import { orderIdParamSchema } from '../validators/orderValidator.js';
+import {
+    getMyActiveOrder,
+    acceptOrder,
+    rejectOrder,
+    markPickedUp,
+    uploadDeliveryPhoto,
+    markDelivered,
+} from '../controllers/deliveryController.js';
 
 const router = Router();
 
@@ -29,4 +39,10 @@ router.post('/login', riderLoginLimiter, validate(riderLoginSchema), login);
 router.post('/logout', riderAuth, logout);
 router.get('/me', riderAuth, getMe);
 router.patch('/updateRiderLocation', riderAuth, riderLocationLimiter, validate(updateRiderLocationSchema), updateMyLocation);
+router.get('/myActiveOrder', riderAuth, getMyActiveOrder);
+router.patch('/acceptOrder/:orderId', riderAuth, validate(orderIdParamSchema, 'params'), acceptOrder);
+router.patch('/rejectOrder/:orderId', riderAuth, validate(orderIdParamSchema, 'params'), rejectOrder);
+router.patch('/markPickedUp/:orderId', riderAuth, validate(orderIdParamSchema, 'params'), markPickedUp);
+router.post('/uploadDeliveryPhoto/:orderId', riderAuth, validate(orderIdParamSchema, 'params'), uploadImage, uploadDeliveryPhoto);
+router.patch('/markDelivered/:orderId', riderAuth, validate(orderIdParamSchema, 'params'), markDelivered);
 export default router;

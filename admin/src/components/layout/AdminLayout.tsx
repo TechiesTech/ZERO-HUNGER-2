@@ -19,14 +19,15 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
 
 const KITCHEN_NAV_ITEMS: NavItem[] = [
   { to: '/orders', label: 'Orders', icon: <ShoppingBag size={18} /> },
+  { to: '/meals', label: 'Meals', icon: <UtensilsCrossed size={18} /> },
 ];
 
 export function AdminLayout(): React.ReactElement {
   const { pathname } = useLocation();
   const { admin, logout } = useAuth();
   const role = admin?.role || 'admin';
-  const NAV_ITEMS = role === 'kitchen' ? KITCHEN_NAV_ITEMS : ADMIN_NAV_ITEMS;
-  const currentPage = NAV_ITEMS.find((n) => pathname.startsWith(n.to))?.label ?? 'Dashboard';
+  const navItems = role === 'kitchen' ? KITCHEN_NAV_ITEMS : ADMIN_NAV_ITEMS;
+  const currentPage = navItems.find((n) => pathname.startsWith(n.to))?.label ?? 'Dashboard';
 
   const handleLogout = async () => {
     await logout();
@@ -48,7 +49,7 @@ export function AdminLayout(): React.ReactElement {
 
         {/* Navigation */}
         <nav className="flex-1 py-4 px-3 space-y-1">
-          {NAV_ITEMS.map(({ to, label, icon }) => (
+          {navItems.map(({ to, label, icon }) => (
             <NavLink
               key={to}
               to={to}
