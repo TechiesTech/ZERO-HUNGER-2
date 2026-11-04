@@ -5,6 +5,8 @@ interface Admin {
   _id: string;
   name: string;
   email: string;
+  role: string;
+  kitchenId?: string;
 }
 
 interface AuthContextType {
