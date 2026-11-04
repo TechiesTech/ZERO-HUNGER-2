@@ -10,8 +10,23 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   if (body) headers['Content-Type'] = 'application/json';
 
   const res = await fetch(`${BASE_URL}${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.message ?? `Request failed (${res.status})`);
+  const responseText = await res.text();
+  let json: { message?: string; errors?: Array<{ field?: string; message?: string }> } = {};
+  if (responseText) {
+    try {
+      json = JSON.parse(responseText);
+    } catch {
+      if (res.ok) throw new Error('The server returned an invalid response.');
+    }
+  }
+  if (!res.ok) {
+    const message = json.message ?? `Request failed (${res.status})`;
+    const details = json.errors
+      ?.map((item) => [item.field, item.message].filter(Boolean).join(': '))
+      .filter(Boolean)
+      .join('; ');
+    throw new Error(details ? `${message}: ${details}` : message);
+  }
   return json as T;
 }
 

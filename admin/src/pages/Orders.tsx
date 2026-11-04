@@ -10,6 +10,7 @@ import {
   Loader2,
   RefreshCw,
   History,
+  X,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
