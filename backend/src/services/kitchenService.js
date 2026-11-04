@@ -26,6 +26,8 @@ const getAllKitchens = async ({ search, isActive, page, limit }) => {
     };
 };
 
+const getActiveKitchens = () => kitchenRepository.getActiveKitchens();
+
 const getPaidOrders = (kitchenId) => kitchenRepository.findOrdersForKitchen(kitchenId);
 
 const startPreparing = async (orderId, kitchenId) => {
@@ -40,4 +42,4 @@ const markReady = async (orderId, kitchenId) => {
     return order;
 };
 
-export { createKitchen, getAllKitchens, getPaidOrders, startPreparing, markReady };
+export { createKitchen, getAllKitchens, getActiveKitchens, getPaidOrders, startPreparing, markReady };

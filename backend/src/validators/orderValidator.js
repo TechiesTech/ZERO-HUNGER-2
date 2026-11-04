@@ -78,22 +78,8 @@ const orderIdParamSchema = Joi.object({
     orderId: Joi.string().trim().lowercase().hex().length(24).required(),
 });
 
-const updateOrderStatusSchema = Joi.object({
-    customerMealStatus: Joi.string()
-        .trim()
-        .lowercase()
-        .valid('preparing', 'readyforpickup', 'outfordelivery', 'delivered')
-        .required(),
-    assignedRiderId: Joi.string()
-        .trim()
-        .lowercase()
-        .hex()
-        .length(24)
-        .when('customerMealStatus', {
-            is: 'outfordelivery',
-            then: Joi.required(),
-            otherwise: Joi.forbidden(),
-        }),
+const assignRiderSchema = Joi.object({
+    riderId: Joi.string().trim().lowercase().hex().length(24).required(),
 });
 
 const updateDeliveryDetailsSchema = Joi.object({
@@ -130,6 +116,6 @@ export {
     cancelOrderSchema,
     getAllOrdersSchema,
     orderIdParamSchema,
-    updateOrderStatusSchema,
+    assignRiderSchema,
     updateDeliveryDetailsSchema,
 };

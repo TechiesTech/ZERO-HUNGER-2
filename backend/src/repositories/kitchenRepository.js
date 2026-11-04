@@ -15,6 +15,9 @@ const getAllKitchens = async (filter, skip, limit) => {
     return { kitchens, total };
 };
 
+const getActiveKitchens = () =>
+    Kitchen.find({ isActive: true }).select('name address location').sort({ name: 1 }).lean();
+
 const findOrdersForKitchen = (kitchenId) =>
     Order.find({
         kitchenId,
@@ -32,4 +35,4 @@ const moveOrderStatus = (orderId, kitchenId, from, to, stampField) =>
         { new: true, runValidators: true }
     ).lean();
 
-export { createKitchen, getAllKitchens, findOrdersForKitchen, moveOrderStatus };
+export { createKitchen, getAllKitchens, getActiveKitchens, findOrdersForKitchen, moveOrderStatus };

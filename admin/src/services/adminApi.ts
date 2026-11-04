@@ -39,12 +39,21 @@ export const api = {
 
 export const authApi = {
   login: (email: string, password: string) =>
+<<<<<<< Updated upstream
     api.post<{ success: boolean; message: string; data: { admin: { id: string; name: string; email: string } } }>(
       '/api/admin/login',
+=======
+    api.post<{ success: boolean; message: string; data: { admin: { id: string; name: string; email: string; role: 'admin' | 'kitchen' } } }>(
+      '/api/auth/login',
+>>>>>>> Stashed changes
       { email, password }
     ),
   logout: () =>
     api.post<{ success: boolean; message: string }>('/api/admin/logout', {}),
   getMe: () =>
+<<<<<<< Updated upstream
     api.get<{ success: boolean; data: { _id: string; name: string; email: string } }>('/api/admin/me'),
+=======
+    api.get<{ success: boolean; data: { _id: string; name: string; email: string; role: 'admin' | 'kitchen'; kitchenId?: string | null } }>('/api/auth/me'),
+>>>>>>> Stashed changes
 };

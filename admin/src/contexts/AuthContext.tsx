@@ -5,6 +5,11 @@ interface Admin {
   _id: string;
   name: string;
   email: string;
+<<<<<<< Updated upstream
+=======
+  role: 'admin' | 'kitchen';
+  kitchenId?: string | null;
+>>>>>>> Stashed changes
 }
 
 interface AuthContextType {
@@ -38,8 +43,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
+<<<<<<< Updated upstream
     const response = await authApi.login(email, password);
     setAdmin(response.data.admin);
+=======
+    await authApi.login(email, password);
+    const response = await authApi.getMe();
+    setAdmin(response.data);
+>>>>>>> Stashed changes
   };
 
   const logout = async () => {

@@ -14,6 +14,15 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/meals',     label: 'Meals',     icon: <UtensilsCrossed size={18} /> },
   { to: '/orders',    label: 'Orders',    icon: <ShoppingBag size={18} /> },
   { to: '/riders',    label: 'Riders',    icon: <Bike size={18} /> },
+<<<<<<< Updated upstream
+=======
+  { to: '/kitchens',  label: 'Kitchens',  icon: <ChefHat size={18} /> },
+];
+
+const KITCHEN_NAV_ITEMS: NavItem[] = [
+  { to: '/orders', label: 'Orders', icon: <ShoppingBag size={18} /> },
+  { to: '/meals', label: 'Meals', icon: <UtensilsCrossed size={18} /> },
+>>>>>>> Stashed changes
 ];
 
 export function AdminLayout(): React.ReactElement {
