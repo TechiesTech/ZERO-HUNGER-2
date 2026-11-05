@@ -1,41 +1,36 @@
+import mongoose from 'mongoose';
 import { Meal } from '../models/schemas/mealSchema.js';
 import cloudinary from '../config/cloudinary.js';
 
-const findActiveBySlug = async (mealSlug) =>
-    Meal.findOne({ mealSlug, isDeleted: false }).lean();
-
-const findActiveById = async (mealId) =>
-    Meal.findOne({ _id: mealId, isDeleted: false }).lean();
-
 const createMeal = async (mealData) => Meal.create(mealData);
 
-const updateMeal = async (mealId, updateData) =>
+const updateMeal = async (mealId, kitchenId, updateData) =>
     Meal.findOneAndUpdate(
-        { _id: mealId, isDeleted: false },
+        { _id: mealId, isDeleted: false, ...(kitchenId && { kitchenId }) },
         { $set: updateData },
         { new: true, runValidators: true }
     ).lean();
 
-const getAllMeals = async ({ category, isAvailable, page = 1, limit = 10 } = {}) => {
+const getAllMeals = async ({ kitchenId, category, isAvailable, page, limit }) => {
     const filter = { isDeleted: false };
+    if (kitchenId) filter.kitchenId = new mongoose.Types.ObjectId(kitchenId);
     if (category) filter.mealCategories = category;
     if (isAvailable !== undefined) filter.isAvailable = isAvailable;
 
-    const pageNum = Number(page) || 1;
-    const limitNum = Number(limit) || 10;
-    const skip = (pageNum - 1) * limitNum;
-
-    const [meals, totalMeals] = await Promise.all([
-        Meal.find(filter)
-            .sort({ displayOrder: 1, createdAt: 1 })
-            .skip(skip)
-            .limit(limitNum)
-            .lean(),
-        Meal.countDocuments(filter),
+    const [result] = await Meal.aggregate([
+        { $match: filter },
+        { $sort: { displayOrder: 1, createdAt: 1 } },
+        {
+            $facet: {
+                meals: [{ $skip: (page - 1) * limit }, { $limit: limit }],
+                total: [{ $count: 'count' }],
+            },
+        },
     ]);
 
-    return { meals, totalMeals };
+    return { meals: result.meals, totalMeals: result.total[0]?.count || 0 };
 };
+
 const uploadImageToCloudinary = async (fileBuffer, folder) =>
     new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
@@ -51,9 +46,9 @@ const uploadImageToCloudinary = async (fileBuffer, folder) =>
         stream.end(fileBuffer);
     });
 
-const deleteMeal = async (mealId) => {
+const deleteMeal = async (mealId, kitchenId) => {
     const deletedMeal = await Meal.findOneAndUpdate(
-        { _id: mealId, isDeleted: false },
+        { _id: mealId, isDeleted: false, ...(kitchenId && { kitchenId }) },
         { $set: { isDeleted: true, deletedAt: new Date() } },
         { new: false }
     ).lean();
@@ -83,4 +78,5 @@ const deleteMeal = async (mealId) => {
 
     return deletedMeal;
 };
-export { findActiveBySlug, findActiveById, createMeal, updateMeal, getAllMeals, uploadImageToCloudinary, deleteMeal };
+
+export { createMeal, updateMeal, getAllMeals, uploadImageToCloudinary, deleteMeal };

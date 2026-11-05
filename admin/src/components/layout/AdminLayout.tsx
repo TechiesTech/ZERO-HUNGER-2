@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, UtensilsCrossed, ShoppingBag, Bike, LogOut } from 'lucide-react';
+import { LayoutDashboard, UtensilsCrossed, ShoppingBag, Bike, LogOut, ChefHat } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface NavItem {
@@ -9,17 +9,25 @@ interface NavItem {
   icon: React.ReactNode;
 }
 
-const NAV_ITEMS: NavItem[] = [
+const ADMIN_NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
   { to: '/meals',     label: 'Meals',     icon: <UtensilsCrossed size={18} /> },
   { to: '/orders',    label: 'Orders',    icon: <ShoppingBag size={18} /> },
   { to: '/riders',    label: 'Riders',    icon: <Bike size={18} /> },
+  { to: '/kitchens',  label: 'Kitchens',  icon: <ChefHat size={18} /> },
+];
+
+const KITCHEN_NAV_ITEMS: NavItem[] = [
+  { to: '/orders', label: 'Orders', icon: <ShoppingBag size={18} /> },
+  { to: '/meals', label: 'Meals', icon: <UtensilsCrossed size={18} /> },
 ];
 
 export function AdminLayout(): React.ReactElement {
   const { pathname } = useLocation();
   const { admin, logout } = useAuth();
-  const currentPage = NAV_ITEMS.find((n) => pathname.startsWith(n.to))?.label ?? 'Dashboard';
+  const role = admin?.role || 'admin';
+  const navItems = role === 'kitchen' ? KITCHEN_NAV_ITEMS : ADMIN_NAV_ITEMS;
+  const currentPage = navItems.find((n) => pathname.startsWith(n.to))?.label ?? 'Dashboard';
 
   const handleLogout = async () => {
     await logout();
@@ -35,13 +43,13 @@ export function AdminLayout(): React.ReactElement {
             ZeroHunger
           </span>
           <span className="ml-2 text-[10px] font-medium text-white/40 uppercase tracking-widest">
-            Admin
+            {role === 'kitchen' ? 'Kitchen' : 'Admin'}
           </span>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 py-4 px-3 space-y-1">
-          {NAV_ITEMS.map(({ to, label, icon }) => (
+          {navItems.map(({ to, label, icon }) => (
             <NavLink
               key={to}
               to={to}
@@ -73,7 +81,7 @@ export function AdminLayout(): React.ReactElement {
         {/* Top bar */}
         <header className="h-16 flex items-center justify-between px-8 border-b border-white/8 bg-[#080808]/80 backdrop-blur-sm sticky top-0 z-10">
           <div className="flex items-center gap-2 text-sm text-white/40 font-medium">
-            <span className="text-white/20">Admin</span>
+            <span className="text-white/20 capitalize">{role}</span>
             <span className="text-white/15">/</span>
             <span className="text-white/60">{currentPage}</span>
           </div>

@@ -9,23 +9,21 @@ import { MealProgramProvider } from './context/MealProgramContext';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { PageTransition } from './components/PageTransition';
-import type { SupportTab } from './components/SupportModal';
-import { useMealProgram } from './context/MealProgramContext';
-
-const Home = lazy(() => import('./pages/Home').then(({ Home }) => ({ default: Home })));
-const About = lazy(() => import('./pages/About').then(({ About }) => ({ default: About })));
-const Projects = lazy(() => import('./pages/Projects').then(({ Projects }) => ({ default: Projects })));
-const ProjectDetail = lazy(() => import('./pages/ProjectDetail').then(({ ProjectDetail }) => ({ default: ProjectDetail })));
-const Impact = lazy(() => import('./pages/Impact').then(({ Impact }) => ({ default: Impact })));
-const Contact = lazy(() => import('./pages/Contact').then(({ Contact }) => ({ default: Contact })));
-const MealBox = lazy(() => import('./pages/MealBox').then(({ MealBox }) => ({ default: MealBox })));
-const TrackMeal = lazy(() => import('./pages/TrackMeal').then(({ TrackMeal }) => ({ default: TrackMeal })));
-const LiveTracking = lazy(() => import('./pages/LiveTracking').then(({ LiveTracking }) => ({ default: LiveTracking })));
-const ZeptoTracking = lazy(() => import('./pages/ZeptoTracking').then(({ ZeptoTracking }) => ({ default: ZeptoTracking })));
-const CelebrateAndGive = lazy(() => import('./pages/CelebrateAndGive').then(({ CelebrateAndGive }) => ({ default: CelebrateAndGive })));
-const CSRTaxBenefits = lazy(() => import('./pages/CSRTaxBenefits').then(({ CSRTaxBenefits }) => ({ default: CSRTaxBenefits })));
-const SupportModal = lazy(() => import('./components/SupportModal').then(({ SupportModal }) => ({ default: SupportModal })));
-const NotificationToast = lazy(() => import('./components/NotificationToast').then(({ NotificationToast }) => ({ default: NotificationToast })));
+import { SupportModal, SupportTab } from './components/SupportModal';
+import { NotificationToast } from './components/NotificationToast';
+import { Home } from './pages/Home';
+import { About } from './pages/About';
+import { Projects } from './pages/Projects';
+import { ProjectDetail } from './pages/ProjectDetail';
+import { Impact } from './pages/Impact';
+import { Contact } from './pages/Contact';
+import { MealBox } from './pages/MealBox';
+import { TrackMeal } from './pages/TrackMeal';
+import { LiveTracking } from './pages/LiveTracking';
+import { ZeptoTracking } from './pages/ZeptoTracking';
+import { CelebrateAndGive } from './pages/CelebrateAndGive';
+import { CSRTaxBenefits } from './pages/CSRTaxBenefits';
+import { OrderLookup } from './pages/OrderLookup';
 
 function AppContent() {
   const [supportModalOpen, setSupportModalOpen] = useState(false);
@@ -49,64 +47,50 @@ function AppContent() {
     <div className="min-h-screen flex flex-col bg-white text-[#080808] selection:bg-[#D7262F] selection:text-white">
       <Navbar onOpenSupport={(tab) => handleOpenSupport(tab, 'all')} />
 
-      <Suspense
-        fallback={
-          <div
-            className="flex min-h-[50vh] flex-1 items-center justify-center text-sm text-[#6F6F6F]"
-            role="status"
-            aria-live="polite"
-          >
-            Loading page...
-          </div>
-        }
-      >
-        <>
-          <div className="flex-1">
-            <PageTransition>
-              <Routes>
-                <Route
-                  path="/"
-                  element={<Home onOpenSupport={handleOpenSupport} />}
-                />
-                <Route path="/meal-box" element={<MealBox />} />
-                <Route path="/track-meal" element={<TrackMeal />} />
-                <Route
-                  path="/live-tracking/:orderNumber"
-                  element={<LiveTracking />}
-                />
-                <Route
-                  path="/zepto-tracking/:orderId"
-                  element={<ZeptoTracking />}
-                />
-                <Route
-                  path="/celebrate-and-give"
-                  element={<CelebrateAndGive />}
-                />
-                <Route path="/csr-tax-benefits" element={<CSRTaxBenefits />} />
-                <Route
-                  path="/about"
-                  element={<About onOpenSupport={handleOpenSupport} />}
-                />
-                <Route
-                  path="/projects"
-                  element={<Projects onOpenSupport={handleOpenSupport} />}
-                />
-                <Route
-                  path="/projects/:slug"
-                  element={<ProjectDetail onOpenSupport={handleOpenSupport} />}
-                />
-                <Route
-                  path="/impact"
-                  element={<Impact onOpenSupport={handleOpenSupport} />}
-                />
-                <Route path="/contact" element={<Contact />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </PageTransition>
-          </div>
-          <Footer />
-        </>
-      </Suspense>
+      <div className="flex-1">
+        <PageTransition>
+          <Routes>
+            <Route
+              path="/"
+              element={<Home onOpenSupport={handleOpenSupport} />}
+            />
+            <Route path="/meal-box" element={<MealBox />} />
+            <Route path="/track-order" element={<OrderLookup />} />
+            <Route path="/track-meal" element={<TrackMeal />} />
+            <Route path="/live-tracking/:orderNumber" element={<LiveTracking />} />
+            <Route path="/zepto-tracking/:orderId" element={<ZeptoTracking />} />
+            <Route path="/celebrate-and-give" element={<CelebrateAndGive />} />
+            <Route path="/csr-tax-benefits" element={<CSRTaxBenefits />} />
+            <Route
+              path="/about"
+              element={<About onOpenSupport={handleOpenSupport} />}
+            />
+            <Route
+              path="/projects"
+              element={<Projects onOpenSupport={handleOpenSupport} />}
+            />
+            <Route
+              path="/projects/:slug"
+              element={<ProjectDetail onOpenSupport={handleOpenSupport} />}
+            />
+            <Route
+              path="/impact"
+              element={<Impact onOpenSupport={handleOpenSupport} />}
+            />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </PageTransition>
+      </div>
+
+      <Footer />
+
+      <SupportModal
+        isOpen={supportModalOpen}
+        onClose={() => setSupportModalOpen(false)}
+        initialTab={supportModalTab}
+        preselectedProjectSlug={preselectedProject}
+      />
 
       {supportModalLoaded && (
         <Suspense fallback={null}>

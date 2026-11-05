@@ -2,6 +2,7 @@
 
 export interface Meal {
   _id: string;
+  kitchenId?: string;
   mealName: string;
   mealSlug: string;
   description: string;

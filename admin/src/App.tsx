@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { Login } from '@/pages/Login';
@@ -8,6 +8,7 @@ import { Dashboard } from '@/pages/Dashboard';
 import { Meals } from '@/pages/Meals';
 import { Orders } from '@/pages/Orders';
 import { Riders } from '@/pages/Riders';
+import { Kitchens } from '@/pages/Kitchens';
 
 export default function App(): React.ReactElement {
   return (
@@ -29,6 +30,7 @@ export default function App(): React.ReactElement {
             <Route path="/meals" element={<Meals />} />
             <Route path="/orders" element={<Orders />} />
             <Route path="/riders" element={<Riders />} />
+            <Route path="/kitchens" element={<Kitchens />} />
             {/* Catch-all → dashboard */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Route>

@@ -7,10 +7,13 @@ import * as authRepository from '../repositories/authRepository.js';
 const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 12);
 const ROLES = ['admin', 'kitchen'];
 
-const login = async ({ email, password, role = 'admin' }) => {
-    if (!ROLES.includes(role)) throw new AppError('Invalid role', 400);
-
-    const user = await authRepository.login(role, email);
+const login = async ({ email, password }) => {
+    let role = 'admin';
+    let user = await authRepository.login('admin', email);
+    if (!user) {
+        role = 'kitchen';
+        user = await authRepository.login('kitchen', email);
+    }
     const passwordMatches = await bcrypt.compare(password, user?.passwordHash || DUMMY_HASH);
     if (!user || !user.isActive || !passwordMatches) {
         throw new AppError('Invalid email or password', 401);

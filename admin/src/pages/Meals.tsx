@@ -14,6 +14,8 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 import { useMeals } from '@/hooks';
+import { useAuth } from '@/contexts/AuthContext';
+import { api } from '@/services/adminApi';
 import type { Meal, MealFormData } from '@/types';
 import { MEAL_CATEGORIES } from '@/types';
 
@@ -70,7 +72,14 @@ function toSlug(name: string) {
    Meals Page
    ────────────────────────────────────────────────────────────── */
 export function Meals(): React.ReactElement {
-  const { meals, loading, error, createMeal, updateMeal, deleteMeal, uploadImage } = useMeals();
+  const { admin } = useAuth();
+  const isKitchen = admin?.role === 'kitchen';
+  const { meals, loading, error, createMeal, updateMeal, deleteMeal, uploadImage } = useMeals(
+    isKitchen ? admin?.kitchenId ?? null : undefined
+  );
+  const [kitchens, setKitchens] = React.useState<Array<{ _id: string; name: string }>>([]);
+  const [kitchensError, setKitchensError] = React.useState<string | null>(null);
+  const [filterKitchen, setFilterKitchen] = useState('ALL');
 
   const [modalOpen, setModalOpen]   = useState(false);
   const [editingId, setEditingId]   = useState<string | null>(null);
@@ -84,17 +93,55 @@ export function Meals(): React.ReactElement {
   const [filterCat, setFilterCat]   = useState<string>('ALL');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    if (isKitchen) return;
+
+    let active = true;
+    const fetchKitchens = async () => {
+      try {
+        setKitchensError(null);
+        const firstResponse = await api.get<{
+          success: boolean;
+          data: Array<{ _id: string; name: string }>;
+        }>('/api/kitchen/getActiveKitchens');
+        if (active) {
+          setKitchens(firstResponse.data);
+        }
+      } catch (err) {
+        if (active) {
+          setKitchensError(err instanceof Error ? err.message : 'Failed to load kitchens');
+        }
+      }
+    };
+
+    fetchKitchens();
+    return () => {
+      active = false;
+    };
+  }, [isKitchen]);
+
+  const kitchenNames = new Map(kitchens.map((kitchen) => [kitchen._id, kitchen.name]));
+
   /* ── Filtered meals ── */
   const filtered = meals.filter((m) => {
     if (m.isDeleted) return false;
     const q = search.toLowerCase();
-    const matchSearch = !q || m.mealName.toLowerCase().includes(q) || m.mealSlug.includes(q);
+    const kitchenName = m.kitchenId ? kitchenNames.get(m.kitchenId) : undefined;
+    const matchSearch =
+      !q ||
+      m.mealName.toLowerCase().includes(q) ||
+      m.mealSlug.includes(q) ||
+      (kitchenName?.toLowerCase().includes(q) ?? false);
     const matchCat = filterCat === 'ALL' || m.mealCategories.includes(filterCat);
-    return matchSearch && matchCat;
+    const matchKitchen =
+      filterKitchen === 'ALL' ||
+      (filterKitchen === 'UNASSIGNED' ? !m.kitchenId : m.kitchenId === filterKitchen);
+    return matchSearch && matchCat && matchKitchen;
   });
 
   /* ── Open modal ── */
   const openCreate = () => {
+    if (!isKitchen) return;
     setEditingId(null);
     setForm(blankForm());
     setIngredientInput('');
@@ -170,6 +217,7 @@ export function Meals(): React.ReactElement {
         await updateMeal(editingId, form);
         setSubmitSuccess('Meal updated successfully!');
       } else {
+        if (!isKitchen) throw new Error('Only kitchen accounts can create meals.');
         await createMeal(form);
         setSubmitSuccess('Meal created successfully!');
       }
@@ -200,16 +248,29 @@ export function Meals(): React.ReactElement {
             Meal Catalogue
           </p>
           <h1 className="text-2xl font-bold text-white mt-1 font-display-sans">
-            Manage Meals
+            {isKitchen ? 'Your Kitchen Meals' : 'Manage Meals'}
           </h1>
+          <p className="text-sm text-white/40 mt-1">
+            {isKitchen
+              ? 'Create and manage meals available from your kitchen.'
+              : 'Review and update meals across kitchens. New meals are created by kitchen accounts.'}
+          </p>
         </div>
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#49E619] hover:bg-[#3dd111] text-[#080808] text-sm font-bold transition-colors cursor-pointer"
-        >
-          <Plus size={16} />
-          Add New Meal
-        </button>
+        {isKitchen && (
+          <button
+            onClick={openCreate}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#49E619] hover:bg-[#3dd111] text-[#080808] text-sm font-bold transition-colors cursor-pointer"
+          >
+            <Plus size={16} />
+            Add New Meal
+          </button>
+        )}
+        {kitchensError && !isKitchen && (
+          <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+            <AlertCircle size={16} />
+            <span>Could not load kitchen names: {kitchensError}</span>
+          </div>
+        )}
       </div>
 
       {/* ── Error ── */}
@@ -232,6 +293,20 @@ export function Meals(): React.ReactElement {
             className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-[#0D1719] border border-white/10 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#49E619]/50"
           />
         </div>
+        {!isKitchen && (
+          <select
+            value={filterKitchen}
+            onChange={(e) => setFilterKitchen(e.target.value)}
+            aria-label="Filter meals by kitchen"
+            className="px-3 py-2.5 rounded-xl bg-[#0D1719] border border-white/10 text-sm text-white focus:outline-none focus:border-[#49E619]/50"
+          >
+            <option value="ALL">All kitchens</option>
+            <option value="UNASSIGNED">Unassigned kitchen</option>
+            {kitchens.map((kitchen) => (
+              <option key={kitchen._id} value={kitchen._id}>{kitchen.name}</option>
+            ))}
+          </select>
+        )}
         <div className="flex gap-1.5 flex-wrap">
           {['ALL', ...MEAL_CATEGORIES].map((cat) => (
             <button
@@ -257,7 +332,21 @@ export function Meals(): React.ReactElement {
           </div>
         ) : filtered.length === 0 ? (
           <div className="py-16 text-center text-white/30 text-sm">
-            {search || filterCat !== 'ALL' ? 'No meals match your filters.' : 'No meals yet. Click "Add New Meal" to get started.'}
+            {search || filterCat !== 'ALL' ? (
+              'No meals match your filters.'
+            ) : isKitchen ? (
+              <div className="space-y-2">
+                <p>Your kitchen has no assigned meals yet. New meals can be added with "Add New Meal".</p>
+                <p className="text-xs text-white/25">
+                  Existing meals created before kitchen ownership was added must be assigned to this kitchen in the database.
+                </p>
+                {admin?.kitchenId && (
+                  <p className="text-xs text-white/25 font-mono-tabular">Kitchen ID: {admin.kitchenId}</p>
+                )}
+              </div>
+            ) : (
+              'No meals found.'
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -266,6 +355,7 @@ export function Meals(): React.ReactElement {
                 <tr className="border-b border-white/8">
                   <th className="text-left px-5 py-3 text-[11px] text-white/40 uppercase tracking-wider font-medium">Image</th>
                   <th className="text-left px-5 py-3 text-[11px] text-white/40 uppercase tracking-wider font-medium">Meal</th>
+                  {!isKitchen && <th className="text-left px-5 py-3 text-[11px] text-white/40 uppercase tracking-wider font-medium">Kitchen</th>}
                   <th className="text-left px-5 py-3 text-[11px] text-white/40 uppercase tracking-wider font-medium">Categories</th>
                   <th className="text-right px-5 py-3 text-[11px] text-white/40 uppercase tracking-wider font-medium">Price</th>
                   <th className="text-right px-5 py-3 text-[11px] text-white/40 uppercase tracking-wider font-medium">Cal / Protein</th>
@@ -291,6 +381,13 @@ export function Meals(): React.ReactElement {
                       <p className="font-medium text-white">{m.mealName}</p>
                       <p className="text-[11px] text-white/30 font-mono-tabular mt-0.5">{m.mealSlug}</p>
                     </td>
+                    {!isKitchen && (
+                      <td className="px-5 py-3 text-white/60">
+                        {m.kitchenId
+                          ? kitchenNames.get(m.kitchenId) || `Kitchen ${m.kitchenId.slice(-6)}`
+                          : 'Unassigned'}
+                      </td>
+                    )}
                     {/* Categories */}
                     <td className="px-5 py-3">
                       <div className="flex gap-1 flex-wrap">

@@ -3,7 +3,9 @@ import * as authService from '../services/authService.js';
 
 const requireRole = (...allowed) => async (req, _res, next) => {
     try {
-        const token = req.cookies?.adminToken;
+        const token = allowed.length === 1
+            ? req.cookies?.[allowed[0] === 'kitchen' ? 'kitchenToken' : 'adminToken'] || req.cookies?.adminToken
+            : req.cookies?.adminToken || req.cookies?.kitchenToken;
         if (!token) throw new AppError('Login required', 401);
 
         const user = await authService.verifyToken(token);

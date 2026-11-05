@@ -5,29 +5,49 @@
 
 import { useState, useEffect } from 'react';
 import { getAllMeals, toMealProduct, type Meal } from '../services/mealsService';
-import { MEAL_PRODUCTS as MOCK_MEAL_PRODUCTS, type MealProduct } from '../data/mealProgram';
+import type { MealProduct } from '../data/mealProgram';
 
-export function useMeals() {
-  const [meals, setMeals] = useState<MealProduct[]>(MOCK_MEAL_PRODUCTS);
+export function useMeals(kitchenId?: string | null) {
+  const [meals, setMeals] = useState<MealProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
     async function fetchMeals() {
-      try {
-        const response = await getAllMeals({ isAvailable: true });
-        const products = response.data.map(toMealProduct);
-        setMeals(products);
-        setError(null);
-      } catch (err: any) {
-        console.error('Failed to fetch meals from backend, using mock data:', err.message);
-        setError(err.message);
-      } finally {
+      if (!kitchenId) {
+        setMeals([]);
         setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+      try {
+        const firstPage = await getAllMeals({ kitchenId, isAvailable: true, page: 1, limit: 100 });
+        const remainingPages = await Promise.all(
+          Array.from(
+            { length: Math.max(0, firstPage.pagination.totalPages - 1) },
+            (_, index) => getAllMeals({ kitchenId, isAvailable: true, page: index + 2, limit: 100 })
+          )
+        );
+        if (active) {
+          setMeals([firstPage, ...remainingPages].flatMap((response) => response.data).map(toMealProduct));
+        }
+      } catch (err: any) {
+        if (active) {
+          setMeals([]);
+          setError(err instanceof Error ? err.message : 'Failed to load meals');
+        }
+      } finally {
+        if (active) setLoading(false);
       }
     }
     fetchMeals();
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [kitchenId]);
 
   return { meals, loading, error };
 }
