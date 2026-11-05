@@ -1,4 +1,5 @@
-const OSRM_URL = 'https://router.project-osrm.org/route/v1/driving';
+const OSRM_BASE_URL = (process.env.OSRM_URL || 'https://router.project-osrm.org').replace(/\/+$/, '');
+const OSRM_URL = `${OSRM_BASE_URL}/route/v1/driving`;
 const TTL_MS = 45 * 1000;
 const MAX_CACHE = 500;
 const cache = new Map(); // key -> { route, expiresAt }
@@ -25,9 +26,10 @@ const getRoadRoute = async (from, to) => {
     }
 };
 
-// Cached per order and destination, so a changed address gets a new route
-const getCachedRoute = async (orderNumber, from, to) => {
-    const key = `${orderNumber}:${to.latitude},${to.longitude}`;
+// Cached per order, leg and destination, so a changed address gets a new route
+// and rider-to-kitchen and rider-to-customer routes never mix.
+const getCachedRoute = async (orderNumber, leg, from, to) => {
+    const key = `${orderNumber}:${leg}:${to.latitude},${to.longitude}`;
     const hit = cache.get(key);
     if (hit && hit.expiresAt > Date.now()) return hit.route;
 
