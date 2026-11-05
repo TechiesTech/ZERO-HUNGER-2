@@ -3,8 +3,9 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, admin } = useAuth();
   const location = useLocation();
+  const role = admin?.role || 'admin';
 
   if (isLoading) {
     return (
@@ -16,6 +17,11 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Kitchen users can manage their meals and process their own orders.
+  if (admin?.role === 'kitchen' && !['/orders', '/meals', '/'].includes(location.pathname)) {
+    return <Navigate to="/orders" replace />;
   }
 
   return <>{children}</>;

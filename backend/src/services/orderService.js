@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import AppError from '../utils/appError.js';
 import * as orderRepository from '../repositories/orderRepository.js';
+import * as riderRepository from '../repositories/riderRepository.js';
 import { getCachedRoute } from './routeService.js';
 
 const createOrder = async (body) => {
@@ -24,6 +25,11 @@ const createOrder = async (body) => {
             sponsoredChildMeals: quantity,
         };
     });
+
+    if (new Set(meals.map((meal) => String(meal.kitchenId))).size > 1) {
+        throw new AppError('All meals in one order must be from the same kitchen', 400);
+    }
+
     const orderData = {
         customerName: body.customerName,
         customerEmail: body.customerEmail,
@@ -31,6 +37,7 @@ const createOrder = async (body) => {
         deliveryAddress: body.deliveryAddress,
         deliveryLocation: body.deliveryLocation,
         paymentMethod: body.paymentMethod,
+        kitchenId: meals[0].kitchenId,
         totalAmountInr: orderItems.reduce((sum, item) => sum + item.totalPriceInr, 0),
         sponsoredMealsCount: orderItems.reduce((sum, item) => sum + item.sponsoredChildMeals, 0),
     };
@@ -85,6 +92,7 @@ const trackLiveOrder = async ({ orderNumber, customerEmail }) => {
             : [
                 { status: 'confirmed', at: order.createdAt },
                 { status: 'preparing', at: times.preparingAt || null },
+                { status: 'readyforpickup', at: times.readyAt || null },
                 { status: 'outfordelivery', at: times.outForDeliveryAt || null },
                 { status: 'delivered', at: times.deliveredAt || null },
             ];
@@ -140,6 +148,7 @@ const cancelOrder = async ({ orderNumber, customerEmail }) => {
     }
     return order;
 };
+
 const getAllOrders = async ({ customerMealStatus, paymentStatus, search, from, to, page, limit }) => {
     const filter = { isDeleted: false };
     if (customerMealStatus) filter.customerMealStatus = customerMealStatus;
@@ -166,47 +175,6 @@ const getOrderById = async (orderId) => {
         throw new AppError('Order not found', 404);
     }
     return order;
-};
-
-const updateOrderStatus = async (orderId, { customerMealStatus, assignedRiderId }) => {
-    const statusFlow = ['confirmed', 'preparing', 'outfordelivery', 'delivered'];
-    const previousStatus = statusFlow[statusFlow.indexOf(customerMealStatus) - 1];
-    if (!previousStatus) {
-        throw new AppError('Order cannot be moved back to confirmed', 409);
-    }
-    if (assignedRiderId) {
-        const rider = await riderRepository.findAssignableRiderById(assignedRiderId);
-        if (!rider) throw new AppError('Rider not found or inactive', 404);
-    }
-    const order = await orderRepository.updateOrderStatus(
-        orderId,
-        previousStatus,
-        customerMealStatus,
-        assignedRiderId
-    );
-    if (!order) throw new AppError('Order not found', 404);
-    const current = order.customerMealStatus;
-    if (current === customerMealStatus) {
-        throw new AppError(`Order is already ${current}`, 409);
-    }
-    if (current === 'cancelled') {
-        throw new AppError('Cancelled orders cannot be changed', 409);
-    }
-    if (current !== previousStatus) {
-        const nextStatus = statusFlow[statusFlow.indexOf(current) + 1];
-        throw new AppError(
-            nextStatus
-                ? `Status can only move from ${current} to ${nextStatus}`
-                : 'Order is already delivered',
-            409
-        );
-    }
-    return {
-        ...order,
-        customerMealStatus,
-        ...(assignedRiderId && { assignedRiderId }),
-        updatedAt: new Date(),
-    };
 };
 
 const getOrderStats = async () => {
@@ -237,6 +205,7 @@ const updateDeliveryDetails = async (payload) => {
     }
     return order;
 };
+
 export {
     createOrder,
     trackOrder,
@@ -245,7 +214,6 @@ export {
     cancelOrder,
     getAllOrders,
     getOrderById,
-    updateOrderStatus,
     getOrderStats,
     deleteOrder,
     updateDeliveryDetails,

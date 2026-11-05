@@ -63,9 +63,6 @@ const getRiderForTracking = (riderId) =>
         .select('name vehicleType currentLocation')
         .lean();
 
-// NEW: used when an admin assigns a rider to an order
-const findAssignableRiderById = (riderId) =>
-    Rider.findOne({ _id: riderId, isDeleted: false, isActive: true }).select('_id').lean();
 export {
     createRider,
     updateRiderById,
@@ -73,5 +70,4 @@ export {
     getRiderById,
     deleteRider,
     getRiderForTracking,
-    findAssignableRiderById,
 };

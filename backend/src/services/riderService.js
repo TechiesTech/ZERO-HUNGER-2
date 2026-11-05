@@ -1,5 +1,6 @@
 import AppError from '../utils/appError.js';
 import * as riderRepository from '../repositories/riderRepository.js';
+import { Delivery } from '../models/schemas/deliverySchema.js';
 
 const createRider = async (body) => {
     const { name, vehicleType, deliveryZones, joiningDate } = body;
@@ -46,8 +47,13 @@ const updateRider = async (riderId, body) => {
 
 const getAllRiders = async (query) => {
     const { riders, total } = await riderRepository.getAllRiders(query);
+    const activeDeliveryRiderIds = await Delivery.distinct('riderId', {
+        isOpen: true,
+        riderId: { $in: riders.map(({ _id }) => _id) },
+    });
+    const busyRiderIds = new Set(activeDeliveryRiderIds.map(String));
     return {
-        riders,
+        riders: riders.map((rider) => ({ ...rider, isBusy: busyRiderIds.has(String(rider._id)) })),
         pagination: {
             page: query.page,
             limit: query.limit,

@@ -7,7 +7,6 @@ import {
     getAllOrders,
     getOrderById,
     getOrderStats,
-    updateOrderStatus,
     deleteOrder,
     updateDeliveryDetails,
     trackLiveOrder
@@ -19,9 +18,10 @@ import {
     cancelOrderSchema,
     getAllOrdersSchema,
     orderIdParamSchema,
-    updateOrderStatusSchema,
+    assignRiderSchema,
     updateDeliveryDetailsSchema,
 } from '../validators/orderValidator.js';
+import { assignRider, unassignRider } from '../controllers/deliveryController.js';
 import validate from '../middleware/validate.js';
 import requireRole from '../middleware/requireRole.js';
 import {
@@ -46,13 +46,8 @@ router.post('/trackLiveOrder', trackLiveOrderLimiter, validate(trackOrderSchema)
 router.get('/getAllOrders', requireRole('admin'), validate(getAllOrdersSchema, 'query'), getAllOrders);
 router.get('/getOrderById/:orderId', requireRole('admin'), validate(orderIdParamSchema, 'params'), getOrderById);
 router.get('/getOrderStats', requireRole('admin'), getOrderStats);
-router.patch(
-    '/updateOrderStatus/:orderId',
-    requireRole('admin'),
-    validate(orderIdParamSchema, 'params'),
-    validate(updateOrderStatusSchema),
-    updateOrderStatus
-);
+router.patch('/assignRider/:orderId', requireRole('admin'), validate(orderIdParamSchema, 'params'), validate(assignRiderSchema), assignRider);
+router.patch('/unassignRider/:orderId', requireRole('admin'), validate(orderIdParamSchema, 'params'), unassignRider);
 router.delete('/deleteOrder/:orderId', requireRole('admin'), validate(orderIdParamSchema, 'params'), deleteOrder);
 
 export default router;

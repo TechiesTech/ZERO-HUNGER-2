@@ -4,9 +4,26 @@ import { Order } from '../models/schemas/orderSchema.js';
 import { OrderItem } from '../models/schemas/orderItemSchema.js';
 
 const findActiveMealsByIds = async (mealIds) =>
-    Meal.find({ _id: { $in: mealIds }, isDeleted: false, isAvailable: true })
-        .select('mealName priceInRupees')
-        .lean();
+    Meal.aggregate([
+        {
+            $match: {
+                _id: { $in: mealIds.map((mealId) => new mongoose.Types.ObjectId(mealId)) },
+                isDeleted: false,
+                isAvailable: true,
+            },
+        },
+        {
+            $lookup: {
+                from: 'kitchens',
+                localField: 'kitchenId',
+                foreignField: '_id',
+                pipeline: [{ $match: { isActive: true } }, { $project: { _id: 1 } }],
+                as: 'kitchen',
+            },
+        },
+        { $match: { kitchen: { $ne: [] } } },
+        { $project: { mealName: 1, priceInRupees: 1, kitchenId: 1 } },
+    ]);
 
 const createOrderWithItems = async (orderData, orderItems) => {
     const session = await mongoose.startSession();
@@ -36,11 +53,10 @@ const trackOrder = async (orderNumber, customerEmail) => {
         { $lookup: { from: 'orderItems', localField: '_id', foreignField: 'orderId', as: 'items' } },
         {
             $unset: [
-                'customerPhone',
-                'deliveryAddress',
                 'deliveryLocation',
                 'paymentId',
                 'assignedRiderId',
+                'kitchenId',
                 'isDeleted',
                 'deletedAt',
                 'items.orderId',
@@ -63,6 +79,7 @@ const trackMyOrders = async (pairs) =>
                 'deliveryLocation',
                 'paymentId',
                 'assignedRiderId',
+                'kitchenId',
                 'isDeleted',
                 'deletedAt',
                 'items.orderId',
@@ -107,6 +124,7 @@ const trackLiveOrder = async (orderNumber, customerEmail) => {
 
     return order || null;
 };
+
 const cancelOrder = async (orderNumber, customerEmail) =>
     Order.findOneAndUpdate(
         {
@@ -141,43 +159,31 @@ const getOrderById = async (orderId) => {
     const [order] = await Order.aggregate([
         { $match: { _id: new mongoose.Types.ObjectId(orderId), isDeleted: false } },
         { $lookup: { from: 'orderItems', localField: '_id', foreignField: 'orderId', as: 'items' } },
+        {
+            $lookup: {
+                from: 'deliveries',
+                localField: '_id',
+                foreignField: 'orderId',
+                pipeline: [
+                    { $sort: { createdAt: 1 } },
+                    {
+                        $lookup: {
+                            from: 'riders',
+                            localField: 'riderId',
+                            foreignField: '_id',
+                            pipeline: [{ $project: { name: 1, phone: 1 } }],
+                            as: 'rider',
+                        },
+                    },
+                    { $set: { rider: { $arrayElemAt: ['$rider', 0] } } },
+                    { $project: { photoPublicId: 0 } },
+                ],
+                as: 'deliveries',
+            },
+        },
     ]);
 
     return order || null;
-};
-
-// TODO: require paymentStatus success before moving to preparing (when payments are built)
-const updateOrderStatus = async (orderId, previousStatus, newStatus, assignedRiderId) => {
-    const canMove = { $eq: ['$customerMealStatus', previousStatus] };
-    const timeField = {
-        preparing: 'statusTimestamps.preparingAt',
-        outfordelivery: 'statusTimestamps.outForDeliveryAt',
-        delivered: 'statusTimestamps.deliveredAt',
-    }[newStatus];
-
-    const changes = {
-        customerMealStatus: { $cond: [canMove, newStatus, '$customerMealStatus'] },
-        updatedAt: { $cond: [canMove, '$$NOW', '$updatedAt'] },
-        [timeField]: { $cond: [canMove, '$$NOW', `$${timeField}`] },
-    };
-
-    if (newStatus === 'outfordelivery') {
-        changes.estimatedDeliveryAt = {
-            $cond: [canMove, { $add: ['$$NOW', 30 * 60 * 1000] }, '$estimatedDeliveryAt'],
-        };
-    }
-
-    if (assignedRiderId) {
-        changes.assignedRiderId = {
-            $cond: [canMove, new mongoose.Types.ObjectId(assignedRiderId), '$assignedRiderId'],
-        };
-    }
-
-    return Order.findOneAndUpdate(
-        { _id: orderId, isDeleted: false },
-        [{ $set: changes }],
-        { returnDocument: 'before', timestamps: false }
-    ).lean();
 };
 
 const getOrderStats = async (startOfToday) => {
@@ -237,7 +243,6 @@ export {
     cancelOrder,
     getAllOrders,
     getOrderById,
-    updateOrderStatus,
     getOrderStats,
     deleteOrder,
     updateDeliveryDetails,

@@ -61,6 +61,7 @@ const mealSchema = new Schema(
     displayOrder: { type: Number, default: 0 },
     isDeleted: { type: Boolean, default: false },
     deletedAt: { type: Date, default: null },
+    kitchenId: { type: Schema.Types.ObjectId, ref: 'Kitchen', required: [true, 'Kitchen is required'] },
   },
   {
     timestamps: true,
@@ -69,9 +70,10 @@ const mealSchema = new Schema(
 );
 
 mealSchema.index(
-  { mealSlug: 1 },
+  { kitchenId: 1, mealSlug: 1 },
   { unique: true, partialFilterExpression: { isDeleted: false } }
 );
+mealSchema.index({ kitchenId: 1, isDeleted: 1, isAvailable: 1, displayOrder: 1 });
 mealSchema.index({ isDeleted: 1, mealCategories: 1, displayOrder: 1 });
 mealSchema.index({ isDeleted: 1, isAvailable: 1 });
 mealSchema.index({ mealName: 'text' });

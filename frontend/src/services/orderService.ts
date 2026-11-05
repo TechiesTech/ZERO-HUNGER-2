@@ -7,9 +7,20 @@ import { api } from './apiClient';
 
 export interface OrderItem {
   mealId: string;
-  mealName: string;
   quantity: number;
-  price: number;
+  productName?: string;
+  unitPriceInr?: number;
+  totalPriceInr?: number;
+}
+
+export interface DeliveryAddress {
+  addressLine1: string;
+  addressLine2?: string;
+  area: string;
+  landmark?: string;
+  city: string;
+  state: string;
+  pincode: string;
 }
 
 export interface Order {
@@ -17,22 +28,14 @@ export interface Order {
   orderNumber: string;
   customerName: string;
   customerEmail: string;
-  customerPhone: string;
-  deliveryAddress: string;
+  customerPhone?: string;
+  deliveryAddress?: DeliveryAddress;
   items: OrderItem[];
-  subtotal: number;
-  tax: number;
-  total: number;
+  totalAmountInr: number;
   paymentStatus: string;
   paymentMethod: string;
-  orderStatus: string;
+  customerMealStatus: string;
   sponsoredMealsCount: number;
-  deliveryDetails: {
-    estimatedDeliveryTime?: string;
-    actualDeliveryTime?: string;
-    deliveryNotes?: string;
-    riderId?: string;
-  };
   createdAt: string;
   updatedAt: string;
 }
@@ -41,42 +44,69 @@ export interface CreateOrderRequest {
   customerName: string;
   customerEmail: string;
   customerPhone: string;
-  deliveryAddress: string;
-  paymentMethod: 'UPI' | 'CARD' | 'NET_BANKING' | 'CASH';
-  items: OrderItem[];
+  deliveryAddress: DeliveryAddress;
+  deliveryLocation?: { latitude: number; longitude: number };
+  paymentMethod: 'upi' | 'card' | 'netbanking';
+  items: Array<{ mealId: string; quantity: number }>;
 }
 
 export interface OrderResponse {
   success: boolean;
   message: string;
-  data: Order;
+  data: Order & {
+    customerPhone: string;
+    deliveryAddress: DeliveryAddress;
+  };
 }
 
 export async function createOrder(orderData: CreateOrderRequest): Promise<OrderResponse> {
   return api.post<OrderResponse>('/api/orders/createOrder', orderData);
 }
 
-export async function trackOrder(orderNumber: string): Promise<Order> {
-  const response = await api.post<{ success: boolean; data: Order }>('/api/orders/trackOrder', { orderNumber, customerEmail: 'test@example.com' });
+export async function trackOrder(orderNumber: string, customerEmail: string): Promise<Order> {
+  const response = await api.post<{ success: boolean; data: Order }>('/api/orders/trackOrder', {
+    orderNumber: orderNumber.trim().toUpperCase(),
+    customerEmail: customerEmail.trim().toLowerCase(),
+  });
   return response.data;
 }
 
-export async function trackMyOrders(customerEmail: string, page = 1, limit = 20): Promise<{ success: boolean; data: Order[] }> {
-  return api.post('/api/orders/trackMyOrders', { orders: [{ orderNumber: 'ORD-123', customerEmail }] });
+export interface OrderLookup {
+  orderNumber: string;
+  customerEmail: string;
+}
+
+export async function trackMyOrders(orders: OrderLookup[]): Promise<{ success: boolean; data: Order[] }> {
+  return api.post('/api/orders/trackMyOrders', {
+    orders: orders.map(({ orderNumber, customerEmail }) => ({
+      orderNumber: orderNumber.trim().toUpperCase(),
+      customerEmail: customerEmail.trim().toLowerCase(),
+    })),
+  });
 }
 
 export async function updateDeliveryDetails(
-  orderId: string,
+  orderNumber: string,
+  customerEmail: string,
   deliveryDetails: {
-    estimatedDeliveryTime?: string;
-    actualDeliveryTime?: string;
-    deliveryNotes?: string;
-    riderId?: string;
+    customerPhone?: string;
+    deliveryAddress?: DeliveryAddress;
+    deliveryLocation?: { latitude: number; longitude: number };
   }
-): Promise<OrderResponse> {
-  return api.patch<OrderResponse>('/api/orders/updateDeliveryDetails', { orderId, ...deliveryDetails });
+): Promise<{ success: boolean; message: string; data: Partial<Order> }> {
+  return api.patch('/api/orders/updateDeliveryDetails', {
+    orderNumber: orderNumber.trim().toUpperCase(),
+    customerEmail: customerEmail.trim().toLowerCase(),
+    ...deliveryDetails,
+  });
 }
 
-export async function cancelOrder(orderId: string, cancellationReason: string): Promise<OrderResponse> {
-  return api.patch<OrderResponse>('/api/orders/cancelOrder', { orderId, cancellationReason });
+export async function cancelOrder(
+  orderNumber: string,
+  customerEmail: string
+): Promise<{ success: boolean; message: string; data: { orderNumber: string; customerMealStatus: string } }> {
+  return api.patch('/api/orders/cancelOrder', {
+    orderNumber: orderNumber.trim().toUpperCase(),
+    customerEmail: customerEmail.trim().toLowerCase(),
+  });
 }

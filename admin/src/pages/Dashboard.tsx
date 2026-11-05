@@ -12,7 +12,7 @@ import {
   Clock,
   Truck,
 } from 'lucide-react';
-import { useMeals, useOrders, type OrderStats } from '@/hooks';
+import { useMeals, useOrderStats } from '@/hooks';
 
 /* ── Stat Card ── */
 interface StatCardProps {
@@ -59,17 +59,14 @@ function RecentMealRow({ name, price, categories, available }: {
 /* ── Dashboard Page ── */
 export function Dashboard(): React.ReactElement {
   const { meals, loading, error, fetchMeals } = useMeals();
-  const { stats: orderStats, fetchStats } = useOrders();
+  const { stats: orderStats, error: statsError, fetchStats } = useOrderStats();
   const [time, setTime] = useState(new Date());
+  const apiError = error || statsError;
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 60_000);
     return () => clearInterval(t);
   }, []);
-
-  useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
 
   const totalMeals = meals.length;
   const activeMeals = meals.filter((m) => m.isAvailable && !m.isDeleted).length;
@@ -109,11 +106,11 @@ export function Dashboard(): React.ReactElement {
       </div>
 
       {/* Error banner */}
-      {error && (
+      {apiError && (
         <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
           <AlertCircle size={16} />
-          <span>{error}</span>
-          <button onClick={fetchMeals} className="ml-auto underline text-xs cursor-pointer">Retry</button>
+          <span>{apiError}</span>
+          <button onClick={() => { fetchMeals(); fetchStats(); }} className="ml-auto underline text-xs cursor-pointer">Retry</button>
         </div>
       )}
 
@@ -122,7 +119,7 @@ export function Dashboard(): React.ReactElement {
         <StatCard
           label="Total Orders"
           value={orderStats?.totalOrders || 0}
-          sub={`₹${(orderStats?.totalRevenue || 0).toLocaleString('en-IN')} revenue`}
+          sub={`${orderStats?.ordersToday || 0} today`}
           icon={<ShoppingBag size={18} className="text-[#080808]" />}
           accent="bg-[#4EDBE2]"
         />
@@ -143,7 +140,7 @@ export function Dashboard(): React.ReactElement {
         <StatCard
           label="Delivered"
           value={orderStats?.deliveredOrders || 0}
-          sub={`${orderStats?.totalSponsoredMeals || 0} meals sponsored`}
+          sub="completed orders"
           icon={<CheckCircle2 size={18} className="text-[#080808]" />}
           accent="bg-[#49E619]"
         />
@@ -245,8 +242,8 @@ export function Dashboard(): React.ReactElement {
               </div>
               <div className="flex justify-between">
                 <span className="text-white/40">API Status</span>
-                <span className={`font-bold ${error ? 'text-red-400' : 'text-[#49E619]'}`}>
-                  {error ? 'Unreachable' : 'Connected'}
+                <span className={`font-bold ${apiError ? 'text-red-400' : 'text-[#49E619]'}`}>
+                  {apiError ? 'Unreachable' : 'Connected'}
                 </span>
               </div>
             </div>
