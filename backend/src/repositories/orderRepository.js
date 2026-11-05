@@ -92,6 +92,46 @@ const trackLiveOrder = async (orderNumber, customerEmail) => {
         { $match: { orderNumber, customerEmail, isDeleted: false } },
         { $lookup: { from: 'orderItems', localField: '_id', foreignField: 'orderId', as: 'items' } },
         {
+            $lookup: {
+                from: 'kitchens',
+                localField: 'kitchenId',
+                foreignField: '_id',
+                pipeline: [{ $project: { _id: 0, name: 1, address: 1, location: 1 } }],
+                as: 'kitchen',
+            },
+        },
+        {
+            $lookup: {
+                from: 'deliveries',
+                localField: '_id',
+                foreignField: 'orderId',
+                pipeline: [
+                    { $match: { isOpen: true } },
+                    {
+                        $lookup: {
+                            from: 'riders',
+                            localField: 'riderId',
+                            foreignField: '_id',
+                            pipeline: [
+                                { $project: { _id: 0, name: 1, vehicleType: 1, currentLocation: 1 } },
+                            ],
+                            as: 'rider',
+                        },
+                    },
+                    {
+                        $project: {
+                            _id: 0,
+                            status: 1,
+                            acceptedAt: 1,
+                            pickedUpAt: 1,
+                            rider: { $arrayElemAt: ['$rider', 0] },
+                        },
+                    },
+                ],
+                as: 'deliveries',
+            },
+        },
+        {
             $project: {
                 _id: 0,
                 orderNumber: 1,
@@ -104,7 +144,8 @@ const trackLiveOrder = async (orderNumber, customerEmail) => {
                 estimatedDeliveryAt: 1,
                 statusTimestamps: 1,
                 deliveryLocation: 1,
-                assignedRiderId: 1,
+                kitchen: { $arrayElemAt: ['$kitchen', 0] },
+                delivery: { $arrayElemAt: ['$deliveries', 0] },
                 items: {
                     $map: {
                         input: '$items',

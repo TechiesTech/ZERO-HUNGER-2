@@ -10,6 +10,27 @@ export interface TimelineStep {
   at: string | null;
 }
 
+export interface RouteData {
+  distanceMeters: number;
+  durationSeconds: number;
+  path: [number, number][];
+}
+
+export interface RiderTrackingData {
+  name: string;
+  vehicleType: string;
+  status: string;
+  acceptedAt: string | null;
+  pickedUpAt: string | null;
+  currentLocation: {
+    latitude: number | null;
+    longitude: number | null;
+    heading: number | null;
+    updatedAt: string | null;
+  };
+  isLocationStale: boolean;
+}
+
 export interface TrackingData {
   orderNumber: string;
   customerName: string;
@@ -21,8 +42,23 @@ export interface TrackingData {
   estimatedDeliveryAt: string | null;
   timeline: TimelineStep[];
   destination: { latitude: number; longitude: number } | null;
-  rider: null;
-  items: any[];
+  kitchen: {
+    name: string;
+    address?: string;
+    location: { latitude: number; longitude: number } | null;
+  } | null;
+  rider: RiderTrackingData | null;
+  routes: {
+    toKitchen: RouteData | null;
+    toCustomer: RouteData | null;
+  };
+  items: Array<{
+    productName: string;
+    quantity: number;
+    unitPriceInr: number;
+    totalPriceInr: number;
+    sponsoredChildMeals: number;
+  }>;
   canEditDetails: boolean;
   canCancel: boolean;
 }
