@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { lazy, Suspense, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { MealProgramProvider } from './context/MealProgramContext';
 import { Navbar } from './components/Navbar';
@@ -27,9 +27,11 @@ import { OrderLookup } from './pages/OrderLookup';
 
 function AppContent() {
   const [supportModalOpen, setSupportModalOpen] = useState(false);
+  const [supportModalLoaded, setSupportModalLoaded] = useState(false);
   const [supportModalTab, setSupportModalTab] = useState<SupportTab>('donate');
   const [preselectedProject, setPreselectedProject] = useState<string>('all');
   const { pathname } = useLocation();
+  const { activeToast } = useMealProgram();
 
   const handleOpenSupport = (
     tab: SupportTab = 'donate',
@@ -37,6 +39,7 @@ function AppContent() {
   ) => {
     setSupportModalTab(tab);
     setPreselectedProject(projectSlug);
+    setSupportModalLoaded(true);
     setSupportModalOpen(true);
   };
 
@@ -89,7 +92,21 @@ function AppContent() {
         preselectedProjectSlug={preselectedProject}
       />
 
-      <NotificationToast />
+      {supportModalLoaded && (
+        <Suspense fallback={null}>
+          <SupportModal
+            isOpen={supportModalOpen}
+            onClose={() => setSupportModalOpen(false)}
+            initialTab={supportModalTab}
+            preselectedProjectSlug={preselectedProject}
+          />
+        </Suspense>
+      )}
+      {activeToast && (
+        <Suspense fallback={null}>
+          <NotificationToast />
+        </Suspense>
+      )}
     </div>
   );
 }

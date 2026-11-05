@@ -10,7 +10,7 @@ import {
   Clock,
   ShieldCheck,
 } from 'lucide-react';
-import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { ProjectGrid } from '../components/ProjectGrid';
 import { EditorialImage } from '../components/EditorialImage';
 import { AnimatedCounter } from '../components/AnimatedCounter';
@@ -40,12 +40,6 @@ const METRIC_CARD_THEMES = [
 
 export const Projects: React.FC<ProjectsAndImpactProps> = ({ onOpenSupport }) => {
   const prefersReducedMotion = useReducedMotion();
-  const { scrollY } = useScroll();
-  const imageY = useTransform(
-    scrollY,
-    [0, 600],
-    [0, prefersReducedMotion ? 0 : 20]
-  );
 
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
@@ -195,7 +189,6 @@ export const Projects: React.FC<ProjectsAndImpactProps> = ({ onOpenSupport }) =>
             {/* RIGHT COLUMN: Tall Rounded Portrait Card with Dynamic Highlight */}
             <div className="lg:col-span-5">
               <motion.div
-                style={{ y: imageY }}
                 initial={
                   prefersReducedMotion ? false : { opacity: 0, scale: 0.96 }
                 }

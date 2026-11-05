@@ -46,7 +46,7 @@ const COMMUNITY_DRIVES: CommunityDriveItem[] = [
     hoverTextColor: 'hover:text-[#B9FF2C]',
     linkText: 'Design Placard & Sponsor',
     linkTo: '/celebrate-and-give',
-    cartoonImage: 'assets/images/girl_divcard.png',
+    cartoonImage: '/assets/images/girl_divcard.webp',
     cartoonAlt: 'Celebrate and give illustration',
     cartoonPosition: 'left',
     isHighlighted: true,
@@ -100,7 +100,7 @@ const COMMUNITY_DRIVES: CommunityDriveItem[] = [
     hoverTextColor: 'hover:text-[#49E619]',
     linkText: 'Download Document Kit',
     linkTo: '/csr-tax-benefits',
-    cartoonImage: '/assets/images/boy_divcard.png',
+    cartoonImage: '/assets/images/boy_divcard.webp',
     cartoonAlt: 'CSR tax benefits illustration',
     cartoonPosition: 'right',
     isHighlighted: true,
@@ -151,6 +151,10 @@ export const CommunityDrivesShowcase: React.FC = () => {
                     <img
                       src={item.cartoonImage}
                       alt={item.cartoonAlt}
+                      width={176}
+                      height={176}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.5)]"
                     />
                   </div>

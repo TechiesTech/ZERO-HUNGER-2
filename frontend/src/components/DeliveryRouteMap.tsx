@@ -105,13 +105,31 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
     mapInstanceRef.current = map;
     layerGroupRef.current = layerGroup;
 
-    const resizeObserver = new ResizeObserver(() => {
-      map.invalidateSize();
+    let resizeFrame = 0;
+    let previousSize: { width: number; height: number } | null = null;
+    const resizeObserver = new ResizeObserver(([entry]) => {
+      if (!entry) return;
+
+      const { width, height } = entry.contentRect;
+      if (
+        previousSize &&
+        previousSize.width === width &&
+        previousSize.height === height
+      ) {
+        return;
+      }
+
+      previousSize = { width, height };
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(() => {
+        map.invalidateSize({ pan: false, debounceMoveend: true });
+      });
     });
     resizeObserver.observe(mapContainerRef.current);
 
     return () => {
       resizeObserver.disconnect();
+      cancelAnimationFrame(resizeFrame);
       map.remove();
       mapInstanceRef.current = null;
       layerGroupRef.current = null;

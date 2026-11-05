@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "leaflet/dist/leaflet.css";
 
 @theme {
   --font-serif-editorial: 'Playfair Display', Georgia, Cambria, 'Times New Roman', Times, serif;

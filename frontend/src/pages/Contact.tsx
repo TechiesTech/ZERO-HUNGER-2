@@ -73,8 +73,12 @@ export const Contact: React.FC = () => {
           {/* Container matching main content padding & alignment */}
           <div className="max-w-[1360px] mx-auto px-5 sm:px-8 lg:px-12 h-full flex justify-start items-start">
             <img
-              src="/assets/images/zero_hunger_contact_hero.png"
+              src="/assets/images/zero_hunger_contact_hero.webp"
               alt="Zero Hunger Hero"
+              width={2009}
+              height={699}
+              loading="lazy"
+              decoding="async"
               className="w-full h-auto max-h-[600px] object-contain object-left-top opacity-85"
             />
           </div>

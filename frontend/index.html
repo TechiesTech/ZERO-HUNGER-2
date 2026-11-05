@@ -1,32 +1,76 @@
 <!doctype html>
 <html lang="en" class="scroll-smooth">
   <head>
+    <!-- 1. Technical Meta Tags -->
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+
+    <!-- 2. Primary SEO Meta Tags -->
     <title>Zero Hunger — Creating a World Where No One Sleeps Hungry</title>
     <meta
       name="description"
       content="Creating a world where no one sleeps hungry. Zero Hunger delivers nutritious meals, school lunch programs, and emergency food relief to communities in India."
     />
+    <link rel="canonical" href="https://zerohunger.org/" />
+    <meta name="robots" content="index, follow" />
+
+    <!-- 3. Open Graph / Facebook Meta Tags -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Zero Hunger — Creating a World Where No One Sleeps Hungry" />
+    <meta
+      property="og:title"
+      content="Zero Hunger — Creating a World Where No One Sleeps Hungry"
+    />
     <meta
       property="og:description"
       content="Creating a world where no one sleeps hungry. Zero Hunger delivers nutritious meals, school lunch programs, and emergency food relief to communities in India."
     />
+    <meta property="og:url" content="https://zerohunger.org/" />
+    <meta
+      property="og:image"
+      content="https://zerohunger.org/images/hero_community_meals_1790672974684.webp"
+    />
+    <meta property="og:image:alt" content="Community volunteers serving nutritious meals" />
     <meta property="og:site_name" content="Zero Hunger Initiative" />
+
+    <!-- 4. Twitter Card Meta Tags -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Zero Hunger — Creating a World Where No One Sleeps Hungry" />
+    <meta
+      name="twitter:title"
+      content="Zero Hunger — Creating a World Where No One Sleeps Hungry"
+    />
     <meta
       name="twitter:description"
       content="Creating a world where no one sleeps hungry. Zero Hunger delivers nutritious meals, school lunch programs, and emergency food relief to communities in India."
     />
+    <meta
+      name="twitter:image"
+      content="https://zerohunger.org/images/hero_community_meals_1790672974684.webp"
+    />
+
+    <!-- Favicon & PWA links -->
+    <!-- <link rel="icon" type="image/svg+xml" href="" /> -->
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400;1,500;1,600&display=swap"
-      rel="stylesheet"
+      rel="preload"
+      as="image"
+      href="/images/hero_community_meals_1790672974684.webp"
+      fetchpriority="high"
     />
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400;1,500;1,600&display=swap"
+      onload="this.onload=null;this.rel='stylesheet'"
+    />
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400;1,500;1,600&display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -34,6 +78,7 @@
         "name": "Zero Hunger Initiative",
         "slogan": "Creating a world where no one sleeps hungry.",
         "description": "Humanitarian organization dedicated to eradicating hunger through community meal programs, school nutrition initiatives, and emergency food relief in Hyderabad, India.",
+        "url": "https://zerohunger.org/",
         "address": {
           "@type": "PostalAddress",
           "addressLocality": "Hyderabad",
@@ -44,7 +89,7 @@
       }
     </script>
   </head>
-  <body class="bg-white text-[#080808] antialiased selection:bg-[#D7262F] selection:text-white">
+  <body class="bg-white text-brand-black antialiased selection:bg-[#D7262F] selection:text-white">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

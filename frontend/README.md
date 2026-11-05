@@ -12,13 +12,28 @@ npm install
 npm run dev       # → http://localhost:5173
 ```
 
+## Production and Performance Checks
+
+Vite's development server serves unbundled modules for hot reload and should not
+be used for Lighthouse performance audits. Build and serve the minified
+production bundle instead:
+
+```bash
+npm run build
+npm run preview   # → http://localhost:4173
+```
+
+`npm start` runs both commands in sequence. For deployment, use `npm run build`
+as the build command and `npm start` as the start command.
+
 ## Available Scripts
 
 | Script | Description |
 |--------|-------------|
 | `npm run dev` | Start the Vite dev server on port **5173** |
 | `npm run build` | Production build → `dist/` |
-| `npm run preview` | Preview the production build locally |
+| `npm run preview` | Serve the production build on port **4173** |
+| `npm start` | Build and serve the production bundle |
 | `npm run lint` | TypeScript type-check (no emit) |
 
 ## Path Alias

@@ -28,8 +28,12 @@ export const CTASection: React.FC<CTASectionProps> = ({ onOpenSupport }) => {
           {/* Mobile Character Display (Stacked cleanly above content on small screens) */}
           <div className="block lg:hidden w-full flex justify-center mb-6">
             <img
-              src="/assets/images/BePartOfTheChange.png"
+              src="/assets/images/BePartOfTheChange.webp"
               alt="Volunteering Character"
+              width={1536}
+              height={1024}
+              loading="lazy"
+              decoding="async"
               className="w-full max-w-[280px] h-auto object-contain drop-shadow-lg"
             />
           </div>
@@ -88,8 +92,12 @@ export const CTASection: React.FC<CTASectionProps> = ({ onOpenSupport }) => {
           {/* Desktop Absolute Positioned Character Artwork (Overflowing Bottom & Right) */}
           <div className="hidden lg:block absolute right-[260px] xl:right-[300px] bottom-0 pointer-events-none z-20">
             <img
-              src="/assets/images/BePartOfTheChange.png"
+              src="/assets/images/BePartOfTheChange.webp"
               alt="Volunteering Character"
+              width={1536}
+              height={1024}
+              loading="lazy"
+              decoding="async"
               className="w-[420px] xl:w-[480px] max-w-none object-contain translate-y-[14%]"
             />
           </div>

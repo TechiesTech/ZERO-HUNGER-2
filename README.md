@@ -46,6 +46,16 @@ npm install   # installs concurrently at the root level
 npm run dev   # starts all three concurrently
 ```
 
+### Build and serve the customer website for performance audits
+
+The development server serves unminified modules for hot reload. To test the
+optimized production bundle, run from the repo root:
+
+```bash
+npm run build   # builds the frontend into frontend/dist
+npm start       # serves the production frontend at http://localhost:4173
+```
+
 ---
 
 ## Environment Variables

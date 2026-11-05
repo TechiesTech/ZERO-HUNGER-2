@@ -142,8 +142,12 @@ export const PlateToHandsSteps: React.FC = () => {
             {/* Cartoon Character for Card 1 */}
             {step.number === '1' && (
               <img
-                src="/images/NumCharacter1.png"
+                src="/images/NumCharacter1.webp"
                 alt="Character pointing at step 1"
+                width={612}
+                height={408}
+                loading="lazy"
+                decoding="async"
                 className="absolute -top-21 md:-top-26 sm:-top-45 lg:-top-45 left-6 sm:left-10 md:-left-5 lg:left-5 w-43 sm:w-48 md:w-52 lg:w-90 object-contain z-30 pointer-events-none select-none"
               />
             )}
@@ -151,8 +155,12 @@ export const PlateToHandsSteps: React.FC = () => {
             {/* Cartoon Character for Card 2 */}
             {step.number === '2' && (
               <img
-                src="/images/NumCharacter2.png"
+                src="/images/NumCharacter2.webp"
                 alt="Character leaning on step 2"
+                width={494}
+                height={506}
+                loading="lazy"
+                decoding="async"
                 className="absolute -top-21 md:-top-29 sm:-top-43 lg:-top-43 right-6 sm:right-10 md:-right-5 lg:right-5 w-36 sm:w-48 md:w-48 lg:w-70 object-contain z-30 pointer-events-none select-none"
               />
             )}
