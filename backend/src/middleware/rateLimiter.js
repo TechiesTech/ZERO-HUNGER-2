@@ -23,6 +23,7 @@ const riderLoginLimiter = createLimiter(10, {
     windowMs: 15 * 60 * 1000,
 });
 const riderLocationLimiter = createLimiter(12, { windowMs: 60 * 1000 });
+const riderRegisterLimiter = createLimiter(5, { windowMs: 60 * 60 * 1000 });
 export {
     createOrderLimiter,
     trackOrderLimiter,
@@ -32,4 +33,5 @@ export {
     adminLoginLimiter,
     riderLoginLimiter,
     riderLocationLimiter,
+    riderRegisterLimiter,
 };

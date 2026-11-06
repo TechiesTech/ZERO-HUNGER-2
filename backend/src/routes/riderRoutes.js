@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createRider, updateRider, getAllRiders, getRiderById, deleteRider } from '../controllers/riderController.js';
+import { createRider, updateRider, getAllRiders, getRiderById, deleteRider, registerRider, approveRider, rejectRider } from '../controllers/riderController.js';
 import { login, logout, getMe, updateMyLocation, setRiderPassword } from '../controllers/riderAuthController.js';
 import {
     createRiderSchema,
@@ -7,9 +7,11 @@ import {
     updateRiderLocationSchema,
     updateRiderSchema,
     getAllRidersSchema,
+    registerRiderSchema,
+    rejectRiderSchema,
 } from '../validators/riderValidator.js';
 import { riderLoginSchema, setRiderPasswordSchema } from '../validators/riderAuthValidator.js';
-import { riderLoginLimiter, riderLocationLimiter } from '../middleware/rateLimiter.js';
+import { riderLoginLimiter, riderLocationLimiter, riderRegisterLimiter } from '../middleware/rateLimiter.js';
 import validate from '../middleware/validate.js';
 import requireRole from '../middleware/requireRole.js';
 import riderAuth from '../middleware/riderAuth.js';
@@ -38,6 +40,8 @@ router.patch('/setRiderPassword/:riderId', requireRole('admin'), validate(riderI
 router.post('/login', riderLoginLimiter, validate(riderLoginSchema), login);
 router.post('/logout', riderAuth, logout);
 router.get('/me', riderAuth, getMe);
+
+router.post('/register', riderRegisterLimiter, validate(registerRiderSchema), registerRider);
 router.patch('/updateRiderLocation', riderAuth, riderLocationLimiter, validate(updateRiderLocationSchema), updateMyLocation);
 router.get('/myActiveOrder', riderAuth, getMyActiveOrder);
 router.patch('/acceptOrder/:orderId', riderAuth, validate(orderIdParamSchema, 'params'), acceptOrder);
@@ -45,4 +49,7 @@ router.patch('/rejectOrder/:orderId', riderAuth, validate(orderIdParamSchema, 'p
 router.patch('/markPickedUp/:orderId', riderAuth, validate(orderIdParamSchema, 'params'), markPickedUp);
 router.post('/uploadDeliveryPhoto/:orderId', riderAuth, validate(orderIdParamSchema, 'params'), uploadImage, uploadDeliveryPhoto);
 router.patch('/markDelivered/:orderId', riderAuth, validate(orderIdParamSchema, 'params'), markDelivered);
+
+router.patch('/approveRider/:riderId', requireRole('admin'), validate(riderIdParamSchema, 'params'), approveRider);
+router.patch('/rejectRider/:riderId', requireRole('admin'), validate(riderIdParamSchema, 'params'), validate(rejectRiderSchema), rejectRider);
 export default router;

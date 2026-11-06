@@ -39,17 +39,27 @@ const updateRiderSchema = Joi.object({
 }).min(1);
 
 const getAllRidersSchema = Joi.object({
+    approvalStatus: Joi.string().trim().lowercase().valid('pending', 'approved', 'rejected'),
     page: Joi.number().integer().min(1).default(1),
     limit: Joi.number().integer().min(1).max(100).default(20),
     zone: Joi.string().trim().max(60),
     isAvailable: Joi.boolean(),
     isActive: Joi.boolean(),
 });
+const registerRiderSchema = createRiderSchema.keys({
+    joiningDate: Joi.forbidden(),
+    password: Joi.string().min(8).max(72).required(),
+});
 
+const rejectRiderSchema = Joi.object({
+    reason: Joi.string().trim().max(200).allow(''),
+});
 export {
     createRiderSchema,
     riderIdParamSchema,
     updateRiderSchema,
     updateRiderLocationSchema,
     getAllRidersSchema,
+    registerRiderSchema,
+    rejectRiderSchema,
 };

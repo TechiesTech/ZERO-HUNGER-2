@@ -44,10 +44,43 @@ const deleteRider = async (req, res, next) => {
         return next(error);
     }
 };
+const registerRider = async (req, res, next) => {
+    try {
+        const data = await riderService.registerRider(req.body);
+        return res.status(201).json({
+            success: true,
+            message: 'Registration submitted. You can log in after the admin approves it',
+            data,
+        });
+    } catch (error) {
+        return next(error);
+    }
+};
+
+const approveRider = async (req, res, next) => {
+    try {
+        const data = await riderService.approveRider(req.params.riderId);
+        return res.status(200).json({ success: true, message: 'Rider approved', data });
+    } catch (error) {
+        return next(error);
+    }
+};
+
+const rejectRider = async (req, res, next) => {
+    try {
+        const data = await riderService.rejectRider(req.params.riderId, req.body?.reason);
+        return res.status(200).json({ success: true, message: 'Rider rejected', data });
+    } catch (error) {
+        return next(error);
+    }
+};
 export {
     createRider,
     updateRider,
     getAllRiders,
     getRiderById,
     deleteRider,
+    registerRider,
+    approveRider,
+    rejectRider,
 };
