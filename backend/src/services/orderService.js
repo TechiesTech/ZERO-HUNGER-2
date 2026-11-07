@@ -1,8 +1,8 @@
 import crypto from 'crypto';
 import AppError from '../utils/appError.js';
 import * as orderRepository from '../repositories/orderRepository.js';
-import { getCachedRoute } from './routeService.js';
-import { reverseGeocode } from './geocodeService.js';
+import { getCachedRoute } from '../utils/roadRoute.js';
+import { reverseGeocode } from '../utils/geocoder.js';
 
 const lookupAddress = (point) => reverseGeocode(point);
 
