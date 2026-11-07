@@ -7,8 +7,10 @@ import {
   trackOrder,
   updateDeliveryDetails,
   type DeliveryAddress,
+  type DeliveryPoint,
   type Order,
 } from '../services/orderService';
+import AddressSection from '../components/AddressSection';
 
 const EMPTY_ADDRESS: DeliveryAddress = {
   addressLine1: '',
@@ -19,6 +21,16 @@ const EMPTY_ADDRESS: DeliveryAddress = {
   state: '',
   pincode: '',
 };
+
+const isValidPoint = (point?: DeliveryPoint | null): point is DeliveryPoint =>
+  point !== undefined &&
+  point !== null &&
+  Number.isFinite(point.latitude) &&
+  point.latitude >= -90 &&
+  point.latitude <= 90 &&
+  Number.isFinite(point.longitude) &&
+  point.longitude >= -180 &&
+  point.longitude <= 180;
 
 function isEditable(order: Order) {
   return order.customerMealStatus === 'confirmed' || order.customerMealStatus === 'preparing';
@@ -31,6 +43,7 @@ export function OrderLookup(): React.ReactElement {
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [address, setAddress] = useState<DeliveryAddress>(EMPTY_ADDRESS);
+  const [deliveryLocation, setDeliveryLocation] = useState<DeliveryPoint | null>(null);
   const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -73,6 +86,7 @@ export function OrderLookup(): React.ReactElement {
       const details = await trackOrder(order.orderNumber, email);
       setSelectedOrder(details);
       setAddress(details.deliveryAddress || EMPTY_ADDRESS);
+      setDeliveryLocation(isValidPoint(details.deliveryLocation) ? details.deliveryLocation : null);
       setPhone(details.customerPhone || '');
     } catch (detailsError) {
       setError(detailsError instanceof Error ? detailsError.message : 'Could not load order details.');
@@ -86,16 +100,22 @@ export function OrderLookup(): React.ReactElement {
     if (!selectedOrder) return;
     setError('');
     setSuccess('');
+    if (!isValidPoint(deliveryLocation)) {
+      setError('Confirm the delivery pin using address search or the map before saving.');
+      return;
+    }
     setSaving(true);
     try {
       await updateDeliveryDetails(selectedOrder.orderNumber, email, {
         customerPhone: phone,
         deliveryAddress: address,
+        deliveryLocation,
       });
       setSuccess('Delivery details updated.');
       const updated = await trackOrder(selectedOrder.orderNumber, email);
       setSelectedOrder(updated);
       setAddress(updated.deliveryAddress || EMPTY_ADDRESS);
+      setDeliveryLocation(isValidPoint(updated.deliveryLocation) ? updated.deliveryLocation : null);
       setPhone(updated.customerPhone || '');
       setOrders((previous) => previous.map((order) => order.orderNumber === updated.orderNumber ? updated : order));
     } catch (saveError) {
@@ -202,31 +222,14 @@ export function OrderLookup(): React.ReactElement {
                 <label className="block text-sm">Phone
                   <input value={phone} onChange={(event) => setPhone(event.target.value)} className="mt-1 w-full rounded-lg border border-[#122023]/20 px-3 py-2" />
                 </label>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {([
-                    ['addressLine1', 'Address line 1', true],
-                    ['addressLine2', 'Address line 2', false],
-                    ['area', 'Area', true],
-                    ['landmark', 'Landmark', false],
-                    ['city', 'City', true],
-                    ['state', 'State', true],
-                    ['pincode', 'PIN code', true],
-                  ] as const).map(([field, label, required]) => (
-                    <label key={field} className={`block text-sm ${field === 'addressLine1' ? 'sm:col-span-2' : ''}`}>
-                      {label}
-                      <input
-                        required={required}
-                        inputMode={field === 'pincode' ? 'numeric' : undefined}
-                        pattern={field === 'pincode' ? '[1-9][0-9]{5}' : undefined}
-                        maxLength={field === 'pincode' ? 6 : undefined}
-                        value={address[field] || ''}
-                        onChange={(event) => setAddress((current) => ({ ...current, [field]: event.target.value }))}
-                        className="mt-1 w-full rounded-lg border border-[#122023]/20 px-3 py-2"
-                      />
-                    </label>
-                  ))}
-                </div>
-                <button disabled={saving} className="rounded-lg bg-[#188D44] px-5 py-3 text-sm font-bold text-white disabled:opacity-50">
+                <AddressSection
+                  value={{ address, location: deliveryLocation }}
+                  onChange={({ address: nextAddress, location }) => {
+                    setAddress(nextAddress);
+                    setDeliveryLocation(location);
+                  }}
+                />
+                <button disabled={saving || !isValidPoint(deliveryLocation)} className="rounded-lg bg-[#188D44] px-5 py-3 text-sm font-bold text-white disabled:opacity-50">
                   {saving ? 'Saving…' : 'Save delivery details'}
                 </button>
               </form>

@@ -8,7 +8,7 @@ import {
   Order,
   Payment,
 } from '../data/mealProgram';
-import { createOrder, type DeliveryAddress } from '../services/orderService';
+import { createOrder, type DeliveryAddress, type DeliveryPoint } from '../services/orderService';
 
 export interface CartItem {
   product: MealProduct;
@@ -20,6 +20,7 @@ interface PlaceOrderInput {
   customerEmail: string;
   customerPhone: string;
   deliveryAddress: DeliveryAddress;
+  deliveryLocation: DeliveryPoint;
   paymentMethod: 'UPI' | 'CARD' | 'NET_BANKING';
 }
 
@@ -182,6 +183,7 @@ export const MealProgramProvider: React.FC<{ children: React.ReactNode }> = ({
       customerEmail: input.customerEmail,
       customerPhone: input.customerPhone,
       deliveryAddress: input.deliveryAddress,
+      deliveryLocation: input.deliveryLocation,
       paymentMethod: input.paymentMethod.toLowerCase() as 'upi' | 'card' | 'netbanking',
       items: cart.map((item) => ({ mealId: item.product.id, quantity: item.quantity })),
     });
