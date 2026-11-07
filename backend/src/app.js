@@ -19,7 +19,11 @@ app.set('trust proxy', 1);
 app.use(helmet());
 
 // CORS Configuration with credentials enabled
-const allowedOrigins = [process.env.CLIENT_URL, process.env.ADMIN_URL]
+const allowedOrigins = [
+  'https://zero-hunger-2-wgmf.vercel.app',
+  process.env.CLIENT_URL,
+  process.env.ADMIN_URL,
+]
   .filter(Boolean)
   .flatMap((url) => url.split(',').map((origin) => origin.trim()));
 
