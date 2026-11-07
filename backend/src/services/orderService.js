@@ -2,6 +2,9 @@ import crypto from 'crypto';
 import AppError from '../utils/appError.js';
 import * as orderRepository from '../repositories/orderRepository.js';
 import { getCachedRoute } from './routeService.js';
+import { reverseGeocode } from './geocodeService.js';
+
+const lookupAddress = (point) => reverseGeocode(point);
 
 const createOrder = async (body) => {
     const quantityByMeal = new Map();
@@ -253,6 +256,7 @@ const updateDeliveryDetails = async (payload) => {
 
 export {
     createOrder,
+    lookupAddress,
     trackOrder,
     trackMyOrders,
     trackLiveOrder,

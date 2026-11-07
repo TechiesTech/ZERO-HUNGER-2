@@ -12,6 +12,14 @@ const createOrder = async (req, res, next) => {
         next(error);
     }
 };
+const reverseGeocode = async (req, res, next) => {
+    try {
+        const address = await orderService.lookupAddress(req.body);
+        return res.status(200).json({ success: true, data: { address } });
+    } catch (error) {
+        return next(error);
+    }
+};
 const trackOrder = async (req, res, next) => {
     try {
         const data = await orderService.trackOrder(req.body);
@@ -104,6 +112,7 @@ const updateDeliveryDetails = async (req, res, next) => {
 };
 export {
     createOrder,
+    reverseGeocode,
     trackOrder,
     trackMyOrders,
     trackLiveOrder,

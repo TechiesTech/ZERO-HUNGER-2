@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
     createOrder,
+    reverseGeocode,
     trackOrder,
     trackMyOrders,
     cancelOrder,
@@ -13,6 +14,7 @@ import {
 } from '../controllers/orderController.js';
 import {
     createOrderSchema,
+    reverseGeocodeSchema,
     trackOrderSchema,
     trackMyOrdersSchema,
     cancelOrderSchema,
@@ -26,6 +28,7 @@ import validate from '../middleware/validate.js';
 import requireRole from '../middleware/requireRole.js';
 import {
     createOrderLimiter,
+    reverseGeocodeLimiter,
     trackOrderLimiter,
     trackMyOrdersLimiter,
     updateOrderLimiter,
@@ -36,6 +39,7 @@ const router = Router();
 
 // Customer endpoints
 router.post('/createOrder', createOrderLimiter, validate(createOrderSchema), createOrder);
+router.post('/reverseGeocode', reverseGeocodeLimiter, validate(reverseGeocodeSchema), reverseGeocode);
 router.post('/trackOrder', trackOrderLimiter, validate(trackOrderSchema), trackOrder);
 router.post('/trackMyOrders', trackMyOrdersLimiter, validate(trackMyOrdersSchema), trackMyOrders);
 router.patch('/updateDeliveryDetails', updateOrderLimiter, validate(updateDeliveryDetailsSchema), updateDeliveryDetails);

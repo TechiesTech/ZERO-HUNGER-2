@@ -53,7 +53,6 @@ const trackOrder = async (orderNumber, customerEmail) => {
         { $lookup: { from: 'orderItems', localField: '_id', foreignField: 'orderId', as: 'items' } },
         {
             $unset: [
-                'deliveryLocation',
                 'paymentId',
                 'assignedRiderId',
                 'kitchenId',
@@ -258,9 +257,6 @@ const deleteOrder = async (orderId) =>
         .lean();
 
 const updateDeliveryDetails = async ({ orderNumber, customerEmail, ...changes }) => {
-    if (changes.deliveryAddress && !changes.deliveryLocation) {
-        changes.deliveryLocation = { latitude: null, longitude: null };
-    }
     return Order.findOneAndUpdate(
         {
             orderNumber,

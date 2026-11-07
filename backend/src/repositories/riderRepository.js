@@ -31,11 +31,13 @@ const updateRiderById = (riderId, updates) =>
         { new: true, runValidators: true }
     ).lean();
 
-const getAllRiders = async ({ page, limit, zone, isAvailable, isActive }) => {
+const getAllRiders = async ({ page, limit, zone, isAvailable, isActive, approvalStatus }) => {
     const filter = { isDeleted: false };
     if (zone) filter.deliveryZones = zone;
     if (isAvailable !== undefined) filter.isAvailable = isAvailable;
     if (isActive !== undefined) filter.isActive = isActive;
+    if (approvalStatus === 'approved') filter.approvalStatus = { $nin: ['pending', 'rejected'] };
+    else if (approvalStatus) filter.approvalStatus = approvalStatus;
 
     const [riders, total] = await Promise.all([
         Rider.find(filter)
@@ -63,6 +65,37 @@ const getRiderForTracking = (riderId) =>
         .select('name vehicleType currentLocation')
         .lean();
 
+const approveRider = (riderId) =>
+    Rider.findOneAndUpdate(
+        { _id: riderId, isDeleted: false, approvalStatus: { $in: ['pending', 'rejected'] } },
+        {
+            $set: {
+                approvalStatus: 'approved',
+                approvedAt: new Date(),
+                rejectedAt: null,
+                rejectionReason: '',
+                isActive: true,
+                isAvailable: true,
+            },
+        },
+        { new: true }
+    ).lean();
+
+const rejectRider = (riderId, reason) =>
+    Rider.findOneAndUpdate(
+        { _id: riderId, isDeleted: false, approvalStatus: { $ne: 'rejected' } },
+        {
+            $set: {
+                approvalStatus: 'rejected',
+                rejectedAt: new Date(),
+                rejectionReason: reason || '',
+                isAvailable: false,
+            },
+            $inc: { tokenVersion: 1 }, // logs the rider out
+        },
+        { new: true }
+    ).lean();
+
 export {
     createRider,
     updateRiderById,
@@ -70,4 +103,6 @@ export {
     getRiderById,
     deleteRider,
     getRiderForTracking,
+    approveRider,
+    rejectRider,
 };
