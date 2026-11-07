@@ -105,21 +105,15 @@ const registerRider = async (body) => {
         throw error;
     }
 };
-
-const approveRider = async (riderId) => {
-    const rider = await riderRepository.approveRider(riderId);
-    if (!rider) throw new AppError('Rider not found or already approved', 404);
-    return rider;
-};
-
-const rejectRider = async (riderId, reason) => {
-    if (await Delivery.exists({ riderId, isOpen: true })) {
+const reviewRider = async (riderId, status, reason) => {
+    if (status === 'rejected' && (await Delivery.exists({ riderId, isOpen: true }))) {
         throw new AppError('Rider has an open delivery. Release it first', 409);
     }
-    const rider = await riderRepository.rejectRider(riderId, reason);
-    if (!rider) throw new AppError('Rider not found or already rejected', 404);
+    const rider = await riderRepository.reviewRider(riderId, status, reason);
+    if (!rider) throw new AppError(`Rider not found or already ${status}`, 404);
     return rider;
 };
+
 export {
     createRider,
     updateRider,
@@ -127,6 +121,5 @@ export {
     getRiderById,
     deleteRider,
     registerRider,
-    approveRider,
-    rejectRider,
+    reviewRider,
 };

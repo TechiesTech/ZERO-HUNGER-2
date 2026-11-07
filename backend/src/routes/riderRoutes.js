@@ -1,5 +1,13 @@
 import { Router } from 'express';
-import { createRider, updateRider, getAllRiders, getRiderById, deleteRider, registerRider, approveRider, rejectRider } from '../controllers/riderController.js';
+import {
+    createRider,
+    updateRider,
+    getAllRiders,
+    getRiderById,
+    deleteRider,
+    registerRider,
+    reviewRider,
+} from '../controllers/riderController.js';
 import { login, logout, getMe, updateMyLocation, setRiderPassword } from '../controllers/riderAuthController.js';
 import {
     createRiderSchema,
@@ -8,7 +16,7 @@ import {
     updateRiderSchema,
     getAllRidersSchema,
     registerRiderSchema,
-    rejectRiderSchema,
+    reviewRiderSchema,
 } from '../validators/riderValidator.js';
 import { riderLoginSchema, setRiderPasswordSchema } from '../validators/riderAuthValidator.js';
 import { riderLoginLimiter, riderLocationLimiter, riderRegisterLimiter } from '../middleware/rateLimiter.js';
@@ -50,6 +58,5 @@ router.patch('/markPickedUp/:orderId', riderAuth, validate(orderIdParamSchema, '
 router.post('/uploadDeliveryPhoto/:orderId', riderAuth, validate(orderIdParamSchema, 'params'), uploadImage, uploadDeliveryPhoto);
 router.patch('/markDelivered/:orderId', riderAuth, validate(orderIdParamSchema, 'params'), markDelivered);
 
-router.patch('/approveRider/:riderId', requireRole('admin'), validate(riderIdParamSchema, 'params'), approveRider);
-router.patch('/rejectRider/:riderId', requireRole('admin'), validate(riderIdParamSchema, 'params'), validate(rejectRiderSchema), rejectRider);
+router.patch('/reviewRider/:riderId', requireRole('admin'), validate(riderIdParamSchema, 'params'), validate(reviewRiderSchema), reviewRider);
 export default router;

@@ -56,24 +56,16 @@ const registerRider = async (req, res, next) => {
         return next(error);
     }
 };
-
-const approveRider = async (req, res, next) => {
+const reviewRider = async (req, res, next) => {
     try {
-        const data = await riderService.approveRider(req.params.riderId);
-        return res.status(200).json({ success: true, message: 'Rider approved', data });
+        const { status, reason } = req.body;
+        const data = await riderService.reviewRider(req.params.riderId, status, reason);
+        return res.status(200).json({ success: true, message: `Rider ${status}`, data });
     } catch (error) {
         return next(error);
     }
 };
 
-const rejectRider = async (req, res, next) => {
-    try {
-        const data = await riderService.rejectRider(req.params.riderId, req.body?.reason);
-        return res.status(200).json({ success: true, message: 'Rider rejected', data });
-    } catch (error) {
-        return next(error);
-    }
-};
 export {
     createRider,
     updateRider,
@@ -81,6 +73,5 @@ export {
     getRiderById,
     deleteRider,
     registerRider,
-    approveRider,
-    rejectRider,
+    reviewRider,
 };
