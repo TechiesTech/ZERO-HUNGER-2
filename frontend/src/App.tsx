@@ -25,6 +25,7 @@ const ZeptoTracking = lazy(() => import('./pages/ZeptoTracking').then(({ ZeptoTr
 const CelebrateAndGive = lazy(() => import('./pages/CelebrateAndGive').then(({ CelebrateAndGive }) => ({ default: CelebrateAndGive })));
 const CSRTaxBenefits = lazy(() => import('./pages/CSRTaxBenefits').then(({ CSRTaxBenefits }) => ({ default: CSRTaxBenefits })));
 const SupportModal = lazy(() => import('./components/SupportModal').then(({ SupportModal }) => ({ default: SupportModal })));
+const CartModal = lazy(() => import('./components/CartModal').then(({ CartModal }) => ({ default: CartModal })));
 const NotificationToast = lazy(() => import('./components/NotificationToast').then(({ NotificationToast }) => ({ default: NotificationToast })));
 
 function AppContent() {
@@ -32,6 +33,8 @@ function AppContent() {
   const [supportModalLoaded, setSupportModalLoaded] = useState(false);
   const [supportModalTab, setSupportModalTab] = useState<SupportTab>('donate');
   const [preselectedProject, setPreselectedProject] = useState<string>('all');
+  const [cartModalOpen, setCartModalOpen] = useState(false);
+  const [cartModalLoaded, setCartModalLoaded] = useState(false);
   const { pathname } = useLocation();
   const { activeToast } = useMealProgram();
 
@@ -39,10 +42,15 @@ function AppContent() {
     tab: SupportTab = 'donate',
     projectSlug: string = 'all'
   ) => {
-    setSupportModalTab(tab);
-    setPreselectedProject(projectSlug);
-    setSupportModalLoaded(true);
-    setSupportModalOpen(true);
+    if (tab === 'cart') {
+      setCartModalLoaded(true);
+      setCartModalOpen(true);
+    } else {
+      setSupportModalTab(tab);
+      setPreselectedProject(projectSlug);
+      setSupportModalLoaded(true);
+      setSupportModalOpen(true);
+    }
   };
 
   return (
@@ -115,6 +123,14 @@ function AppContent() {
             onClose={() => setSupportModalOpen(false)}
             initialTab={supportModalTab}
             preselectedProjectSlug={preselectedProject}
+          />
+        </Suspense>
+      )}
+      {cartModalLoaded && (
+        <Suspense fallback={null}>
+          <CartModal
+            isOpen={cartModalOpen}
+            onClose={() => setCartModalOpen(false)}
           />
         </Suspense>
       )}

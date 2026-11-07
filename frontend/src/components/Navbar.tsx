@@ -96,14 +96,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
         {/* Zone 3: Primary Actions + Mobile Hamburger */}
         <div className="flex items-center gap-3">
           {cartCount > 0 && (
-            <Link
-              to="/meal-box"
+            <button
+              type="button"
+              onClick={() => onOpenSupport('cart')}
               aria-label={`View Meal Box Cart with ${cartCount} items`}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[8px] text-xs font-mono-tabular font-bold border border-[#49E619]/40 bg-[#122023] text-white hover:border-[#49E619] hover:bg-[#49E619] hover:text-[#080808] transition-colors whitespace-nowrap group"
             >
               <ShoppingBag className="w-3.5 h-3.5 text-[#49E619] group-hover:text-[#080808]" />
               <span>{cartCount}</span>
-            </Link>
+            </button>
           )}
 
           <button
