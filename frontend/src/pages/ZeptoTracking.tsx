@@ -36,25 +36,25 @@ export function ZeptoTracking() {
   
   const [tracking, setTracking] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [riderLocation, setRiderLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [route, setRoute] = useState<[number, number][]>([]);
-  const [distance, setDistance] = useState<string>('--');
-  const [eta, setEta] = useState<string>('--');
+  const [routeDetails, setRouteDetails] = useState({
+    coordinates: [] as [number, number][],
+    eta: '--',
+  });
 
   const orderNumber = orderId || 'ZH-ORD-ABC123';
   const customerEmail = 'philip@zerohunger.org';
 
   const restaurantLocation: [number, number] = [17.4326, 78.4071];
+  const riderLocation =
+    tracking?.customerMealStatus === 'outfordelivery'
+      ? { lat: 17.4400, lng: 78.3900 }
+      : null;
 
   useEffect(() => {
     const fetchTracking = async () => {
       try {
         const res = await trackLiveOrder(orderNumber, customerEmail);
         setTracking(res.data);
-        
-        if (res.data.customerMealStatus === 'outfordelivery') {
-          setRiderLocation({ lat: 17.4400, lng: 78.3900 });
-        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -80,9 +80,10 @@ export function ZeptoTracking() {
       const data = await res.json();
       if (data.routes && data.routes[0]) {
         const coords = data.routes[0].geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]);
-        setRoute(coords);
-        setDistance(`${(data.routes[0].distance / 1000).toFixed(1)} km`);
-        setEta(`${Math.ceil(data.routes[0].duration / 60)} mins`);
+        setRouteDetails({
+          coordinates: coords,
+          eta: `${Math.ceil(data.routes[0].duration / 60)} mins`,
+        });
       }
     } catch (err) {
       console.error('Route fetch error:', err);
@@ -119,7 +120,7 @@ export function ZeptoTracking() {
           </div>
         </div>
         <div className="text-right">
-          <p className="text-2xl font-bold">{eta}</p>
+          <p className="text-2xl font-bold">{routeDetails.eta}</p>
           <p className="text-xs opacity-90">ETA</p>
         </div>
       </div>
@@ -134,8 +135,8 @@ export function ZeptoTracking() {
           {riderLocation && tracking?.customerMealStatus === 'outfordelivery' && (
             <Marker position={[riderLocation.lat, riderLocation.lng]} icon={scooterIcon} />
           )}
-          {route.length > 0 && tracking?.customerMealStatus === 'outfordelivery' && (
-            <Polyline positions={route} color="#0095f6" weight={5} />
+          {routeDetails.coordinates.length > 0 && tracking?.customerMealStatus === 'outfordelivery' && (
+            <Polyline positions={routeDetails.coordinates} color="#0095f6" weight={5} />
           )}
         </MapContainer>
       </div>

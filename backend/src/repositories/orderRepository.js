@@ -47,9 +47,20 @@ const createOrderWithItems = async (orderData, orderItems) => {
     }
 };
 
+const buildOrderTrackingMatch = ({ orderNumber, customerEmail }) => ({
+    orderNumber: orderNumber.trim().toUpperCase(),
+    isDeleted: { $ne: true },
+    $expr: {
+        $eq: [
+            { $toLower: { $trim: { input: { $ifNull: ['$customerEmail', ''] } } } },
+            customerEmail.trim().toLowerCase(),
+        ],
+    },
+});
+
 const trackOrder = async (orderNumber, customerEmail) => {
     const [order] = await Order.aggregate([
-        { $match: { orderNumber, customerEmail, isDeleted: false } },
+        { $match: buildOrderTrackingMatch({ orderNumber, customerEmail }) },
         { $lookup: { from: 'orderItems', localField: '_id', foreignField: 'orderId', as: 'items' } },
         {
             $unset: [
@@ -69,7 +80,7 @@ const trackOrder = async (orderNumber, customerEmail) => {
 
 const trackMyOrders = async (pairs) =>
     Order.aggregate([
-        { $match: { $or: pairs, isDeleted: false } },
+        { $match: { $or: pairs.map(buildOrderTrackingMatch) } },
         { $sort: { createdAt: -1 } },
         { $lookup: { from: 'orderItems', localField: '_id', foreignField: 'orderId', as: 'items' } },
         {
@@ -89,8 +100,32 @@ const trackMyOrders = async (pairs) =>
 
 const trackLiveOrder = async (orderNumber, customerEmail) => {
     const [order] = await Order.aggregate([
-        { $match: { orderNumber, customerEmail, isDeleted: false } },
+        { $match: buildOrderTrackingMatch({ orderNumber, customerEmail }) },
         { $lookup: { from: 'orderItems', localField: '_id', foreignField: 'orderId', as: 'items' } },
+        {
+            $lookup: {
+                from: 'meals',
+                localField: 'items.mealId',
+                foreignField: '_id',
+                pipeline: [{ $project: { kitchenId: 1 } }],
+                as: 'orderMeals',
+            },
+        },
+        {
+            $set: {
+                kitchenId: { $ifNull: ['$kitchenId', { $arrayElemAt: ['$orderMeals.kitchenId', 0] }] },
+            },
+        },
+        {
+            $lookup: {
+                from: 'kitchens',
+                localField: 'kitchenId',
+                foreignField: '_id',
+                pipeline: [{ $project: { _id: 1, name: 1, address: 1, location: 1 } }],
+                as: 'kitchen',
+            },
+        },
+        { $set: { kitchen: { $arrayElemAt: ['$kitchen', 0] } } },
         {
             $project: {
                 _id: 0,
@@ -105,6 +140,7 @@ const trackLiveOrder = async (orderNumber, customerEmail) => {
                 statusTimestamps: 1,
                 deliveryLocation: 1,
                 assignedRiderId: 1,
+                kitchen: 1,
                 items: {
                     $map: {
                         input: '$items',

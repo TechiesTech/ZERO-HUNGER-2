@@ -540,7 +540,7 @@ export const MealBox: React.FC = () => {
                       Order <strong>{confirmedOrder.orderNumber}</strong> is awaiting payment. No payment has been processed.
                     </p>
                     <Link
-                      to={`/track-order?orderNumber=${encodeURIComponent(confirmedOrder.orderNumber || '')}&email=${encodeURIComponent(confirmedOrder.customerEmail)}`}
+                      to={`/track-meal?orderNumber=${encodeURIComponent(confirmedOrder.orderNumber || '')}&email=${encodeURIComponent(confirmedOrder.customerEmail)}`}
                       className="mt-3 inline-flex text-sm font-bold text-[#188D44] underline"
                     >
                       View your order status

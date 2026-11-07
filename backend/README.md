@@ -87,6 +87,11 @@ npm run dev
 # Health check: http://localhost:5000/health
 ```
 
+If port `5000` is already in use, stop the other backend process or set `PORT`
+to an unused port before starting the server. If you use a different port, set
+`VITE_API_URL` in the frontend and admin environments to the matching backend
+URL.
+
 ## Rider Authentication
 
 The backend requires `JWT_SECRET` and `RIDER_JWT_SECRET` to each contain at least

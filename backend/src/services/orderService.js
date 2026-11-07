@@ -133,6 +133,7 @@ const trackLiveOrder = async ({ orderNumber, customerEmail }) => {
         estimatedDeliveryAt: status === 'outfordelivery' ? order.estimatedDeliveryAt || null : null,
         timeline,
         destination,
+        kitchen: order.kitchen || null,
         rider,
         route,
         items: order.items,

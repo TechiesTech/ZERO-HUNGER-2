@@ -3,7 +3,7 @@
  * Live order tracking page with Leaflet maps
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLiveTracking } from '../hooks/useLiveTracking';
 import L from 'leaflet';
@@ -13,6 +13,15 @@ import { Clock, MapPin, Navigation, Phone, Star, Truck, X, Loader2 } from 'lucid
 interface LiveTrackingProps {
   orderNumber?: string;
   customerEmail?: string;
+}
+
+function formatEta(estimatedDeliveryAt: string | null): string {
+  if (!estimatedDeliveryAt) return 'Not available';
+
+  const diffMins = Math.floor(
+    (new Date(estimatedDeliveryAt).getTime() - Date.now()) / 60000,
+  );
+  return diffMins > 0 ? `${diffMins} mins` : 'Arriving soon';
 }
 
 export function LiveTracking({ orderNumber: propOrderNumber, customerEmail: propCustomerEmail }: LiveTrackingProps): React.ReactElement {
@@ -29,7 +38,7 @@ export function LiveTracking({ orderNumber: propOrderNumber, customerEmail: prop
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
   const polylineRef = useRef<L.Polyline | null>(null);
 
-  const [eta, setEta] = useState<string>('Calculating...');
+  const eta = tracking ? formatEta(tracking.estimatedDeliveryAt) : 'Calculating...';
 
   const fetchRoute = async (from: [number, number], to: [number, number]) => {
     try {
@@ -152,16 +161,6 @@ export function LiveTracking({ orderNumber: propOrderNumber, customerEmail: prop
 
     const bounds = L.latLngBounds([restaurantLocation, customerLocation]);
     map.fitBounds(bounds, { padding: [50, 50] });
-
-    if (tracking.estimatedDeliveryAt) {
-      const estimatedTime = new Date(tracking.estimatedDeliveryAt);
-      const now = new Date();
-      const diffMs = estimatedTime.getTime() - now.getTime();
-      const diffMins = Math.floor(diffMs / 60000);
-      setEta(diffMins > 0 ? `${diffMins} mins` : 'Arriving soon');
-    } else {
-      setEta('Not available');
-    }
   }, [tracking]);
 
   const statusSteps = [
