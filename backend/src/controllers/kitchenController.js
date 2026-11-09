@@ -1,9 +1,18 @@
 import * as kitchenService from '../services/kitchenService.js';
 
-const createKitchen = async (req, res, next) => {
+const getMyKitchen = async (req, res, next) => {
     try {
-        const data = await kitchenService.createKitchen(req.body);
-        return res.status(201).json({ success: true, message: 'Kitchen created', data });
+        const data = await kitchenService.getMyKitchen(req.user._id);
+        return res.status(200).json({ success: true, data });
+    } catch (error) {
+        return next(error);
+    }
+};
+
+const saveMyKitchen = async (req, res, next) => {
+    try {
+        const data = await kitchenService.saveMyKitchen(req.user._id, req.body);
+        return res.status(200).json({ success: true, message: 'Kitchen details saved', data });
     } catch (error) {
         return next(error);
     }
@@ -54,4 +63,4 @@ const markReady = async (req, res, next) => {
     }
 };
 
-export { createKitchen, getAllKitchens, getActiveKitchens, getPaidOrders, startPreparing, markReady };
+export { getMyKitchen, saveMyKitchen, getAllKitchens, getActiveKitchens, getPaidOrders, startPreparing, markReady };

@@ -1,21 +1,16 @@
 import AppError from '../utils/appError.js';
 import * as kitchenRepository from '../repositories/kitchenRepository.js';
-import * as authService from './authService.js';
 
-const createKitchen = async ({ name, email, phone, password, ...rest }) => {
-    const user = await authService.createStaffAccount({ name, email, phone, password, role: 'kitchen' });
-    try {
-        return await kitchenRepository.createKitchen({ ...rest, _id: user._id, name, email, phone });
-    } catch (error) {
-        await authService.deleteUser(user._id);
-        if (error.code === 11000) throw new AppError('A kitchen with this email already exists', 409);
-        throw error;
-    }
+const saveMyKitchen = (kitchenId, { address, location }) =>
+    kitchenRepository.saveMyKitchen(kitchenId, { address, location });
+
+const getMyKitchen = async (kitchenId) => {
+    const kitchen = await kitchenRepository.findKitchenById(kitchenId);
+    return kitchen ? { ...kitchen, detailsComplete: true } : { detailsComplete: false };
 };
 
 const getAllKitchens = async ({ search, isActive, page, limit }) => {
-    const filter = {};
-    if (isActive !== undefined) filter.isActive = isActive;
+    const filter = { isActive };
     if (search) {
         const pattern = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
         filter.$or = [{ name: pattern }, { email: pattern }, { phone: pattern }];
@@ -43,4 +38,4 @@ const markReady = async (orderId, kitchenId) => {
     return order;
 };
 
-export { createKitchen, getAllKitchens, getActiveKitchens, getPaidOrders, startPreparing, markReady };
+export { saveMyKitchen, getMyKitchen, getAllKitchens, getActiveKitchens, getPaidOrders, startPreparing, markReady };

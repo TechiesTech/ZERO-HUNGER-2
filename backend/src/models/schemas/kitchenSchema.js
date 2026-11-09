@@ -3,18 +3,14 @@ const { Schema } = mongoose;
 
 const kitchenSchema = new Schema(
     {
-        name: { type: String, required: true, trim: true, minlength: 2, maxlength: 80 },
-        email: { type: String, required: true, trim: true, lowercase: true },
-        phone: { type: String, required: true, trim: true },
-        address: { type: String, trim: true, maxlength: 200 },
+        user: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
+        address: { type: String, required: true, trim: true, maxlength: 200 },
         location: {
-            latitude: { type: Number, min: -90, max: 90 },
-            longitude: { type: Number, min: -180, max: 180 },
+            latitude: { type: Number, min: -90, max: 90, required: true },
+            longitude: { type: Number, min: -180, max: 180, required: true },
         },
     },
     { timestamps: true, versionKey: false }
 );
-
-kitchenSchema.index({ email: 1 }, { unique: true });
 
 export const Kitchen = mongoose.model('Kitchen', kitchenSchema, 'kitchens');

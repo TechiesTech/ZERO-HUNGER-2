@@ -4,6 +4,8 @@ import { createMeal, updateMeal, getAllMeals, uploadMealImage, deleteMeal } from
 import validate from '../middleware/validate.js';
 import authenticate from '../middleware/authenticate.js';
 import requireRoles from '../middleware/requireRoles.js';
+import requireKitchenProfile from '../middleware/requireKitchenProfile.js';
+
 import {
     createMealSchema, mealIdParamSchema, updateMealSchema, getMealsQuerySchema
 } from '../validators/mealValidator.js';
@@ -14,7 +16,7 @@ const router = Router();
 router.get('/getAllMeals', validate(getMealsQuerySchema, 'query'), getAllMeals);
 
 // Kitchen creates its own meals
-router.post('/createMeal', authenticate, requireRoles('kitchen'), validate(createMealSchema), createMeal);
+router.post('/createMeal', authenticate, requireRoles('kitchen'), requireKitchenProfile, validate(createMealSchema), createMeal);
 
 // Kitchen manages its own meals, admin can manage any meal
 router.patch('/updateMealById/:mealId', authenticate, requireRoles('admin', 'kitchen'), validate(mealIdParamSchema, 'params'), validate(updateMealSchema), updateMeal);

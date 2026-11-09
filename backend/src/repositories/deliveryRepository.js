@@ -127,7 +127,26 @@ const getMyActiveOrder = async (riderId) => {
                 from: 'kitchens',
                 localField: 'order.kitchenId',
                 foreignField: '_id',
-                pipeline: [{ $project: { _id: 0, name: 1, phone: 1, address: 1, location: 1 } }],
+                pipeline: [
+                    {
+                        $lookup: {
+                            from: 'users',
+                            localField: 'user',
+                            foreignField: '_id',
+                            pipeline: [{ $project: { _id: 0, name: 1, phone: 1 } }],
+                            as: 'account',
+                        },
+                    },
+                    {
+                        $project: {
+                            _id: 0,
+                            name: { $arrayElemAt: ['$account.name', 0] },
+                            phone: { $arrayElemAt: ['$account.phone', 0] },
+                            address: 1,
+                            location: 1,
+                        },
+                    },
+                ],
                 as: 'kitchen',
             },
         },

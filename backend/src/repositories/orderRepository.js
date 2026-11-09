@@ -98,7 +98,25 @@ const trackLiveOrder = async (orderNumber, customerEmail) => {
                 from: 'kitchens',
                 localField: 'kitchenId',
                 foreignField: '_id',
-                pipeline: [{ $project: { _id: 0, name: 1, address: 1, location: 1 } }],
+                pipeline: [
+                    {
+                        $lookup: {
+                            from: 'users',
+                            localField: 'user',
+                            foreignField: '_id',
+                            pipeline: [{ $project: { _id: 0, name: 1 } }],
+                            as: 'account',
+                        },
+                    },
+                    {
+                        $project: {
+                            _id: 0,
+                            name: { $arrayElemAt: ['$account.name', 0] },
+                            address: 1,
+                            location: 1,
+                        },
+                    },
+                ],
                 as: 'kitchen',
             },
         },
