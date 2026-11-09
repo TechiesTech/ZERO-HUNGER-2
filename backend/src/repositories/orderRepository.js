@@ -14,10 +14,13 @@ const findActiveMealsByIds = async (mealIds) =>
         },
         {
             $lookup: {
-                from: 'kitchens',
+                from: 'users',
                 localField: 'kitchenId',
                 foreignField: '_id',
-                pipeline: [{ $match: { isActive: true } }, { $project: { _id: 1 } }],
+                pipeline: [
+                    { $match: { status: 'active', roles: 'kitchen' } },
+                    { $project: { _id: 1 } },
+                ],
                 as: 'kitchen',
             },
         },

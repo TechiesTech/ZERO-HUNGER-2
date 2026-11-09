@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { Order } from '../models/schemas/orderSchema.js';
 import { Rider } from '../models/schemas/riderSchema.js';
+import { User } from '../models/schemas/userSchema.js';
 import { Delivery } from '../models/schemas/deliverySchema.js';
 import cloudinary from '../config/cloudinary.js';
 
@@ -9,17 +10,22 @@ const assignRider = async (orderId, riderId) => {
     session.startTransaction();
 
     try {
-        const rider = await Rider.findOne({
+        const riderProfile = await Rider.findOne({
             _id: riderId,
             isDeleted: false,
-            isActive: true,
             isAvailable: true,
         })
             .select('_id')
             .session(session)
             .lean();
+        const account = riderProfile
+            ? await User.findOne({ _id: riderId, roles: 'rider', status: 'active' })
+                .select('_id')
+                .session(session)
+                .lean()
+            : null;
 
-        const order = rider
+        const order = account
             ? await Order.findOneAndUpdate(
                 {
                     _id: orderId,
@@ -35,14 +41,14 @@ const assignRider = async (orderId, riderId) => {
                 .lean()
             : null;
 
-        if (!rider || !order) {
+        if (!account || !order) {
             await session.abortTransaction();
-            return { rider, order, delivery: null };
+            return { rider: account, order, delivery: null };
         }
 
         const [delivery] = await Delivery.create([{ orderId, riderId }], { session });
         await session.commitTransaction();
-        return { rider, order, delivery: delivery.toObject() };
+        return { rider: account, order, delivery: delivery.toObject() };
     } catch (error) {
         await session.abortTransaction();
         throw error;

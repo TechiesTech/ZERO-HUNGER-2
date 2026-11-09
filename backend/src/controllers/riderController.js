@@ -44,12 +44,22 @@ const deleteRider = async (req, res, next) => {
         return next(error);
     }
 };
+
+const updateMyLocation = async (req, res, next) => {
+    try {
+        await riderService.updateRiderLocation(String(req.user._id), req.body);
+        return res.status(200).json({ success: true, message: 'Location updated' });
+    } catch (error) {
+        return next(error);
+    }
+};
+
 const registerRider = async (req, res, next) => {
     try {
         const data = await riderService.registerRider(req.body);
         return res.status(201).json({
             success: true,
-            message: 'Registration submitted. You can log in after the admin approves it',
+            message: 'Registration submitted. Verify your email before admin approval',
             data,
         });
     } catch (error) {
@@ -72,6 +82,7 @@ export {
     getAllRiders,
     getRiderById,
     deleteRider,
+    updateMyLocation,
     registerRider,
     reviewRider,
 };

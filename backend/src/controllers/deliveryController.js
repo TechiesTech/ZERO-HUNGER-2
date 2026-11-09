@@ -20,7 +20,7 @@ const unassignRider = async (req, res, next) => {
 
 const getMyActiveOrder = async (req, res, next) => {
     try {
-        const data = await deliveryService.getMyActiveOrder(String(req.rider._id));
+        const data = await deliveryService.getMyActiveOrder(String(req.user._id));
         return res.status(200).json({ success: true, data });
     } catch (error) {
         return next(error);
@@ -29,7 +29,7 @@ const getMyActiveOrder = async (req, res, next) => {
 
 const acceptOrder = async (req, res, next) => {
     try {
-        const data = await deliveryService.acceptOrder(req.params.orderId, req.rider._id);
+        const data = await deliveryService.acceptOrder(req.params.orderId, req.user._id);
         return res.status(200).json({ success: true, message: 'Order accepted', data });
     } catch (error) {
         return next(error);
@@ -38,7 +38,7 @@ const acceptOrder = async (req, res, next) => {
 
 const rejectOrder = async (req, res, next) => {
     try {
-        const data = await deliveryService.releaseRider(req.params.orderId, req.rider._id);
+        const data = await deliveryService.releaseRider(req.params.orderId, req.user._id);
         return res.status(200).json({ success: true, message: 'Order rejected', data });
     } catch (error) {
         return next(error);
@@ -47,7 +47,7 @@ const rejectOrder = async (req, res, next) => {
 
 const markPickedUp = async (req, res, next) => {
     try {
-        const data = await deliveryService.markPickedUp(req.params.orderId, req.rider._id);
+        const data = await deliveryService.markPickedUp(req.params.orderId, req.user._id);
         return res.status(200).json({ success: true, message: 'Order picked up', data });
     } catch (error) {
         return next(error);
@@ -56,7 +56,7 @@ const markPickedUp = async (req, res, next) => {
 
 const uploadDeliveryPhoto = async (req, res, next) => {
     try {
-        const data = await deliveryService.uploadDeliveryPhoto(req.file, req.params.orderId, req.rider._id);
+        const data = await deliveryService.uploadDeliveryPhoto(req.file, req.params.orderId, req.user._id);
         return res.status(201).json({ success: true, message: 'Delivery photo saved', data });
     } catch (error) {
         return next(error);
@@ -65,7 +65,7 @@ const uploadDeliveryPhoto = async (req, res, next) => {
 
 const markDelivered = async (req, res, next) => {
     try {
-        const data = await deliveryService.markDelivered(req.params.orderId, req.rider._id);
+        const data = await deliveryService.markDelivered(req.params.orderId, req.user._id);
         return res.status(200).json({ success: true, message: 'Order delivered', data });
     } catch (error) {
         return next(error);

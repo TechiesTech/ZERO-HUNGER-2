@@ -4,20 +4,78 @@ import { OrderItem } from '../models/schemas/orderItemSchema.js';
 
 const createKitchen = async (data) => {
     const kitchen = await Kitchen.create(data);
-    const { passwordHash, ...safe } = kitchen.toObject();
-    return safe;
+    return kitchen.toObject();
 };
 
 const getAllKitchens = async (filter, skip, limit) => {
-    const [kitchens, total] = await Promise.all([
-        Kitchen.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-        Kitchen.countDocuments(filter),
+    const { isActive, ...profileFilter } = filter;
+    const [result] = await Kitchen.aggregate([
+        { $match: profileFilter },
+        {
+            $lookup: {
+                from: 'users',
+                let: { kitchenId: '$_id' },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $and: [
+                                    { $eq: ['$_id', '$$kitchenId'] },
+                                    { $in: ['kitchen', { $ifNull: ['$roles', []] }] },
+                                ],
+                            },
+                        },
+                    },
+                    { $project: { status: 1, mustChangePassword: 1 } },
+                ],
+                as: 'account',
+            },
+        },
+        { $unwind: '$account' },
+        { $addFields: { isActive: { $eq: ['$account.status', 'active'] }, mustChangePassword: '$account.mustChangePassword' } },
+        ...(isActive === undefined ? [] : [{ $match: { isActive } }]),
+        {
+            $facet: {
+                kitchens: [
+                    { $sort: { createdAt: -1 } },
+                    { $skip: skip },
+                    { $limit: limit },
+                    { $project: { account: 0, passwordHash: 0, tokenVersion: 0, lockedUntil: 0, failedLoginAttempts: 0 } },
+                ],
+                metadata: [{ $count: 'total' }],
+            },
+        },
     ]);
-    return { kitchens, total };
+    return { kitchens: result?.kitchens || [], total: result?.metadata[0]?.total || 0 };
 };
 
 const getActiveKitchens = () =>
-    Kitchen.find({ isActive: true }).select('name address location').sort({ name: 1 }).lean();
+    Kitchen.aggregate([
+        {
+            $lookup: {
+                from: 'users',
+                let: { kitchenId: '$_id' },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $and: [
+                                    { $eq: ['$_id', '$$kitchenId'] },
+                                    { $in: ['kitchen', { $ifNull: ['$roles', []] }] },
+                                    { $eq: ['$status', 'active'] },
+                                ],
+                            },
+                        },
+                    },
+                    { $project: { _id: 1 } },
+                ],
+                as: 'account',
+            },
+        },
+        { $match: { account: { $ne: [] } } },
+        { $project: { name: 1, address: 1, location: 1 } },
+        { $sort: { name: 1 } },
+    ]);
 
 const findOrdersForKitchen = async (kitchenId) => {
     const orders = await Order.find({

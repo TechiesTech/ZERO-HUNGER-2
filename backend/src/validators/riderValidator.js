@@ -49,6 +49,11 @@ const getAllRidersSchema = Joi.object({
 
 const registerRiderSchema = createRiderSchema.keys({
     joiningDate: Joi.forbidden(),
+    email: Joi.string().trim().lowercase().email({ tlds: { allow: false } }).required(),
+    password: Joi.string().min(8).max(72).required(),
+});
+
+const createRiderAccountSchema = createRiderSchema.keys({
     password: Joi.string().min(8).max(72).required(),
 });
 
@@ -65,5 +70,6 @@ export {
     updateRiderLocationSchema,
     getAllRidersSchema,
     registerRiderSchema,
+    createRiderAccountSchema,
     reviewRiderSchema,
 };

@@ -11,9 +11,6 @@ const kitchenSchema = new Schema(
             latitude: { type: Number, min: -90, max: 90 },
             longitude: { type: Number, min: -180, max: 180 },
         },
-        passwordHash: { type: String, required: true, select: false },
-        isActive: { type: Boolean, default: true },
-        tokenVersion: { type: Number, default: 0 },
     },
     { timestamps: true, versionKey: false }
 );

@@ -1,12 +1,13 @@
-import bcrypt from 'bcryptjs';
 import AppError from '../utils/appError.js';
 import * as kitchenRepository from '../repositories/kitchenRepository.js';
+import * as authService from './authService.js';
 
-const createKitchen = async ({ password, ...rest }) => {
-    const passwordHash = await bcrypt.hash(password, 12);
+const createKitchen = async ({ name, email, phone, password, ...rest }) => {
+    const user = await authService.createStaffAccount({ name, email, phone, password, role: 'kitchen' });
     try {
-        return await kitchenRepository.createKitchen({ ...rest, passwordHash });
+        return await kitchenRepository.createKitchen({ ...rest, _id: user._id, name, email, phone });
     } catch (error) {
+        await authService.deleteUser(user._id);
         if (error.code === 11000) throw new AppError('A kitchen with this email already exists', 409);
         throw error;
     }
