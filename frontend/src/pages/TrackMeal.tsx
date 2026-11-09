@@ -13,14 +13,7 @@ import {
   CONSENTED_DELIVERY_PHOTOS,
   type CharityToken,
 } from '../data/mealProgram';
-import {
-  cancelOrder,
-  trackMyOrders,
-  trackOrder,
-  updateDeliveryDetails,
-  type DeliveryAddress,
-  type Order,
-} from '../services/orderService';
+import type { Order } from '../services/orderService';
 import { trackLiveOrder, type TrackingData } from '../services/trackingService';
 import { useMealProgram } from '../context/MealProgramContext';
 import { EditorialImage } from '../components/EditorialImage';
@@ -28,7 +21,6 @@ import { DeliveryRouteMap } from '../components/DeliveryRouteMap';
 import { OrderLookupResults } from '../components/trackMeal/OrderLookupResults';
 import { TrackMealHeader } from '../components/trackMeal/TrackMealHeader';
 import {
-  EMPTY_ADDRESS,
   ORDER_STATUS_CONTENT,
   ORDER_STATUS_STEPS,
   createOrderFromLiveTracking,
@@ -49,16 +41,12 @@ export const TrackMeal: React.FC = () => {
   const [lookupMode, setLookupMode] = useState<'order' | 'tracking'>('order');
   const [orderNumberInput, setOrderNumberInput] = useState('');
   const [email, setEmail] = useState('');
-  const [orders, setOrders] = useState<Order[]>([]);
   const [liveTracking, setLiveTracking] = useState<TrackingData | null>(null);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [address, setAddress] = useState<DeliveryAddress>(EMPTY_ADDRESS);
-  const [phone, setPhone] = useState('');
+  const [trackingEmail, setTrackingEmail] = useState('');
+  const [trackingRefreshError, setTrackingRefreshError] = useState('');
   const [orderError, setOrderError] = useState('');
-  const [orderSuccess, setOrderSuccess] = useState('');
   const [searchPerformed, setSearchPerformed] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [viewMode, setViewMode] = useState<'CUSTOMER_TRACKER' | 'ADMIN_DASHBOARD'>(
     'CUSTOMER_TRACKER'
   );
@@ -106,10 +94,9 @@ export const TrackMeal: React.FC = () => {
 
   const clearTrackingResult = () => {
     setLiveTracking(null);
-    setOrders([]);
-    setSelectedOrder(null);
+    setTrackingEmail('');
+    setTrackingRefreshError('');
     setOrderError('');
-    setOrderSuccess('');
     setSearchPerformed(false);
     setLookupMode('order');
   };
@@ -121,27 +108,23 @@ export const TrackMeal: React.FC = () => {
     if (identifiers.length === 0) return;
 
     setSearchPerformed(true);
-    if (!email.trim() || identifiers.length > 20) {
+    if (!email.trim() || identifiers.length !== 1) {
       setOrderError(!email.trim()
         ? 'Enter the checkout email used for this meal.'
-        : 'Enter no more than 20 order numbers.');
+        : 'Enter a single order number.');
       return;
     }
 
     setLoading(true);
     try {
-      if (identifiers.length === 1) {
-        const response = await trackLiveOrder(identifiers[0], email);
-        console.log('[TrackMeal] trackLiveOrder response:', response.data);
-        console.log('[TrackMeal] kitchen details:', response.data.kitchen);
-        setLiveTracking(response.data);
-        setViewMode('CUSTOMER_TRACKER');
-        setLookupMode('tracking');
-      } else {
-        const response = await trackMyOrders(identifiers.map((orderNumber) => ({ orderNumber, customerEmail: email })));
-        console.log('[TrackMeal] trackMyOrders response:', response.data);
-        setOrders(response.data);
-      }
+      const response = await trackLiveOrder(identifiers[0], email);
+      console.log('[TrackMeal] trackLiveOrder response:', response.data);
+      console.log('[TrackMeal] kitchen details:', response.data.kitchen);
+      setLiveTracking(response.data);
+      setTrackingEmail(email.trim().toLowerCase());
+      setTrackingRefreshError('');
+      setViewMode('CUSTOMER_TRACKER');
+      setLookupMode('tracking');
     } catch (lookupError) {
       console.log('[TrackMeal] lookup error:', lookupError);
       setOrderError(lookupError instanceof Error ? lookupError.message : 'Could not find these orders.');
@@ -150,71 +133,51 @@ export const TrackMeal: React.FC = () => {
     }
   };
 
-  const manageOrder = async (order: Order) => {
-    setOrderError('');
-    setOrderSuccess('');
-    setLoading(true);
-    try {
-      const details = await trackOrder(order.orderNumber, email);
-      console.log('[TrackMeal] trackOrder (manage) response:', details);
-      setSelectedOrder(details);
-      setAddress(details.deliveryAddress || EMPTY_ADDRESS);
-      setPhone(details.customerPhone || '');
-    } catch (detailsError) {
-      setOrderError(detailsError instanceof Error ? detailsError.message : 'Could not load order details.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    const orderNumber = liveTracking?.orderNumber;
+    if (!orderNumber || !trackingEmail || lookupMode !== 'tracking') return;
 
-  const saveDeliveryDetails = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!selectedOrder) return;
-    setOrderError('');
-    setOrderSuccess('');
-    setSaving(true);
-    try {
-      const updateResponse = await updateDeliveryDetails(selectedOrder.orderNumber, email, {
-        customerPhone: phone,
-        deliveryAddress: address,
-      });
-      console.log('[TrackMeal] updateDeliveryDetails response:', updateResponse);
-      setOrderSuccess('Delivery details updated.');
-      const updated: Order = {
-        ...selectedOrder,
-        ...updateResponse.data,
-        customerPhone: phone,
-        deliveryAddress: updateResponse.data.deliveryAddress || address,
-      };
-      setSelectedOrder(updated);
-      setAddress(updated.deliveryAddress || EMPTY_ADDRESS);
-      setPhone(updated.customerPhone || '');
-      setOrders((previous) => previous.map((order) => order.orderNumber === updated.orderNumber ? updated : order));
-    } catch (saveError) {
-      setOrderError(saveError instanceof Error ? saveError.message : 'Could not update delivery details.');
-    } finally {
-      setSaving(false);
-    }
-  };
+    let disposed = false;
+    let requestInFlight = false;
+    const refreshTracking = async () => {
+      if (requestInFlight) return;
+      requestInFlight = true;
+      try {
+        const response = await trackLiveOrder(orderNumber, trackingEmail);
+        if (disposed) return;
 
-  const handleCancelOrder = async () => {
-    if (!selectedOrder || !window.confirm(`Cancel order ${selectedOrder.orderNumber}?`)) return;
-    setOrderError('');
-    setOrderSuccess('');
-    setSaving(true);
-    try {
-      const cancelResponse = await cancelOrder(selectedOrder.orderNumber, email);
-      console.log('[TrackMeal] cancelOrder response:', cancelResponse);
-      const updated: Order = { ...selectedOrder, ...cancelResponse.data };
-      setSelectedOrder(updated);
-      setOrders((previous) => previous.map((order) => order.orderNumber === updated.orderNumber ? updated : order));
-      setOrderSuccess('Order cancelled.');
-    } catch (cancelError) {
-      setOrderError(cancelError instanceof Error ? cancelError.message : 'Could not cancel this order.');
-    } finally {
-      setSaving(false);
-    }
-  };
+        setTrackingRefreshError('');
+        setLiveTracking((current) => {
+          if (!current) return response.data;
+          const timelineChanged =
+            current.timeline.length !== response.data.timeline.length ||
+            current.timeline.some(
+              (step, index) =>
+                step.status !== response.data.timeline[index]?.status ||
+                step.at !== response.data.timeline[index]?.at,
+            );
+          return current.customerMealStatus !== response.data.customerMealStatus ||
+            timelineChanged
+            ? response.data
+            : current;
+        });
+      } catch (refreshError) {
+        if (disposed) return;
+        console.error('[TrackMeal] status refresh error:', refreshError);
+        setTrackingRefreshError(
+          'Live updates are temporarily unavailable. Showing the last received status.',
+        );
+      } finally {
+        requestInFlight = false;
+      }
+    };
+
+    const interval = window.setInterval(refreshTracking, 5000);
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+    };
+  }, [liveTracking?.orderNumber, trackingEmail, lookupMode]);
 
   const isDelivered = trackingStatus === 'delivered';
 
@@ -237,13 +200,9 @@ export const TrackMeal: React.FC = () => {
       : step.timestampKey === 'createdAt'
         ? trackedOrder?.createdAt
         : trackedOrder?.statusTimestamps?.[step.timestampKey];
-    const completed = step.status === 'confirmed'
-      ? Boolean(liveTimestamp || !liveTracking)
-      : step.status === 'cancelled'
-        ? isCancelled
-        : liveTimestamp !== undefined && liveTracking
-          ? liveTimestamp !== null || step.status === trackingStatus
-          : stepIndex <= currentStatusIndex;
+    const completed = step.status === 'cancelled'
+      ? isCancelled
+      : stepIndex >= 0 && stepIndex <= currentStatusIndex;
 
     return {
       ...step,
@@ -255,7 +214,7 @@ export const TrackMeal: React.FC = () => {
   });
 
   return (
-    <div className="bg-[#080808] text-white min-h-screen">
+    <div className="bg-brand-black text-white min-h-screen">
       <TrackMealHeader
         orderNumberInput={orderNumberInput}
         setOrderNumberInput={setOrderNumberInput}
@@ -269,27 +228,15 @@ export const TrackMeal: React.FC = () => {
       {/* =====================================================================
           MAIN CONTENT AREA
       ====================================================================== */}
-      <section className="bg-[#122023] py-16 sm:py-24">
-        <div className="max-w-[1280px] mx-auto px-5 sm:px-8 lg:px-12">
+      <section className="bg-brand-slate py-16 sm:py-24">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8 lg:px-12">
           {lookupMode === 'order' ? (
             <OrderLookupResults
               searchPerformed={searchPerformed}
               orderError={orderError}
-              orderSuccess={orderSuccess}
-              orders={orders}
-              selectedOrder={selectedOrder}
-              address={address}
-              setAddress={setAddress}
-              phone={phone}
-              setPhone={setPhone}
-              saving={saving}
-              loading={loading}
-              onManageOrder={manageOrder}
-              onSaveDelivery={saveDeliveryDetails}
-              onCancelOrder={handleCancelOrder}
             />
           ) : !activeToken && !searchPerformed ? (
-            <div className="rounded-[18px] bg-[#080808] border border-white/15 p-8 text-center max-w-lg mx-auto">
+            <div className="rounded-[18px] bg-brand-black border border-white/15 p-8 text-center max-w-lg mx-auto">
               <p className="font-display-sans uppercase text-2xl font-black text-white">
                 Track your meal
               </p>
@@ -298,7 +245,7 @@ export const TrackMeal: React.FC = () => {
               </p>
             </div>
           ) : !activeToken ? (
-            <div className="rounded-[18px] bg-[#080808] border border-white/15 p-12 text-center max-w-lg mx-auto">
+            <div className="rounded-[18px] bg-brand-black border border-white/15 p-12 text-center max-w-lg mx-auto">
               <p className="font-display-sans uppercase text-2xl font-black text-white">
                 Order not found
               </p>
@@ -314,54 +261,54 @@ export const TrackMeal: React.FC = () => {
               {/* Dual-Stream Distinction Banner: Customer's Purchased Meal vs Sponsored Child Meal */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {/* Box 1: Customer's Own Meal */}
-                <div className="rounded-[16px] bg-[#F2F4F3] text-[#122023] p-6 flex items-start justify-between gap-4">
+                <div className="rounded-[16px] bg-brand-alabaster text-brand-slate p-6 flex items-start justify-between gap-4">
                   <div>
-                    <span className="font-mono-tabular text-[10px] font-bold uppercase tracking-widest text-[#188D44] block">
+                    <span className="font-mono-tabular text-[10px] font-bold uppercase tracking-widest text-brand-emerald block">
                       ORDER {activeToken.orderId} · YOUR PURCHASED MEAL
                     </span>
-                    <h2 className="font-display-sans uppercase text-2xl font-black text-[#122023] mt-1">
+                    <h2 className="font-display-sans uppercase text-2xl font-black text-brand-slate mt-1">
                       {activeToken.productName} (For {activeToken.customerName})
                     </h2>
-                    <p className="text-xs text-[#122023]/75 mt-1">
+                    <p className="text-xs text-brand-slate/75 mt-1">
                       {trackedOrder ? 'Order total' : 'Paid'}: ₹{activeToken.amountPaidInr}
                       {trackedOrder && ` · Payment ${trackedOrder.paymentStatus}`}
                       {' · '}{statusContent?.description}
                     </p>
                   </div>
-                  <span className="px-3 py-1 rounded-[6px] bg-[#122023] text-[#4EDBE2] font-mono-tabular text-[11px] font-bold uppercase shrink-0">
+                  <span className="px-3 py-1 rounded-[6px] bg-brand-slate text-brand-cyan font-mono-tabular text-[11px] font-bold uppercase shrink-0">
                     {statusLabel}
                   </span>
                 </div>
 
                 {/* Box 2: Linked Sponsored Child Meal */}
-                <div className="rounded-[16px] bg-[#49E619] text-[#122023] p-6 flex items-start justify-between gap-4">
+                <div className="rounded-[16px] bg-brand-green text-brand-slate p-6 flex items-start justify-between gap-4">
                   <div>
-                    <span className="font-mono-tabular text-[10px] font-bold uppercase tracking-widest text-[#122023]/80 block">
+                    <span className="font-mono-tabular text-[10px] font-bold uppercase tracking-widest text-brand-slate/80 block">
                       TOKEN {activeToken.tokenNumber} · SPONSORED CHILD MEAL
                     </span>
-                    <h2 className="font-display-sans uppercase text-2xl font-black text-[#122023] mt-1">
+                    <h2 className="font-display-sans uppercase text-2xl font-black text-brand-slate mt-1">
                       {sponsoredMealsCount} Nutritious Child Meal{sponsoredMealsCount === 1 ? '' : 's'}
                     </h2>
-                    <p className="text-xs text-[#122023]/85 font-medium mt-1">
+                    <p className="text-xs text-brand-slate/85 font-medium mt-1">
                       {trackedOrder
                         ? `${trackedOrder.sponsoredMealsCount} sponsored meal${trackedOrder.sponsoredMealsCount === 1 ? '' : 's'} funded by this order. `
                         : 'Funded by your purchase · Recipient Beneficiary ID: '}
-                      <strong className="font-mono-tabular text-[#122023]">
+                      <strong className="font-mono-tabular text-brand-slate">
                         {trackedOrder
                           ? 'Assignment details pending'
                           : activeToken.beneficiaryId}
                       </strong>
                     </p>
                   </div>
-                  <span className="px-3 py-1 rounded-[6px] bg-[#122023] text-[#B9FF2C] font-mono-tabular text-[11px] font-bold uppercase shrink-0">
+                  <span className="px-3 py-1 rounded-[6px] bg-brand-slate text-brand-lime font-mono-tabular text-[11px] font-bold uppercase shrink-0">
                     {trackedOrder ? 'SPONSORED MEAL FUNDED' : isDelivered ? 'CHILD RECEIVED ❤️' : activeToken.status}
                   </span>
                 </div>
               </div>
 
               {isCancelled ? (
-                <section className="rounded-[18px] border border-red-300/30 bg-[#080808] p-6 sm:p-8">
-                  <span className="inline-flex rounded-[7px] bg-red-300 px-3 py-1 font-mono-tabular text-xs font-bold uppercase text-[#122023]">
+                <section className="rounded-[18px] border border-red-300/30 bg-brand-black p-6 sm:p-8">
+                  <span className="inline-flex rounded-[7px] bg-red-300 px-3 py-1 font-mono-tabular text-xs font-bold uppercase text-brand-slate">
                     ORDER CANCELLED
                   </span>
                   <h2 className="mt-4 font-display-sans text-2xl font-black uppercase text-white">
@@ -380,7 +327,7 @@ export const TrackMeal: React.FC = () => {
               <DeliveryRouteMap token={activeToken} liveTracking={liveTracking || undefined} />
 
               {/* Status-specific order timeline */}
-              <section className="rounded-[18px] bg-[#080808] border border-white/12 p-6 sm:p-8 shadow-xl">
+              {/* <section className="rounded-[18px] bg-brand-black border border-white/12 p-6 sm:p-8 shadow-xl">
                 <div className="pb-4 mb-5 border-b border-white/10 flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <span className="font-mono-tabular text-xs font-bold uppercase tracking-widest text-white">
@@ -389,8 +336,13 @@ export const TrackMeal: React.FC = () => {
                     {statusContent && (
                       <p className="mt-2 text-sm text-white/65">{statusContent.description}</p>
                     )}
+                    {trackingRefreshError && (
+                      <p role="status" className="mt-2 text-sm text-red-300">
+                        {trackingRefreshError}
+                      </p>
+                    )}
                   </div>
-                  <span className="rounded-[7px] bg-[#49E619] px-3 py-1 font-mono-tabular text-xs font-bold uppercase text-[#080808]">
+                  <span className="rounded-[7px] bg-brand-green px-3 py-1 font-mono-tabular text-xs font-bold uppercase text-brand-black">
                     {statusLabel}
                   </span>
                 </div>
@@ -420,7 +372,7 @@ export const TrackMeal: React.FC = () => {
                     </article>
                   ))}
                 </div>
-              </section>
+              </section> */}
                 </>
               )}
 
@@ -429,25 +381,25 @@ export const TrackMeal: React.FC = () => {
                 {/* RIGHT 7 COLUMNS: YOUR IMPACT + DELIVERY PHOTO + PRIVACY PROTECTION */}
                 <div className="lg:col-span-12 space-y-6">
                   {isDelivered ? (
-                    <div className="rounded-[18px] bg-[#080808] border border-white/15 p-6 sm:p-9 shadow-2xl">
+                    <div className="rounded-[18px] bg-brand-black border border-white/15 p-6 sm:p-9 shadow-2xl">
                       <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-white/12">
                         <div>
-                          <span className="font-mono-tabular text-xs font-bold uppercase tracking-[0.2em] text-[#49E619] block">
+                          <span className="font-mono-tabular text-xs font-bold uppercase tracking-[0.2em] text-brand-green block">
                             YOUR IMPACT
                           </span>
                           <h3 className="font-display-sans uppercase text-3xl sm:text-4xl font-black text-white mt-1">
                             {trackedOrder ? statusContent?.title : 'Meal delivered successfully ❤️'}
                           </h3>
                         </div>
-                        <span className="px-3.5 py-1.5 rounded-[8px] bg-[#49E619] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-widest">
+                        <span className="px-3.5 py-1.5 rounded-[8px] bg-brand-green text-brand-black font-mono-tabular text-xs font-bold uppercase tracking-widest">
                           {trackedOrder ? 'ORDER DELIVERED ✓' : 'VERIFIED DELIVERY ✓'}
                         </span>
                       </div>
 
                       {/* Recipient & Location Metadata Grid */}
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-6 border-b border-white/12">
-                        <div className="rounded-[10px] bg-[#122023] p-3.5">
-                          <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-[#49E619] block">
+                        <div className="rounded-[10px] bg-brand-slate p-3.5">
+                          <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-brand-green block">
                             {trackedOrder ? 'SPONSORED MEAL' : 'RECIPIENT (ANONYMIZED)'}
                           </span>
                           <span className="font-mono-tabular text-sm font-bold text-white mt-1 block">
@@ -457,8 +409,8 @@ export const TrackMeal: React.FC = () => {
                           </span>
                         </div>
 
-                        <div className="rounded-[10px] bg-[#122023] p-3.5">
-                          <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-[#4EDBE2] block">
+                        <div className="rounded-[10px] bg-brand-slate p-3.5">
+                          <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-brand-cyan block">
                             {trackedOrder ? 'CUSTOMER DELIVERY AREA' : 'LOCATION'}
                           </span>
                           <span className="text-sm font-bold text-white mt-1 block">
@@ -466,8 +418,8 @@ export const TrackMeal: React.FC = () => {
                           </span>
                         </div>
 
-                        <div className="rounded-[10px] bg-[#122023] p-3.5">
-                          <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-[#B9FF2C] block">
+                        <div className="rounded-[10px] bg-brand-slate p-3.5">
+                          <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-brand-lime block">
                             DELIVERED
                           </span>
                           <span className="font-mono-tabular text-sm font-bold text-white mt-1 block">
@@ -484,15 +436,15 @@ export const TrackMeal: React.FC = () => {
                       <div className="mt-6">
                         <div className="flex items-center justify-between mb-3">
                           <span className="font-mono-tabular text-xs font-bold uppercase tracking-widest text-white inline-flex items-center gap-2">
-                            <Camera className="w-4 h-4 text-[#49E619]" />
+                            <Camera className="w-4 h-4 text-brand-green" />
                             <span>PHOTO OF MEAL DELIVERY</span>
                           </span>
-                          <span className="font-mono-tabular text-[11px] text-[#49E619] font-bold">
+                          <span className="font-mono-tabular text-[11px] text-brand-green font-bold">
                             {trackedOrder ? 'Photo not provided' : 'Safeguarding Consent Verified ✓'}
                           </span>
                         </div>
 
-                        <div className="relative rounded-[14px] aspect-[16/10] overflow-hidden border border-white/15 bg-[#122023]">
+                        <div className="relative rounded-[14px] aspect-[16/10] overflow-hidden border border-white/15 bg-brand-slate">
                           {activeToken.deliveryPhoto && activeToken.photoUploaded ? (
                             <>
                               <EditorialImage
@@ -500,19 +452,19 @@ export const TrackMeal: React.FC = () => {
                                 alt={`Verified meal delivery for token ${activeToken.tokenNumber} at ${activeToken.deliveryLocation}`}
                                 className="w-full h-full"
                               />
-                              <div className="absolute bottom-3 left-3 right-3 rounded-[8px] bg-[#080808]/90 backdrop-blur-xs text-white px-3.5 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono-tabular">
+                              <div className="absolute bottom-3 left-3 right-3 rounded-[8px] bg-brand-black/90 backdrop-blur-xs text-white px-3.5 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono-tabular">
                                 <span>
                                   TOKEN: {activeToken.tokenNumber} · BENEFICIARY:{' '}
                                   {activeToken.beneficiaryId}
                                 </span>
-                                <span className="text-[#49E619] font-bold">
+                                <span className="text-brand-green font-bold">
                                   {activeToken.deliveryLocation.toUpperCase()}
                                 </span>
                               </div>
                             </>
                           ) : (
                             <div className="h-full flex flex-col items-center justify-center px-6 text-center">
-                              <Camera className="h-8 w-8 text-[#49E619]" />
+                              <Camera className="h-8 w-8 text-brand-green" />
                               <p className="mt-3 font-display-sans text-lg font-black uppercase text-white">
                                 Delivery photo not available
                               </p>
@@ -525,41 +477,41 @@ export const TrackMeal: React.FC = () => {
                       </div>
 
                       {/* Customer Notification Receipt Card */}
-                      {!trackedOrder && <div className="mt-6 rounded-[14px] bg-[#B9FF2C] text-[#122023] p-5">
-                        <span className="font-mono-tabular text-[10px] font-bold uppercase tracking-widest text-[#122023]/80 block">
+                      {!trackedOrder && <div className="mt-6 rounded-[14px] bg-brand-lime text-brand-slate p-5">
+                        <span className="font-mono-tabular text-[10px] font-bold uppercase tracking-widest text-brand-slate/80 block">
                           CUSTOMER DISPATCH MESSAGE
                         </span>
-                        <p className="font-display-sans uppercase text-xl font-black text-[#122023] mt-1">
+                        <p className="font-display-sans uppercase text-xl font-black text-brand-slate mt-1">
                           Your meal has reached a child in need ❤️
                         </p>
-                        <p className="font-mono-tabular text-xs text-[#122023] mt-1">
+                        <p className="font-mono-tabular text-xs text-brand-slate mt-1">
                           Token: <strong>{activeToken.tokenNumber}</strong>
                         </p>
-                        <p className="text-xs text-[#122023]/80 font-medium mt-1">
+                        <p className="text-xs text-brand-slate/80 font-medium mt-1">
                           Thank you for helping provide a nutritious meal through
                           our community distribution program.
                         </p>
                       </div>}
                     </div>
                   ) : (
-                    <div className="rounded-[18px] bg-[#080808] border border-white/15 p-6 sm:p-9 shadow-2xl">
+                    <div className="rounded-[18px] bg-brand-black border border-white/15 p-6 sm:p-9 shadow-2xl">
                       <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-white/12">
                         <div>
-                          <span className="font-mono-tabular text-xs font-bold uppercase tracking-[0.2em] text-[#49E619] block">
+                          <span className="font-mono-tabular text-xs font-bold uppercase tracking-[0.2em] text-brand-green block">
                             YOUR IMPACT
                           </span>
                           <h3 className="font-display-sans uppercase text-3xl sm:text-4xl font-black text-white mt-1">
                             {statusContent?.title}
                           </h3>
                         </div>
-                        <span className="px-3.5 py-1.5 rounded-[8px] bg-[#B9FF2C] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-widest">
+                        <span className="px-3.5 py-1.5 rounded-[8px] bg-brand-lime text-brand-black font-mono-tabular text-xs font-bold uppercase tracking-widest">
                           {statusLabel}
                         </span>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-6 border-b border-white/12">
-                        <div className="rounded-[10px] bg-[#122023] p-3.5">
-                          <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-[#49E619] block">
+                        <div className="rounded-[10px] bg-brand-slate p-3.5">
+                          <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-brand-green block">
                             {trackedOrder ? 'SPONSORED MEAL' : 'RECIPIENT (ANONYMIZED)'}
                           </span>
                           <span className="font-mono-tabular text-sm font-bold text-white mt-1 block">
@@ -570,8 +522,8 @@ export const TrackMeal: React.FC = () => {
                               : `Beneficiary ID: ${activeToken.beneficiaryId}`}
                           </span>
                         </div>
-                        <div className="rounded-[10px] bg-[#122023] p-3.5">
-                          <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-[#4EDBE2] block">
+                        <div className="rounded-[10px] bg-brand-slate p-3.5">
+                          <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-brand-cyan block">
                             {trackedOrder ? 'CUSTOMER DELIVERY AREA' : 'LOCATION'}
                           </span>
                           <span className="text-sm font-bold text-white mt-1 block">
@@ -582,8 +534,8 @@ export const TrackMeal: React.FC = () => {
                                 : activeToken.deliveryLocation}
                           </span>
                         </div>
-                        <div className="rounded-[10px] bg-[#122023] p-3.5">
-                          <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-[#B9FF2C] block">
+                        <div className="rounded-[10px] bg-brand-slate p-3.5">
+                          <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-brand-lime block">
                             DELIVERY
                           </span>
                           <span className="font-mono-tabular text-sm font-bold text-white mt-1 block">
@@ -604,15 +556,15 @@ export const TrackMeal: React.FC = () => {
                       <div className="mt-6">
                         <div className="flex items-center justify-between gap-3 mb-3">
                           <span className="font-mono-tabular text-xs font-bold uppercase tracking-widest text-white inline-flex items-center gap-2">
-                            <Camera className="w-4 h-4 text-[#49E619]" />
+                            <Camera className="w-4 h-4 text-brand-green" />
                             <span>PHOTO OF MEAL DELIVERY</span>
                           </span>
                           <span className="font-mono-tabular text-[11px] text-white/55 font-bold">
                             Proof pending
                           </span>
                         </div>
-                        <div className="rounded-[14px] aspect-[16/10] border border-white/15 bg-[#122023] flex flex-col items-center justify-center px-6 text-center">
-                          <Clock className="w-8 h-8 text-[#49E619]" />
+                        <div className="rounded-[14px] aspect-[16/10] border border-white/15 bg-brand-slate flex flex-col items-center justify-center px-6 text-center">
+                          <Clock className="w-8 h-8 text-brand-green" />
                           <p className="mt-3 font-display-sans uppercase text-lg font-black text-white">
                             Delivery proof will appear here
                           </p>
@@ -625,10 +577,10 @@ export const TrackMeal: React.FC = () => {
                   )}
 
                   {/* Strict Child Privacy & Safeguarding Policy Box */}
-                  <div className="rounded-[18px] bg-[#080808] text-white p-6 sm:p-7 border border-[#49E619]/30">
+                  <div className="rounded-[18px] bg-brand-black text-white p-6 sm:p-7 border border-brand-green/30">
                     <div className="flex items-center gap-2.5 mb-3">
-                      <Lock className="w-4 h-4 text-[#49E619]" />
-                      <h4 className="font-mono-tabular text-xs font-bold uppercase tracking-[0.18em] text-[#49E619]">
+                      <Lock className="w-4 h-4 text-brand-green" />
+                      <h4 className="font-mono-tabular text-xs font-bold uppercase tracking-[0.18em] text-brand-green">
                         CHILD PRIVACY & SAFEGUARDING PROTECTION
                       </h4>
                     </div>
@@ -640,7 +592,7 @@ export const TrackMeal: React.FC = () => {
                         personally identifying information
                       </strong>
                       . All impact records use an anonymized{' '}
-                      <span className="font-mono-tabular text-[#B9FF2C]">
+                      <span className="font-mono-tabular text-brand-lime">
                         Beneficiary ID ({activeToken.beneficiaryId})
                       </span>{' '}
                       and community-level photography published only when
@@ -656,10 +608,10 @@ export const TrackMeal: React.FC = () => {
                 VIEW 2: NGO ADMIN DELIVERY CONFIRMATION DASHBOARD
             ================================================================ */
             <div className="max-w-4xl mx-auto space-y-8">
-              <div className="rounded-[20px] bg-[#080808] border border-white/20 shadow-2xl p-6 sm:p-10">
+              <div className="rounded-[20px] bg-brand-black border border-white/20 shadow-2xl p-6 sm:p-10">
                 <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-white/12">
                   <div>
-                    <span className="font-mono-tabular text-xs font-bold uppercase tracking-[0.2em] text-[#49E619] block">
+                    <span className="font-mono-tabular text-xs font-bold uppercase tracking-[0.2em] text-brand-green block">
                       NGO FIELD OPERATIONS
                     </span>
                     <h2 className="font-display-sans uppercase text-3xl sm:text-4xl font-black text-white mt-1">
@@ -670,8 +622,8 @@ export const TrackMeal: React.FC = () => {
                   <span
                     className={`px-4 py-1.5 rounded-[8px] font-mono-tabular text-xs font-bold uppercase tracking-widest ${
                       isDelivered
-                        ? 'bg-[#49E619] text-[#080808]'
-                        : 'bg-[#B9FF2C] text-[#122023]'
+                        ? 'bg-brand-green text-brand-black'
+                        : 'bg-brand-lime text-brand-slate'
                     }`}
                   >
                     {isDelivered ? 'DELIVERED ✓' : 'READY FOR DELIVERY'}
@@ -684,7 +636,7 @@ export const TrackMeal: React.FC = () => {
                     <dt className="font-mono-tabular text-[11px] uppercase tracking-widest text-white/60">
                       Token:
                     </dt>
-                    <dd className="font-mono-tabular text-lg font-bold text-[#49E619] mt-1">
+                    <dd className="font-mono-tabular text-lg font-bold text-brand-green mt-1">
                       {activeToken.tokenNumber}
                     </dd>
                   </div>
@@ -711,7 +663,7 @@ export const TrackMeal: React.FC = () => {
                     <dt className="font-mono-tabular text-[11px] uppercase tracking-widest text-white/60">
                       Amount:
                     </dt>
-                    <dd className="font-mono-tabular text-lg font-bold text-[#B9FF2C] mt-1">
+                    <dd className="font-mono-tabular text-lg font-bold text-brand-lime mt-1">
                       ₹{activeToken.amountPaidInr}
                     </dd>
                   </div>
@@ -720,7 +672,7 @@ export const TrackMeal: React.FC = () => {
                     <dt className="font-mono-tabular text-[11px] uppercase tracking-widest text-white/60">
                       Sponsored Meal:
                     </dt>
-                    <dd className="font-mono-tabular text-lg font-bold text-[#49E619] mt-1">
+                    <dd className="font-mono-tabular text-lg font-bold text-brand-green mt-1">
                       YES
                     </dd>
                   </div>
@@ -751,7 +703,7 @@ export const TrackMeal: React.FC = () => {
                             setSelectedLocation(found.communityCenter);
                           }
                         }}
-                        className="w-full rounded-[8px] border border-white/20 bg-[#122023] px-3 py-2.5 font-mono-tabular text-xs font-bold text-white"
+                        className="w-full rounded-[8px] border border-white/20 bg-brand-slate px-3 py-2.5 font-mono-tabular text-xs font-bold text-white"
                       >
                         {BENEFICIARIES.map((b) => (
                           <option key={b.id} value={b.beneficiaryCode}>
@@ -771,7 +723,7 @@ export const TrackMeal: React.FC = () => {
                         type="text"
                         value={selectedLocation}
                         onChange={(e) => setSelectedLocation(e.target.value)}
-                        className="w-full rounded-[8px] border border-white/20 bg-[#122023] px-3 py-2.5 text-xs font-semibold text-white"
+                        className="w-full rounded-[8px] border border-white/20 bg-brand-slate px-3 py-2.5 text-xs font-semibold text-white"
                       />
                     </dd>
                   </div>
@@ -782,8 +734,8 @@ export const TrackMeal: React.FC = () => {
                   <div
                     className={`p-3.5 rounded-[10px] font-mono-tabular text-xs font-bold flex items-center justify-between ${
                       isDelivered
-                        ? 'bg-[#49E619] text-[#080808]'
-                        : 'bg-[#122023] text-white/60'
+                        ? 'bg-brand-green text-brand-black'
+                        : 'bg-brand-slate text-white/60'
                     }`}
                   >
                     <span>DELIVERED</span>
@@ -793,8 +745,8 @@ export const TrackMeal: React.FC = () => {
                   <div
                     className={`p-3.5 rounded-[10px] font-mono-tabular text-xs font-bold flex items-center justify-between ${
                       activeToken.photoUploaded
-                        ? 'bg-[#4EDBE2] text-[#080808]'
-                        : 'bg-[#122023] text-white/60'
+                        ? 'bg-brand-cyan text-brand-black'
+                        : 'bg-brand-slate text-white/60'
                     }`}
                   >
                     <span>Photo uploaded</span>
@@ -804,8 +756,8 @@ export const TrackMeal: React.FC = () => {
                   <div
                     className={`p-3.5 rounded-[10px] font-mono-tabular text-xs font-bold flex items-center justify-between ${
                       activeToken.notificationSent
-                        ? 'bg-[#B9FF2C] text-[#080808]'
-                        : 'bg-[#122023] text-white/60'
+                        ? 'bg-brand-lime text-brand-black'
+                        : 'bg-brand-slate text-white/60'
                     }`}
                   >
                     <span>Notification sent</span>
@@ -815,8 +767,8 @@ export const TrackMeal: React.FC = () => {
 
                 {/* Consented Photo Picker Drawer */}
                 {showPhotoSelector && (
-                  <div className="my-5 p-4 rounded-[12px] bg-[#122023] border border-white/15">
-                    <span className="font-mono-tabular text-[11px] font-bold uppercase tracking-wider text-[#49E619] block mb-3">
+                  <div className="my-5 p-4 rounded-[12px] bg-brand-slate border border-white/15">
+                    <span className="font-mono-tabular text-[11px] font-bold uppercase tracking-wider text-brand-green block mb-3">
                       Select Safeguarding-Cleared Community Delivery Photo:
                     </span>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -834,8 +786,8 @@ export const TrackMeal: React.FC = () => {
                           }}
                           className={`rounded-[10px] text-left border p-2 transition-all cursor-pointer ${
                             selectedPhotoUrl === photo.url
-                              ? 'border-[#49E619] bg-[#080808]'
-                              : 'border-white/15 bg-[#080808]/60 hover:bg-[#080808]'
+                              ? 'border-brand-green bg-brand-black'
+                              : 'border-white/15 bg-brand-black/60 hover:bg-brand-black'
                           }`}
                         >
                           <div className="aspect-[4/3] rounded-[6px] overflow-hidden mb-2">
@@ -865,7 +817,7 @@ export const TrackMeal: React.FC = () => {
                         selectedLocation
                       )
                     }
-                    className="py-4 px-4 rounded-[10px] bg-[#49E619] hover:bg-[#B9FF2C] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    className="py-4 px-4 rounded-[10px] bg-brand-green hover:bg-brand-lime text-brand-black font-mono-tabular text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     <span>MARK AS DELIVERED</span>
@@ -880,9 +832,9 @@ export const TrackMeal: React.FC = () => {
                       );
                       setShowPhotoSelector((prev) => !prev);
                     }}
-                    className="py-4 px-4 rounded-[10px] bg-white hover:bg-[#4EDBE2] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    className="py-4 px-4 rounded-[10px] bg-white hover:bg-brand-cyan text-brand-black font-mono-tabular text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
                   >
-                    <Upload className="w-4 h-4 text-[#188D44]" />
+                    <Upload className="w-4 h-4 text-brand-emerald" />
                     <span>UPLOAD PHOTO</span>
                   </button>
 
@@ -896,7 +848,7 @@ export const TrackMeal: React.FC = () => {
                       );
                       sendCustomerNotification(activeToken.tokenNumber);
                     }}
-                    className="py-4 px-4 rounded-[10px] bg-[#B9FF2C] hover:bg-[#49E619] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    className="py-4 px-4 rounded-[10px] bg-brand-lime hover:bg-brand-green text-brand-black font-mono-tabular text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
                   >
                     <Send className="w-4 h-4" />
                     <span>SEND CUSTOMER NOTIFICATION</span>
@@ -905,14 +857,14 @@ export const TrackMeal: React.FC = () => {
 
                 {/* Preview of Dispatched Customer Message */}
                 {activeToken.notificationSent && (
-                  <div className="mt-6 rounded-[14px] bg-[#122023] text-white p-5 border-l-4 border-l-[#49E619]">
-                    <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-[#49E619] font-bold block">
+                  <div className="mt-6 rounded-[14px] bg-brand-slate text-white p-5 border-l-4 border-l-brand-green">
+                    <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-brand-green font-bold block">
                       DISPATCHED TO CUSTOMER (WEB + EMAIL + SMS/WHATSAPP)
                     </span>
                     <p className="font-display-sans uppercase text-lg font-black mt-1">
                       Your meal has reached a child in need ❤️
                     </p>
-                    <p className="font-mono-tabular text-xs text-[#B9FF2C] mt-1">
+                    <p className="font-mono-tabular text-xs text-brand-lime mt-1">
                       Token: {activeToken.tokenNumber}
                     </p>
                     <p className="text-xs text-white/75 mt-1">
@@ -921,7 +873,7 @@ export const TrackMeal: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setViewMode('CUSTOMER_TRACKER')}
-                      className="mt-4 px-4 py-2 rounded-[8px] bg-[#49E619] text-[#080808] font-mono-tabular text-[11px] font-bold uppercase tracking-widest cursor-pointer"
+                      className="mt-4 px-4 py-2 rounded-[8px] bg-brand-green text-brand-black font-mono-tabular text-[11px] font-bold uppercase tracking-widest cursor-pointer"
                     >
                       VIEW CUSTOMER IMPACT SCREEN →
                     </button>
