@@ -178,9 +178,7 @@ const trackLiveOrder = async ({ orderNumber, customerEmail }) => {
         estimatedDeliveryAt,
         timeline,
         destination,
-        kitchen: !isFinished && kitchen
-            ? { name: kitchen.name, address: kitchen.address, location: kitchenPoint }
-            : null,
+        kitchen: order.kitchen || null,
         rider,
         routes: { toKitchen, toCustomer },
         items: order.items,

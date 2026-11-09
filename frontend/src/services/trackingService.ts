@@ -10,25 +10,40 @@ export interface TimelineStep {
   at: string | null;
 }
 
-export interface RouteData {
-  distanceMeters: number;
-  durationSeconds: number;
-  path: [number, number][];
+export interface TrackingCoordinates {
+  latitude: number | null;
+  longitude: number | null;
 }
 
-export interface RiderTrackingData {
+export interface TrackingKitchen {
+  _id?: string;
   name: string;
-  vehicleType: string;
-  status: string;
-  acceptedAt: string | null;
-  pickedUpAt: string | null;
-  currentLocation: {
-    latitude: number | null;
-    longitude: number | null;
-    heading: number | null;
-    updatedAt: string | null;
+  address: string;
+  location?: TrackingCoordinates | null;
+}
+
+export interface TrackingRider {
+  name?: string;
+  vehicleType?: string;
+  currentLocation?: TrackingCoordinates & {
+    heading?: number | null;
+    updatedAt?: string | null;
   };
-  isLocationStale: boolean;
+  isLocationStale?: boolean;
+}
+
+export interface TrackingRoute {
+  path?: Array<[number, number]>;
+  distanceMeters?: number;
+  durationSeconds?: number;
+}
+
+export interface TrackingItem {
+  productName: string;
+  quantity: number;
+  unitPriceInr: number;
+  totalPriceInr: number;
+  sponsoredChildMeals: number;
 }
 
 export interface TrackingData {
@@ -41,28 +56,22 @@ export interface TrackingData {
   placedAt: string;
   estimatedDeliveryAt: string | null;
   timeline: TimelineStep[];
-  destination: { latitude: number; longitude: number } | null;
-  kitchen: {
-    name: string;
-    address?: string;
-    location: { latitude: number; longitude: number } | null;
+  destination: TrackingCoordinates | null;
+  kitchen?: TrackingKitchen | null;
+  rider: TrackingRider | null;
+  route?: TrackingRoute | null;
+  routes?: {
+    toKitchen?: TrackingRoute | null;
+    toCustomer?: TrackingRoute | null;
   } | null;
-  rider: RiderTrackingData | null;
-  routes: {
-    toKitchen: RouteData | null;
-    toCustomer: RouteData | null;
-  };
-  items: Array<{
-    productName: string;
-    quantity: number;
-    unitPriceInr: number;
-    totalPriceInr: number;
-    sponsoredChildMeals: number;
-  }>;
+  items: TrackingItem[];
   canEditDetails: boolean;
   canCancel: boolean;
 }
 
 export async function trackLiveOrder(orderNumber: string, customerEmail: string): Promise<{ success: boolean; data: TrackingData }> {
-  return api.post('/api/orders/trackLiveOrder', { orderNumber, customerEmail });
+  return api.post('/api/orders/trackLiveOrder', {
+    orderNumber: orderNumber.trim().toUpperCase(),
+    customerEmail: customerEmail.trim().toLowerCase(),
+  });
 }

@@ -36,6 +36,13 @@ export interface Order {
   paymentMethod: string;
   customerMealStatus: string;
   sponsoredMealsCount: number;
+  statusTimestamps?: {
+    preparingAt?: string | null;
+    readyAt?: string | null;
+    outForDeliveryAt?: string | null;
+    deliveredAt?: string | null;
+    cancelledAt?: string | null;
+  };
   createdAt: string;
   updatedAt: string;
 }

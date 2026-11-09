@@ -12,7 +12,6 @@ interface NavbarProps {
 const NAV_ITEMS = [
   { label: 'Home', path: '/', hideOnCompact: false },
   { label: 'Meal Box', path: '/meal-box', hideOnCompact: false },
-  { label: 'Track Order', path: '/track-order', hideOnCompact: false },
   { label: 'Celebrate & Give', path: '/celebrate-and-give', hideOnCompact: false },
   { label: 'Track Meal', path: '/track-meal', hideOnCompact: false },
   { label: 'Projects & Impact', path: '/projects', hideOnCompact: false },

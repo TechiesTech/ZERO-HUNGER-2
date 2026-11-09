@@ -32,7 +32,7 @@ function AppContent() {
   const [supportModalLoaded, setSupportModalLoaded] = useState(false);
   const [supportModalTab, setSupportModalTab] = useState<SupportTab>('donate');
   const [preselectedProject, setPreselectedProject] = useState<string>('all');
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const { activeToast } = useMealProgram();
 
   const handleOpenSupport = (
@@ -69,6 +69,7 @@ function AppContent() {
                   element={<Home onOpenSupport={handleOpenSupport} />}
                 />
                 <Route path="/meal-box" element={<MealBox />} />
+                <Route path="/track-order" element={<Navigate to={`/track-meal${search}`} replace />} />
                 <Route path="/track-meal" element={<TrackMeal />} />
                 <Route
                   path="/live-tracking/:orderNumber"

@@ -36,9 +36,19 @@ export function ZeptoTracking() {
   
   const [tracking, setTracking] = useState<TrackingData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [routeDetails, setRouteDetails] = useState({
+    coordinates: [] as [number, number][],
+    eta: '--',
+  });
 
   const orderNumber = orderId || 'ZH-ORD-ABC123';
   const customerEmail = 'philip@zerohunger.org';
+
+  const restaurantLocation: [number, number] = [17.4326, 78.4071];
+  const riderLocation =
+    tracking?.customerMealStatus === 'outfordelivery'
+      ? { lat: 17.4400, lng: 78.3900 }
+      : null;
 
   useEffect(() => {
     const fetchTracking = async () => {
@@ -56,20 +66,29 @@ export function ZeptoTracking() {
     return () => clearInterval(interval);
   }, [orderNumber, customerEmail]);
 
-  const riderLocation = tracking?.rider?.currentLocation;
-  const routes = tracking?.customerMealStatus === 'outfordelivery'
-    ? [{ route: tracking.routes.toCustomer, color: '#0095f6' }]
-    : [
-        { route: tracking?.routes.toKitchen, color: '#f97316' },
-        { route: tracking?.routes.toCustomer, color: '#0095f6' },
-      ];
-  const eta = tracking?.estimatedDeliveryAt
-    ? new Date(tracking.estimatedDeliveryAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : tracking?.customerMealStatus === 'outfordelivery' && tracking.routes.toCustomer
-      ? `${Math.ceil(tracking.routes.toCustomer.durationSeconds / 60)} mins`
-      : '--';
-  const kitchenLocation = tracking?.kitchen?.location;
-  const customerLocation = tracking?.destination;
+  useEffect(() => {
+    if (riderLocation && tracking?.destination) {
+      fetchRoute(riderLocation, tracking.destination);
+    }
+  }, [riderLocation, tracking]);
+
+  const fetchRoute = async (from: { lat: number; lng: number }, to: { lat: number; lng: number }) => {
+    try {
+      const res = await fetch(
+        `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`
+      );
+      const data = await res.json();
+      if (data.routes && data.routes[0]) {
+        const coords = data.routes[0].geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]);
+        setRouteDetails({
+          coordinates: coords,
+          eta: `${Math.ceil(data.routes[0].duration / 60)} mins`,
+        });
+      }
+    } catch (err) {
+      console.error('Route fetch error:', err);
+    }
+  };
 
   const statusSteps = [
     { key: 'confirmed', label: 'Order Confirmed', icon: Clock },
@@ -101,7 +120,7 @@ export function ZeptoTracking() {
           </div>
         </div>
         <div className="text-right">
-          <p className="text-2xl font-bold">{eta}</p>
+          <p className="text-2xl font-bold">{routeDetails.eta}</p>
           <p className="text-xs opacity-90">ETA</p>
         </div>
       </div>
@@ -119,8 +138,8 @@ export function ZeptoTracking() {
           {customerLocation && (
             <Marker position={[customerLocation.latitude, customerLocation.longitude]} icon={locationIcon} />
           )}
-          {riderLocation?.latitude != null && riderLocation.longitude != null && tracking?.customerMealStatus === 'outfordelivery' && (
-            <Marker position={[riderLocation.latitude, riderLocation.longitude]} icon={scooterIcon} />
+          {routeDetails.coordinates.length > 0 && tracking?.customerMealStatus === 'outfordelivery' && (
+            <Polyline positions={routeDetails.coordinates} color="#0095f6" weight={5} />
           )}
           {routes.map(({ route, color }, index) => route?.path.length
             ? <Polyline key={index} positions={route.path} color={color} weight={5} />
