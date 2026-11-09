@@ -1,8 +1,8 @@
 import * as userService from '../services/userService.js';
 
-const findById = async (req, res, next) => {
+const getUserById = async (req, res, next) => {
     try {
-        const user = await userService.findById(req.params.id);
+        const user = await userService.getUserById(req.params.id);
         return res.status(200).json({ success: true, data: { user } });
     } catch (error) {
         return next(error);
@@ -36,15 +36,6 @@ const setStatus = async (req, res, next) => {
     }
 };
 
-const setPassword = async (req, res, next) => {
-    try {
-        await userService.setPassword(req.params.id, req.body);
-        return res.status(200).json({ success: true, message: 'Password updated. The user was logged out everywhere' });
-    } catch (error) {
-        return next(error);
-    }
-};
-
 const updateProfile = async (req, res, next) => {
     try {
         const user = await userService.updateProfile(req.user._id, req.body);
@@ -54,4 +45,4 @@ const updateProfile = async (req, res, next) => {
     }
 };
 
-export { findById, createUser, deleteUser, setStatus, setPassword, updateProfile };
+export { getUserById, createUser, deleteUser, setStatus, updateProfile };

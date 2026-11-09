@@ -1,6 +1,6 @@
 import { User } from '../models/schemas/userSchema.js';
 
-const findById = async (id) => {
+const getUserById = async (id) => {
     return User.findById(id)
         .select('name email phone roles status rejectionReason mustChangePassword tokenVersion')
         .lean();
@@ -17,17 +17,6 @@ const deleteUser = async (id) => {
 
 const setStatus = async (id, status, rejectionReason = '') => {
     return User.updateOne({ _id: id }, { $set: { status, rejectionReason }, $inc: { tokenVersion: 1 } });
-};
-
-const setPassword = async (id, passwordHash) => {
-    return User.updateOne(
-        { _id: id },
-        {
-            $set: { passwordHash, mustChangePassword: false, failedLoginAttempts: 0, lockedUntil: null },
-            $unset: { codeHash: 1, codeExpires: 1 },
-            $inc: { tokenVersion: 1 },
-        }
-    );
 };
 
 const updateProfile = async (id, updates) => {
@@ -49,4 +38,4 @@ const updateProfile = async (id, updates) => {
     );
 };
 
-export { findById, createUser, deleteUser, setStatus, setPassword, updateProfile };
+export { getUserById, createUser, deleteUser, setStatus, updateProfile };

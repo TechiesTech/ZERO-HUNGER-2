@@ -232,7 +232,7 @@ const verifyToken = async (token) => {
         throw new AppError('Not authenticated', 401);
     }
 
-    const user = await userRepository.findById(payload.sub);
+    const user = await userRepository.getUserById(payload.sub);
     if (!user || user.status !== 'active' || (user.tokenVersion || 0) !== payload.ver) {
         throw new AppError('Not authenticated', 401);
     }

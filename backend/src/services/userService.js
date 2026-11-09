@@ -2,8 +2,8 @@ import bcrypt from 'bcryptjs';
 import AppError from '../utils/appError.js';
 import * as userRepository from '../repositories/userRepository.js';
 
-const findById = async (id) => {
-    const user = await userRepository.findById(id);
+const getUserById = async (id) => {
+    const user = await userRepository.getUserById(id);
     if (!user) {
         throw new AppError('User not found', 404);
     }
@@ -57,16 +57,7 @@ const setStatus = async (id, { status, rejectionReason }) => {
         throw new AppError('User not found', 404);
     }
 
-    return findById(id);
-};
-
-const setPassword = async (id, { newPassword }) => {
-    const passwordHash = await bcrypt.hash(newPassword, 12);
-
-    const result = await userRepository.setPassword(id, passwordHash);
-    if (!result.matchedCount) {
-        throw new AppError('User not found', 404);
-    }
+    return getUserById(id);
 };
 
 const updateProfile = async (id, { name, email, phone }) => {
@@ -85,7 +76,7 @@ const updateProfile = async (id, { name, email, phone }) => {
         throw error;
     }
 
-    return findById(id);
+    return getUserById(id);
 };
 
-export { findById, createUser, deleteUser, setStatus, setPassword, updateProfile };
+export { getUserById, createUser, deleteUser, setStatus, updateProfile };
