@@ -196,18 +196,12 @@ export function Kitchens(): React.ReactElement {
                   <tr key={kitchen._id} className="border-b border-white/5 last:border-0">
                     <td className="px-5 py-4">
                       <p className="font-semibold text-white">{kitchen.name}</p>
-                      <p className="mt-1 font-mono text-xs text-white/35">{kitchen._id}</p>
                     </td>
                     <td className="px-5 py-4 text-white/65">
                       {kitchen.email}<p className="mt-1 text-xs text-white/40">{kitchen.phone}</p>
                     </td>
                     <td className="px-5 py-4 text-white/60">
                       {kitchen.address || '—'}
-                      {kitchen.location && (
-                        <p className="mt-1 text-xs text-white/35">
-                          {kitchen.location.latitude}, {kitchen.location.longitude}
-                        </p>
-                      )}
                     </td>
                     <td className="px-5 py-4">
                       <span className={kitchen.isActive ? 'text-[#49E619]' : 'text-red-400'}>

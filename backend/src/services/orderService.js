@@ -1,8 +1,10 @@
 import crypto from 'crypto';
 import AppError from '../utils/appError.js';
 import * as orderRepository from '../repositories/orderRepository.js';
-import * as riderRepository from '../repositories/riderRepository.js';
 import { getCachedRoute } from './routeService.js';
+import { reverseGeocode } from './geocodeService.js';
+
+const lookupAddress = (point) => reverseGeocode(point);
 
 const createOrder = async (body) => {
     const quantityByMeal = new Map();
@@ -77,12 +79,14 @@ const trackLiveOrder = async ({ orderNumber, customerEmail }) => {
     if (!order) {
         throw new AppError('Order not found', 404);
     }
-    const times = order.statusTimestamps || {};
     const status = order.customerMealStatus;
     const isFinished = status === 'delivered' || status === 'cancelled';
-    const { latitude, longitude } = order.deliveryLocation || {};
+    const loc = order.deliveryLocation || {};
     const destination =
-        !isFinished && latitude != null && longitude != null ? { latitude, longitude } : null;
+        !isFinished && loc.latitude != null && loc.longitude != null
+            ? { latitude: loc.latitude, longitude: loc.longitude }
+            : null;
+    const times = order.statusTimestamps || {};
     const timeline =
         status === 'cancelled'
             ? [
@@ -97,29 +101,70 @@ const trackLiveOrder = async ({ orderNumber, customerEmail }) => {
                 { status: 'delivered', at: times.deliveredAt || null },
             ];
 
-    let rider = null;
-    let route = null;
+    const kitchen = order.kitchen;
+    const kitchenLocation = kitchen?.location || {};
+    const kitchenPoint =
+        kitchenLocation.latitude != null && kitchenLocation.longitude != null
+            ? { latitude: kitchenLocation.latitude, longitude: kitchenLocation.longitude }
+            : null;
+    const delivery = order.delivery;
+    const deliveryRider = delivery?.rider;
+    const riderLocation = deliveryRider?.currentLocation || {};
+    const riderPoint =
+        riderLocation.latitude != null && riderLocation.longitude != null
+            ? { latitude: riderLocation.latitude, longitude: riderLocation.longitude }
+            : null;
+    const locationUpdatedAt = riderLocation.updatedAt ? new Date(riderLocation.updatedAt) : null;
 
-    if (status === 'outfordelivery' && order.assignedRiderId) {
-        const found = await riderRepository.getRiderForTracking(order.assignedRiderId);
-        if (found) {
-            const loc = found.currentLocation || {};
-            const updatedAt = loc.updatedAt ? new Date(loc.updatedAt) : null;
-            rider = {
-                name: found.name,
-                vehicleType: found.vehicleType,
-                currentLocation: {
-                    latitude: loc.latitude ?? null,
-                    longitude: loc.longitude ?? null,
-                    heading: loc.heading ?? null,
-                    updatedAt,
-                },
-                isLocationStale: !updatedAt || Date.now() - updatedAt.getTime() > 2 * 60 * 1000,
-            };
-            if (loc.latitude != null && loc.longitude != null && destination) {
-                route = await getCachedRoute(order.orderNumber, loc, destination);
-            }
+    const rider = !isFinished && deliveryRider
+        ? {
+            name: deliveryRider.name,
+            vehicleType: deliveryRider.vehicleType,
+            status: delivery.status,
+            acceptedAt: delivery.acceptedAt || null,
+            pickedUpAt: delivery.pickedUpAt || null,
+            currentLocation: {
+                latitude: riderLocation.latitude ?? null,
+                longitude: riderLocation.longitude ?? null,
+                heading: riderLocation.heading ?? null,
+                updatedAt: locationUpdatedAt,
+            },
+            isLocationStale:
+                !locationUpdatedAt || Date.now() - locationUpdatedAt.getTime() > 2 * 60 * 1000,
         }
+        : null;
+
+    let toKitchen = null;
+    let toCustomer = null;
+    if (!isFinished && destination) {
+        if (status === 'outfordelivery') {
+            if (riderPoint) {
+                toCustomer = await getCachedRoute(
+                    order.orderNumber,
+                    'rider-to-customer',
+                    riderPoint,
+                    destination
+                );
+            }
+        } else if (kitchenPoint) {
+            [toKitchen, toCustomer] = await Promise.all([
+                riderPoint
+                    ? getCachedRoute(order.orderNumber, 'rider-to-kitchen', riderPoint, kitchenPoint)
+                    : null,
+                getCachedRoute(order.orderNumber, 'kitchen-to-customer', kitchenPoint, destination),
+            ]);
+        }
+    }
+
+    let estimatedDeliveryAt = null;
+    if (status === 'outfordelivery') {
+        estimatedDeliveryAt = toCustomer
+            ? new Date(Date.now() + toCustomer.durationSeconds * 1000)
+            : order.estimatedDeliveryAt || null;
+    } else if (status === 'readyforpickup' && toKitchen && toCustomer) {
+        estimatedDeliveryAt = new Date(
+            Date.now() + (toKitchen.durationSeconds + toCustomer.durationSeconds) * 1000
+        );
     }
 
     return {
@@ -130,12 +175,12 @@ const trackLiveOrder = async ({ orderNumber, customerEmail }) => {
         totalAmountInr: order.totalAmountInr,
         sponsoredMealsCount: order.sponsoredMealsCount,
         placedAt: order.createdAt,
-        estimatedDeliveryAt: status === 'outfordelivery' ? order.estimatedDeliveryAt || null : null,
+        estimatedDeliveryAt,
         timeline,
         destination,
         kitchen: order.kitchen || null,
         rider,
-        route,
+        routes: { toKitchen, toCustomer },
         items: order.items,
         canEditDetails: status === 'confirmed' || status === 'preparing',
         canCancel: status === 'confirmed' && order.paymentStatus !== 'success',
@@ -209,6 +254,7 @@ const updateDeliveryDetails = async (payload) => {
 
 export {
     createOrder,
+    lookupAddress,
     trackOrder,
     trackMyOrders,
     trackLiveOrder,

@@ -24,7 +24,7 @@ const createOrderSchema = Joi.object({
     deliveryLocation: Joi.object({
         latitude: Joi.number().min(-90).max(90).required(),
         longitude: Joi.number().min(-180).max(180).required(),
-    }),
+    }).required(),
     paymentMethod: Joi.string().trim().lowercase().valid('upi', 'card', 'netbanking').required(),
     items: Joi.array()
         .items(
@@ -82,6 +82,11 @@ const assignRiderSchema = Joi.object({
     riderId: Joi.string().trim().lowercase().hex().length(24).required(),
 });
 
+const reverseGeocodeSchema = Joi.object({
+    latitude: Joi.number().min(-90).max(90).required(),
+    longitude: Joi.number().min(-180).max(180).required(),
+});
+
 const updateDeliveryDetailsSchema = Joi.object({
     orderNumber: Joi.string().trim().uppercase().min(8).max(20).required(),
     customerEmail: Joi.string().trim().lowercase().email({ tlds: { allow: false } }).required(),
@@ -107,7 +112,9 @@ const updateDeliveryDetailsSchema = Joi.object({
         latitude: Joi.number().min(-90).max(90).required(),
         longitude: Joi.number().min(-180).max(180).required(),
     }),
-}).or('customerPhone', 'deliveryAddress', 'deliveryLocation');
+})
+    .or('customerPhone', 'deliveryAddress', 'deliveryLocation')
+    .with('deliveryAddress', 'deliveryLocation');
 
 export {
     createOrderSchema,
@@ -117,5 +124,6 @@ export {
     getAllOrdersSchema,
     orderIdParamSchema,
     assignRiderSchema,
+    reverseGeocodeSchema,
     updateDeliveryDetailsSchema,
 };

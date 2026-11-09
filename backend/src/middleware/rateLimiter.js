@@ -13,6 +13,7 @@ const createLimiter = (max, options = {}) =>
     });
 
 const createOrderLimiter = createLimiter(10);
+const reverseGeocodeLimiter = createLimiter(30);
 const trackOrderLimiter = createLimiter(30);
 const trackLiveOrderLimiter = createLimiter(150);
 const trackMyOrdersLimiter = createLimiter(20);
@@ -23,8 +24,10 @@ const riderLoginLimiter = createLimiter(10, {
     windowMs: 15 * 60 * 1000,
 });
 const riderLocationLimiter = createLimiter(12, { windowMs: 60 * 1000 });
+const riderRegisterLimiter = createLimiter(5, { windowMs: 60 * 60 * 1000 });
 export {
     createOrderLimiter,
+    reverseGeocodeLimiter,
     trackOrderLimiter,
     trackLiveOrderLimiter,
     trackMyOrdersLimiter,
@@ -32,4 +35,5 @@ export {
     adminLoginLimiter,
     riderLoginLimiter,
     riderLocationLimiter,
+    riderRegisterLimiter,
 };

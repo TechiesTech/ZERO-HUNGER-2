@@ -3,13 +3,13 @@
  * Unified API client for frontend
  */
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
+import { API_URL } from '../config';
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = {};
   if (body) headers['Content-Type'] = 'application/json';
 
-  const res = await fetch(`${BASE_URL}${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  const res = await fetch(`${API_URL}${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
   const responseText = await res.text();
   let json: { message?: string; errors?: Array<{ field?: string; message?: string }> } = {};
   if (responseText) {

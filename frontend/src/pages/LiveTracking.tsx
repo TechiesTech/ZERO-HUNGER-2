@@ -36,30 +36,9 @@ export function LiveTracking({ orderNumber: propOrderNumber, customerEmail: prop
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
-  const polylineRef = useRef<L.Polyline | null>(null);
+  const polylinesRef = useRef<L.Polyline[]>([]);
 
   const eta = tracking ? formatEta(tracking.estimatedDeliveryAt) : 'Calculating...';
-
-  const fetchRoute = async (from: [number, number], to: [number, number]) => {
-    try {
-      const res = await fetch(
-        `https://router.project-osrm.org/route/v1/driving/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`
-      );
-      const data = await res.json();
-      if (data.routes && data.routes[0]) {
-        const coords = data.routes[0].geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]);
-        if (mapInstanceRef.current) {
-          polylineRef.current = L.polyline(coords, {
-            color: '#FF6B00',
-            weight: 5,
-            opacity: 0.8,
-          }).addTo(mapInstanceRef.current);
-        }
-      }
-    } catch (err) {
-      console.error('Route fetch error:', err);
-    }
-  };
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
@@ -88,37 +67,43 @@ export function LiveTracking({ orderNumber: propOrderNumber, customerEmail: prop
   }, []);
 
   useEffect(() => {
-    if (!mapInstanceRef.current || !tracking || !tracking.destination) return;
+    if (!mapInstanceRef.current || !tracking) return;
 
     const map = mapInstanceRef.current;
 
-    markersRef.current.forEach((marker) => marker.setMap(null));
+    markersRef.current.forEach((marker) => marker.remove());
     markersRef.current.clear();
-    if (polylineRef.current) {
-      polylineRef.current.setMap(null);
+    polylinesRef.current.forEach((polyline) => polyline.remove());
+    polylinesRef.current = [];
+
+    const boundsPoints: L.LatLngExpression[] = [];
+    const kitchen = tracking.kitchen?.location;
+    if (kitchen) {
+      const kitchenLocation: [number, number] = [kitchen.latitude, kitchen.longitude];
+      const kitchenIcon = L.divIcon({
+        className: 'bg-transparent border-0',
+        html: `
+          <div class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-orange-500 text-white shadow-lg">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 3h18v18H3zM12 8v8M8 12h8"/>
+            </svg>
+          </div>
+        `,
+        iconSize: [40, 40],
+        iconAnchor: [20, 20],
+      });
+      const kitchenMarker = L.marker(kitchenLocation, { icon: kitchenIcon }).addTo(map);
+      kitchenMarker.bindPopup('<div class="font-bold">Kitchen</div>');
+      markersRef.current.set('kitchen', kitchenMarker);
+      boundsPoints.push(kitchenLocation);
     }
 
-    const restaurantLocation: [number, number] = [17.4326, 78.4071];
-    const customerLocation: [number, number] = [tracking.destination.latitude, tracking.destination.longitude];
-
-    const restaurantIcon = L.divIcon({
-      className: 'bg-transparent border-0',
-      html: `
-        <div class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-orange-500 text-white shadow-lg">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 3h18v18H3zM12 8v8M8 12h8"/>
-          </svg>
-        </div>
-      `,
-      iconSize: [40, 40],
-      iconAnchor: [20, 20],
-    });
-
-    const restaurantMarker = L.marker(restaurantLocation, { icon: restaurantIcon }).addTo(map);
-    restaurantMarker.bindPopup('<div class="font-bold">Restaurant</div>');
-    markersRef.current.set('restaurant', restaurantMarker);
-
-    const customerIcon = L.divIcon({
+    if (tracking.destination) {
+      const customerLocation: [number, number] = [
+        tracking.destination.latitude,
+        tracking.destination.longitude,
+      ];
+      const customerIcon = L.divIcon({
       className: 'bg-transparent border-0',
       html: `
         <div class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-500 text-white shadow-lg">
@@ -130,15 +115,16 @@ export function LiveTracking({ orderNumber: propOrderNumber, customerEmail: prop
       `,
       iconSize: [40, 40],
       iconAnchor: [20, 20],
-    });
+      });
+      const customerMarker = L.marker(customerLocation, { icon: customerIcon }).addTo(map);
+      customerMarker.bindPopup('<div class="font-bold">Delivery Location</div>');
+      markersRef.current.set('customer', customerMarker);
+      boundsPoints.push(customerLocation);
+    }
 
-    const customerMarker = L.marker(customerLocation, { icon: customerIcon }).addTo(map);
-    customerMarker.bindPopup('<div class="font-bold">Delivery Location</div>');
-    markersRef.current.set('customer', customerMarker);
-
-    if (tracking.customerMealStatus === 'outfordelivery') {
-      const riderLocation: [number, number] = [17.4400, 78.3900];
-
+    const riderLocation = tracking.rider?.currentLocation;
+    if (riderLocation?.latitude != null && riderLocation.longitude != null) {
+      const riderCoords: [number, number] = [riderLocation.latitude, riderLocation.longitude];
       const riderIcon = L.divIcon({
         className: 'bg-transparent border-0',
         html: `
@@ -152,11 +138,10 @@ export function LiveTracking({ orderNumber: propOrderNumber, customerEmail: prop
         iconAnchor: [20, 20],
       });
 
-      const riderMarker = L.marker(riderLocation, { icon: riderIcon }).addTo(map);
+      const riderMarker = L.marker(riderCoords, { icon: riderIcon }).addTo(map);
       riderMarker.bindPopup('<div class="font-bold">Delivery Partner</div>');
       markersRef.current.set('rider', riderMarker);
-
-      fetchRoute(riderLocation, customerLocation);
+      boundsPoints.push(riderCoords);
     }
 
     const bounds = L.latLngBounds([restaurantLocation, customerLocation]);
