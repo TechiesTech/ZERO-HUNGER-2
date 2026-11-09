@@ -38,6 +38,45 @@ function calculateDistanceKm(
   return earthRadiusKm * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
 }
 
+const LOCATION_PIN_HTML = `
+  <svg width="32" height="40" viewBox="0 0 24 30" aria-hidden="true">
+    <path d="M12 29S2 17.7 2 11.5a10 10 0 1 1 20 0C22 17.7 12 29 12 29Z" fill="#dc2626" stroke="white" stroke-width="1.5"/>
+    <circle cx="12" cy="11.5" r="3.5" fill="white"/>
+  </svg>
+`;
+
+function createLocationIcon(): L.DivIcon {
+  return L.divIcon({
+    className: "bg-transparent border-0",
+    html: LOCATION_PIN_HTML,
+    iconSize: [32, 40],
+    iconAnchor: [16, 40],
+  });
+}
+
+function createKitchenIcon(): L.DivIcon {
+  return L.divIcon({
+    className: "bg-transparent border-0",
+    html: `
+      <svg width="36" height="40" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <!-- Store Top Signboard -->
+        <rect x="8" y="2" width="8" height="3" rx="0.5" />
+        <!-- Awning Roof -->
+        <path d="M3 9V7l2.5-2h13L21 7v2" />
+        <path d="M3 9c0 1.1.9 2 2 2s2-.9 2-2c0 1.1.9 2 2 2s2-.9 2-2c0 1.1.9 2 2 2s2-.9 2-2c0 1.1.9 2 2 2s2-.9 2-2" />
+        <!-- Store Base & Door structure -->
+        <path d="M4 11v10h16V11" />
+        <path d="M14 11v10" />
+        <path d="M4 16h10" />
+        <!-- Door Knob -->
+        <circle cx="16.5" cy="16.5" r="0.75" fill="#2563eb" stroke="none" />
+      </svg>
+    `,
+    iconSize: [36, 40],
+    iconAnchor: [18, 40],
+  });
+}
+
 interface DeliveryRouteMapProps {
   token: CharityToken;
   overrideLocation?: string;
@@ -252,17 +291,25 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
         tooltipContent: string | HTMLElement,
         color: string,
         popup?: HTMLElement,
+        icon?: L.DivIcon,
       ) => {
         if (!hasCoordinates(location)) return;
         const point: [number, number] = [location.latitude, location.longitude];
         boundsPoints.push(point);
-        const marker = L.circleMarker(point, {
-          radius: 9,
-          color: "#080808",
-          weight: 3,
-          fillColor: color,
-          fillOpacity: 1,
-        });
+        const marker = icon
+          ? L.marker(point, { icon })
+          : L.circleMarker(point, {
+              radius: 9,
+              color: "#080808",
+              weight: 3,
+              fillColor: color,
+              fillOpacity: 1,
+            });
+        if (icon) {
+          marker.on("click", () => {
+            map.flyTo(point, Math.max(map.getZoom(), 16));
+          });
+        }
         const tooltip =
           typeof tooltipContent === "string"
             ? document.createElement("span")
@@ -305,7 +352,7 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
           id.textContent = `Kitchen ID: ${kitchen._id}`;
           popup.append(id);
         }
-        addLiveMarker(kitchenCoordinates, tooltip, "#4EDBE2", popup);
+        addLiveMarker(kitchenCoordinates, tooltip, "#dc2626", popup, createKitchenIcon());
       }
       addLiveMarker(
         liveTracking.rider?.currentLocation,
@@ -320,15 +367,16 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
       addLiveMarker(
         liveTracking.destination,
         destinationLabel,
-        "#a78bfa",
+        "#dc2626",
         destinationPopup,
+        createLocationIcon(),
       );
 
       const apiRoutes = [
         liveTracking.routes?.toKitchen,
         liveTracking.routes?.toCustomer ?? liveTracking.route,
       ];
-      apiRoutes.forEach((route, index) => {
+      apiRoutes.forEach((route) => {
         const path = route?.path?.filter(
           ([latitude, longitude]) =>
             Number.isFinite(latitude) && Number.isFinite(longitude),
@@ -336,7 +384,7 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
         if (!path || path.length < 2) return;
         boundsPoints.push(...path);
         L.polyline(path, {
-          color: index === 0 ? "#4EDBE2" : "#49E619",
+          color: "#dc2626",
           weight: 4,
           opacity: 0.9,
         }).addTo(layerGroup);
@@ -361,20 +409,27 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
       const isPrimaryOrigin = kitchen.id === originKitchen.id;
       boundsPoints.push(kitchen.coords);
 
-      const dotColorClass = isPrimaryOrigin ? "bg-[#49E619]" : "bg-[#F2F4F3]";
+      const dotColorClass = "bg-[#F2F4F3]";
       const kitchenIcon = L.divIcon({
         className: "bg-transparent border-0",
-        html: `
-          <div class="inline-flex items-center gap-1.5 rounded-[6px] bg-[#080808] text-white px-2.5 py-1 border-2 border-white shadow-lg font-mono-tabular text-[10px] font-bold tracking-wider whitespace-nowrap -translate-x-1/2 -translate-y-1/2">
-            <span class="w-2 h-2 rounded-full ${dotColorClass} inline-block"></span>
-            <span>${kitchen.code}</span>
-          </div>
-        `,
-        iconSize: [0, 0],
-        iconAnchor: [0, 0],
+        html: isPrimaryOrigin
+          ? createKitchenIcon().options.html!
+          : `
+              <div class="inline-flex items-center gap-1.5 rounded-[6px] bg-[#080808] text-white px-2.5 py-1 border-2 border-white shadow-lg font-mono-tabular text-[10px] font-bold tracking-wider whitespace-nowrap -translate-x-1/2 -translate-y-1/2">
+                <span class="w-2 h-2 rounded-full ${dotColorClass} inline-block"></span>
+                <span>${kitchen.code}</span>
+              </div>
+            `,
+        iconSize: isPrimaryOrigin ? [36, 40] : [0, 0],
+        iconAnchor: isPrimaryOrigin ? [18, 40] : [0, 0],
       });
 
       const marker = L.marker(kitchen.coords, { icon: kitchenIcon });
+      if (isPrimaryOrigin) {
+        marker.on("click", () => {
+          map.flyTo(kitchen.coords, Math.max(map.getZoom(), 16));
+        });
+      }
       marker.bindPopup(`
         <div class="min-w-[210px]">
           <div class="font-mono-tabular text-[10px] uppercase tracking-widest text-[#188D44] font-bold">
@@ -453,7 +508,7 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
       routeToUse.forEach((pt) => boundsPoints.push(pt));
 
       L.polyline(routeToUse, {
-        color: isTargetHub ? "#188D44" : "#122023",
+        color: isTargetHub ? "#dc2626" : "#122023",
         weight: isTargetHub ? 5 : 2,
         opacity: isTargetHub ? 0.95 : 0.35,
         dashArray: isTargetHub ? undefined : "4, 6",
@@ -461,7 +516,7 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
 
       if (isTargetHub) {
         L.polyline(sponsoredRoute, {
-          color: "#B9FF2C",
+          color: "#dc2626",
           weight: 2.5,
           opacity: 0.95,
           dashArray: "6, 12",
@@ -473,7 +528,7 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
             radius: 4,
             color: "#122023",
             weight: 1.5,
-            fillColor: "#49E619",
+            fillColor: "#dc2626",
             fillOpacity: 1,
           })
             .bindTooltip(
@@ -522,23 +577,24 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
 
       const hubIcon = L.divIcon({
         className: "bg-transparent border-0",
-        html: `
-          <div class="inline-flex items-center gap-1.5 rounded-[6px] px-2.5 py-1 border-2 font-mono-tabular text-[10px] font-bold tracking-wider whitespace-nowrap -translate-x-1/2 -translate-y-1/2 ${hubBadgeClasses}">
-            <span>${
-              isTargetHub
-                ? isDelivered
-                  ? "❤️ CHILD RECEIVED"
-                  : "MEAL 02 · TARGET HUB"
-                : "COMMUNITY HUB"
-            }</span>
-            <span class="opacity-85">· ${hub.beneficiaryCode}</span>
-          </div>
-        `,
-        iconSize: [0, 0],
-        iconAnchor: [0, 0],
+        html: isTargetHub
+          ? LOCATION_PIN_HTML
+          : `
+              <div class="inline-flex items-center gap-1.5 rounded-[6px] px-2.5 py-1 border-2 font-mono-tabular text-[10px] font-bold tracking-wider whitespace-nowrap -translate-x-1/2 -translate-y-1/2 ${hubBadgeClasses}">
+                <span>COMMUNITY HUB</span>
+                <span class="opacity-85">· ${hub.beneficiaryCode}</span>
+              </div>
+            `,
+        iconSize: isTargetHub ? [32, 40] : [0, 0],
+        iconAnchor: isTargetHub ? [16, 40] : [0, 0],
       });
 
       const hubMarker = L.marker(hub.coords, { icon: hubIcon });
+      if (isTargetHub) {
+        hubMarker.on("click", () => {
+          map.flyTo(hub.coords, Math.max(map.getZoom(), 16));
+        });
+      }
       hubMarker.bindPopup(`
         <div class="min-w-[220px]">
           <div class="font-mono-tabular text-[10px] uppercase tracking-widest text-[#188D44] font-bold">
