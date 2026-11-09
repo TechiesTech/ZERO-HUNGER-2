@@ -17,6 +17,15 @@ const login = async ({ phone, password }) => {
         process.env.RIDER_JWT_SECRET,
         { algorithm: 'HS256', expiresIn: '12h' }
     );
+    if (rider.approvalStatus === 'pending') {
+        throw new AppError('Your registration is waiting for admin approval', 403);
+    }
+    if (rider.approvalStatus === 'rejected') {
+        throw new AppError(
+            `Your registration was rejected${rider.rejectionReason ? `: ${rider.rejectionReason}` : ''}`,
+            403
+        );
+    }
     return { token, rider: { id: rider._id, name: rider.name, phone: rider.phone } };
 };
 

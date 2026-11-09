@@ -3,13 +3,13 @@
  * Unified API client for admin dashboard
  */
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
+import { API_URL } from '../config';
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = {};
   if (body) headers['Content-Type'] = 'application/json';
 
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${API_URL}${path}`, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
@@ -26,7 +26,7 @@ export const api = {
   patch: <T>(path: string, body: unknown) => request<T>('PATCH', path, body),
   delete: <T>(path: string) => request<T>('DELETE', path),
   upload: async <T>(path: string, formData: FormData): Promise<T> => {
-    const res = await fetch(`${BASE_URL}${path}`, {
+    const res = await fetch(`${API_URL}${path}`, {
       method: 'POST',
       body: formData,
       credentials: 'include',

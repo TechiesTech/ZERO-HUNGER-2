@@ -14,6 +14,10 @@ const riderSchema = new Schema(
         deliveryZones: { type: [{ type: String, trim: true, maxlength: 60 }], default: [] },
         isAvailable: { type: Boolean, default: true },
         isActive: { type: Boolean, default: true },
+        approvalStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'approved' },
+        approvedAt: { type: Date, default: null },
+        rejectedAt: { type: Date, default: null },
+        rejectionReason: { type: String, trim: true, maxlength: 200, default: '' },
         joiningDate: { type: Date, default: Date.now },
         totalDeliveries: { type: Number, min: 0, default: 0 },
         currentLocation: {
@@ -35,5 +39,6 @@ riderSchema.index({ vehicleNumber: 1 }, { unique: true, partialFilterExpression:
 // Listing and assignment screens
 riderSchema.index({ isDeleted: 1, createdAt: -1 });
 riderSchema.index({ isDeleted: 1, isActive: 1, isAvailable: 1, deliveryZones: 1 });
+riderSchema.index({ isDeleted: 1, approvalStatus: 1, createdAt: -1 });
 
 export const Rider = mongoose.model('Rider', riderSchema, 'riders');

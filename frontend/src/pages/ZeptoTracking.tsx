@@ -4,7 +4,7 @@ import { MapContainer, TileLayer, Marker, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Clock, MapPin, Navigation, Phone, Star, Truck, X, Loader2, CheckCircle2 } from 'lucide-react';
-import { trackLiveOrder } from '../services/trackingService';
+import { trackLiveOrder, type TrackingData } from '../services/trackingService';
 
 const scooterIcon = L.divIcon({
   html: `<div style="background: #0095f6; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
@@ -34,7 +34,7 @@ export function ZeptoTracking() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   
-  const [tracking, setTracking] = useState<any>(null);
+  const [tracking, setTracking] = useState<TrackingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [routeDetails, setRouteDetails] = useState({
     coordinates: [] as [number, number][],
@@ -126,18 +126,24 @@ export function ZeptoTracking() {
       </div>
 
       <div className="h-[50vh]">
-        <MapContainer center={[17.4326, 78.4071]} zoom={13} style={{ height: '100%', width: '100%' }}>
+        <MapContainer
+          center={customerLocation ? [customerLocation.latitude, customerLocation.longitude] : [17.385, 78.4867]}
+          zoom={13}
+          style={{ height: '100%', width: '100%' }}
+        >
           <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="© OpenStreetMap contributors" />
-          <Marker position={restaurantLocation} icon={restaurantIcon} />
-          {tracking?.destination && (
-            <Marker position={[tracking.destination.latitude, tracking.destination.longitude]} icon={locationIcon} />
+          {kitchenLocation && (
+            <Marker position={[kitchenLocation.latitude, kitchenLocation.longitude]} icon={restaurantIcon} />
           )}
-          {riderLocation && tracking?.customerMealStatus === 'outfordelivery' && (
-            <Marker position={[riderLocation.lat, riderLocation.lng]} icon={scooterIcon} />
+          {customerLocation && (
+            <Marker position={[customerLocation.latitude, customerLocation.longitude]} icon={locationIcon} />
           )}
           {routeDetails.coordinates.length > 0 && tracking?.customerMealStatus === 'outfordelivery' && (
             <Polyline positions={routeDetails.coordinates} color="#0095f6" weight={5} />
           )}
+          {routes.map(({ route, color }, index) => route?.path.length
+            ? <Polyline key={index} positions={route.path} color={color} weight={5} />
+            : null)}
         </MapContainer>
       </div>
 
@@ -180,7 +186,7 @@ export function ZeptoTracking() {
             <Truck size={24} className="text-green-600" />
           </div>
           <div className="flex-1">
-            <p className="font-bold text-gray-800">Rahul Kumar</p>
+            <p className="font-bold text-gray-800">{tracking?.rider?.name || 'Delivery partner'}</p>
             <div className="flex items-center gap-1">
               {[1,2,3,4,5].map(s => <Star key={s} size={14} className="text-yellow-400 fill-yellow-400" />)}
               <span className="text-xs text-gray-500 ml-1">4.8</span>
