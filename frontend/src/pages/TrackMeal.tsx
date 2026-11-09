@@ -51,7 +51,6 @@ export const TrackMeal: React.FC = () => {
   const [email, setEmail] = useState('');
   const [orders, setOrders] = useState<Order[]>([]);
   const [liveTracking, setLiveTracking] = useState<TrackingData | null>(null);
-  const [trackedOrder, setTrackedOrder] = useState<Order | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [address, setAddress] = useState<DeliveryAddress>(EMPTY_ADDRESS);
   const [phone, setPhone] = useState('');
@@ -72,9 +71,13 @@ export const TrackMeal: React.FC = () => {
   );
   const [showPhotoSelector, setShowPhotoSelector] = useState(false);
 
+  const trackedOrder = useMemo(
+    () => liveTracking ? createOrderFromLiveTracking(liveTracking, email) : null,
+    [liveTracking, email],
+  );
   const activeToken: CharityToken | undefined = useMemo(
     () => trackedOrder ? createTrackingToken(trackedOrder) : undefined,
-    [trackedOrder]
+    [trackedOrder],
   );
   const trackingStatus = trackedOrder
     ? getOrderTrackingStatus(trackedOrder.customerMealStatus)
@@ -103,7 +106,6 @@ export const TrackMeal: React.FC = () => {
 
   const clearTrackingResult = () => {
     setLiveTracking(null);
-    setTrackedOrder(null);
     setOrders([]);
     setSelectedOrder(null);
     setOrderError('');
@@ -133,7 +135,6 @@ export const TrackMeal: React.FC = () => {
         console.log('[TrackMeal] trackLiveOrder response:', response.data);
         console.log('[TrackMeal] kitchen details:', response.data.kitchen);
         setLiveTracking(response.data);
-        setTrackedOrder(createOrderFromLiveTracking(response.data, email));
         setViewMode('CUSTOMER_TRACKER');
         setLookupMode('tracking');
       } else {
@@ -179,8 +180,12 @@ export const TrackMeal: React.FC = () => {
       });
       console.log('[TrackMeal] updateDeliveryDetails response:', updateResponse);
       setOrderSuccess('Delivery details updated.');
-      const updated = await trackOrder(selectedOrder.orderNumber, email);
-      console.log('[TrackMeal] trackOrder (after update) response:', updated);
+      const updated: Order = {
+        ...selectedOrder,
+        ...updateResponse.data,
+        customerPhone: phone,
+        deliveryAddress: updateResponse.data.deliveryAddress || address,
+      };
       setSelectedOrder(updated);
       setAddress(updated.deliveryAddress || EMPTY_ADDRESS);
       setPhone(updated.customerPhone || '');
@@ -200,8 +205,7 @@ export const TrackMeal: React.FC = () => {
     try {
       const cancelResponse = await cancelOrder(selectedOrder.orderNumber, email);
       console.log('[TrackMeal] cancelOrder response:', cancelResponse);
-      const updated = await trackOrder(selectedOrder.orderNumber, email);
-      console.log('[TrackMeal] trackOrder (after cancel) response:', updated);
+      const updated: Order = { ...selectedOrder, ...cancelResponse.data };
       setSelectedOrder(updated);
       setOrders((previous) => previous.map((order) => order.orderNumber === updated.orderNumber ? updated : order));
       setOrderSuccess('Order cancelled.');

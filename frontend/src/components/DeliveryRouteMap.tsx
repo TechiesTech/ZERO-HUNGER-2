@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Compass, Route, Utensils } from "lucide-react";
@@ -19,6 +19,24 @@ import {
   MapModeSwitcher,
   type MapFilterMode,
 } from "./deliveryRouteMap/MapModeSwitcher";
+
+function calculateDistanceKm(
+  latitude1: number,
+  longitude1: number,
+  latitude2: number,
+  longitude2: number,
+): number {
+  const earthRadiusKm = 6371;
+  const deltaLatitude = ((latitude2 - latitude1) * Math.PI) / 180;
+  const deltaLongitude = ((longitude2 - longitude1) * Math.PI) / 180;
+  const haversine =
+    Math.sin(deltaLatitude / 2) ** 2 +
+    Math.cos((latitude1 * Math.PI) / 180) *
+      Math.cos((latitude2 * Math.PI) / 180) *
+      Math.sin(deltaLongitude / 2) ** 2;
+
+  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+}
 
 interface DeliveryRouteMapProps {
   token: CharityToken;
@@ -65,6 +83,19 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
   const kitchenCoordinates = hasCoordinates(liveTracking?.kitchen?.location)
     ? liveTracking.kitchen.location
     : resolvedKitchenLocation;
+  const liveRouteDistance = useMemo(() => {
+    const destination = liveTracking?.destination;
+    if (!hasCoordinates(kitchenCoordinates) || !hasCoordinates(destination)) {
+      return "Not available";
+    }
+
+    return `${calculateDistanceKm(
+      kitchenCoordinates.latitude,
+      kitchenCoordinates.longitude,
+      destination.latitude,
+      destination.longitude,
+    ).toFixed(1)} km`;
+  }, [kitchenCoordinates, liveTracking?.destination]);
 
   useEffect(() => {
     const address = liveTracking?.kitchen?.address?.trim();
@@ -715,58 +746,7 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
                 <p>From: {liveTracking.kitchen?.name || "Kitchen"}</p>
                 <p>To: {liveTracking.customerName || "Customer"}</p>
                 <p className="font-semibold text-white mt-1">
-                  {(() => {
-                    const calculateDistance = (
-                      lat1: number,
-                      lon1: number,
-                      lat2: number,
-                      lon2: number,
-                    ): number => {
-                      const R = 6371; // Radius of the earth in km
-                      const dLat = (lat2 - lat1) * (Math.PI / 180);
-                      const dLon = (lon2 - lon1) * (Math.PI / 180);
-                      const a =
-                        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                        Math.cos(lat1 * (Math.PI / 180)) *
-                          Math.cos(lat2 * (Math.PI / 180)) *
-                          Math.sin(dLon / 2) *
-                          Math.sin(dLon / 2);
-                      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-                      return R * c;
-                    };
-
-                    // Adjust these property paths to match your actual TrackingKitchen and TrackingData types
-                    const kitchenLat =
-                      (liveTracking.kitchen as any)?.latitude ??
-                      (liveTracking.kitchen as any)?.lat;
-                    const kitchenLng =
-                      (liveTracking.kitchen as any)?.longitude ??
-                      (liveTracking.kitchen as any)?.lng;
-
-                    const customerLat =
-                      (liveTracking as any).customerLat ??
-                      (liveTracking as any).customer?.latitude;
-                    const customerLng =
-                      (liveTracking as any).customerLng ??
-                      (liveTracking as any).customer?.longitude;
-
-                    if (
-                      kitchenLat == null ||
-                      kitchenLng == null ||
-                      customerLat == null ||
-                      customerLng == null
-                    ) {
-                      return "Not available";
-                    }
-
-                    const distanceKm = calculateDistance(
-                      kitchenLat,
-                      kitchenLng,
-                      customerLat,
-                      customerLng,
-                    );
-                    return `${distanceKm.toFixed(1)} km`;
-                  })()}
+                  {liveRouteDistance}
                 </p>
               </div>
             </div>
