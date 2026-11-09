@@ -1,8 +1,8 @@
-export const AUTH_COOKIE = 'authToken';
+export const AUTH_COOKIE = 'token';
 
 export const cookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    path: '/api',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    path: '/',
 };

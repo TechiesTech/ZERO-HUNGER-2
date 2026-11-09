@@ -1,45 +1,87 @@
 import { User } from '../models/schemas/userSchema.js';
 
-const PROFILE = 'name email phone roles status rejectionReason mustChangePassword tokenVersion';
+const login = async (identifier) => {
+    const filter = identifier.includes('@') ? { email: identifier } : { phone: identifier };
 
-const findForLogin = (identifier) =>
-    User.findOne(identifier.includes('@') ? { email: identifier } : { phone: identifier })
-        .select(`${PROFILE} failedLoginAttempts lockedUntil +passwordHash`)
+    return User.findOne(filter)
+        .select('name email phone roles status rejectionReason mustChangePassword tokenVersion failedLoginAttempts lockedUntil +passwordHash')
         .lean();
-
-const findById = (id) => User.findById(id).select(PROFILE).lean();
-
-const findByIdWithPassword = (id) => User.findById(id).select(`${PROFILE} +passwordHash`).lean();
-
-const createUser = async (data) => {
-    const user = await User.create(data);
-    return user.toObject();
 };
 
-const deleteUser = (id) => User.deleteOne({ _id: id });
+const loginFailed = async (id, maxAttempts, lockUntil) => {
+    return User.updateOne({ _id: id }, [
+        { $set: { failedLoginAttempts: { $add: [{ $ifNull: ['$failedLoginAttempts', 0] }, 1] } } },
+        {
+            $set: {
+                lockedUntil: { $cond: [{ $gte: ['$failedLoginAttempts', maxAttempts] }, lockUntil, '$lockedUntil'] },
+                failedLoginAttempts: { $cond: [{ $gte: ['$failedLoginAttempts', maxAttempts] }, 0, '$failedLoginAttempts'] },
+            },
+        },
+    ]);
+};
 
-// +1 failure in one atomic step; at the limit, lock and reset the counter
-const recordFailedLogin = (id, max, lockUntil) =>
-    User.updateOne(
-        { _id: id },
+const loginSuccess = async (id) => {
+    return User.updateOne({ _id: id }, { $set: { failedLoginAttempts: 0, lockedUntil: null } });
+};
+
+const register = async ({ name, email, phone, passwordHash, role, codeHash, codeExpires }) => {
+    return User.updateOne(
+        { email, status: 'unverified', roles: role },
+        {
+            $set: {
+                name,
+                passwordHash,
+                roles: [role],
+                codeHash,
+                codeExpires,
+                codeAttempts: 0,
+                ...(phone && { phone }),
+            },
+        },
+        { upsert: true, setDefaultsOnInsert: true, runValidators: true }
+    );
+};
+
+const verifyEmail = async (email, codeHash) => {
+    const valid = {
+        $and: [
+            { $eq: ['$codeHash', codeHash] },
+            { $gt: ['$codeExpires', '$$NOW'] },
+            { $lt: [{ $ifNull: ['$codeAttempts', 0] }, 5] },
+        ],
+    };
+
+    const user = await User.findOneAndUpdate(
+        { email, status: 'unverified', codeHash: { $exists: true } },
         [
-            { $set: { failedLoginAttempts: { $add: [{ $ifNull: ['$failedLoginAttempts', 0] }, 1] } } },
             {
                 $set: {
-                    lockedUntil: { $cond: [{ $gte: ['$failedLoginAttempts', max] }, lockUntil, '$lockedUntil'] },
-                    failedLoginAttempts: { $cond: [{ $gte: ['$failedLoginAttempts', max] }, 0, '$failedLoginAttempts'] },
+                    codeAttempts: { $cond: [valid, '$codeAttempts', { $add: [{ $ifNull: ['$codeAttempts', 0] }, 1] }] },
+                    codeHash: { $cond: [valid, '$$REMOVE', '$codeHash'] },
+                    codeExpires: { $cond: [valid, '$$REMOVE', '$codeExpires'] },
+                    status: { $cond: [valid, { $cond: [{ $in: ['rider', '$roles'] }, 'pending', 'active'] }, '$status'] },
+                    tokenVersion: { $cond: [valid, { $add: [{ $ifNull: ['$tokenVersion', 0] }, 1] }, '$tokenVersion'] },
                 },
             },
         ],
-        { updatePipeline: true }
-    );
+        { new: true }
+    )
+        .select('name email phone roles status mustChangePassword tokenVersion +codeHash')
+        .lean();
 
-const clearFailedLogins = (id) =>
-    User.updateOne({ _id: id }, { $set: { failedLoginAttempts: 0, lockedUntil: null } });
+    return user && !user.codeHash ? user : null;
+};
 
-// New password: logs out every device, clears lock and pending code
-const setPassword = (id, passwordHash) =>
-    User.updateOne(
+const resendCode = async (email, codeHash, codeExpires) => {
+    return User.updateOne({ email, status: 'unverified' }, { $set: { codeHash, codeExpires, codeAttempts: 0 } });
+};
+
+const getUserWithPassword = async (id) => {
+    return User.findById(id).select('+passwordHash').lean();
+};
+
+const changePassword = async (id, passwordHash) => {
+    return User.updateOne(
         { _id: id },
         {
             $set: { passwordHash, mustChangePassword: false, failedLoginAttempts: 0, lockedUntil: null },
@@ -47,64 +89,54 @@ const setPassword = (id, passwordHash) =>
             $inc: { tokenVersion: 1 },
         }
     );
-
-const setStatus = (id, status, rejectionReason = '') =>
-    User.updateOne({ _id: id }, { $set: { status, rejectionReason }, $inc: { tokenVersion: 1 } });
-
-const updateProfile = (id, updates) => {
-    const $set = {};
-    const $unset = {};
-    for (const field of ['name', 'email', 'phone']) {
-        if (updates[field] === undefined) continue;
-        if (updates[field] === '') $unset[field] = 1;
-        else $set[field] = updates[field];
-    }
-    return User.updateOne(
-        { _id: id },
-        {
-            ...(Object.keys($set).length && { $set }),
-            ...(Object.keys($unset).length && { $unset }),
-        }
-    );
 };
 
-// Saves a code on the account that matches the filter
-const saveCode = (filter, codeHash, codeExpires) =>
-    User.updateOne(filter, { $set: { codeHash, codeExpires, codeAttempts: 0 } });
+const forgotPassword = async (email, codeHash, codeExpires) => {
+    return User.updateOne({ email, status: 'active' }, { $set: { codeHash, codeExpires, codeAttempts: 0 } });
+};
 
-// Atomic: right code, not expired, under 5 attempts. Removes the code so it works once.
-const consumeCode = async (email, codeHash) => {
+const resetPassword = async (email, codeHash, passwordHash) => {
+    const valid = {
+        $and: [
+            { $eq: ['$codeHash', codeHash] },
+            { $gt: ['$codeExpires', '$$NOW'] },
+            { $lt: [{ $ifNull: ['$codeAttempts', 0] }, 5] },
+        ],
+    };
+
     const user = await User.findOneAndUpdate(
-        { email, codeHash, codeExpires: { $gt: new Date() }, codeAttempts: { $lt: 5 } },
-        { $unset: { codeHash: 1, codeExpires: 1 } }
+        { email, status: 'active', codeHash: { $exists: true } },
+        [
+            {
+                $set: {
+                    codeAttempts: { $cond: [valid, '$codeAttempts', { $add: [{ $ifNull: ['$codeAttempts', 0] }, 1] }] },
+                    codeHash: { $cond: [valid, '$$REMOVE', '$codeHash'] },
+                    codeExpires: { $cond: [valid, '$$REMOVE', '$codeExpires'] },
+                    passwordHash: { $cond: [valid, passwordHash, '$passwordHash'] },
+                    mustChangePassword: { $cond: [valid, false, '$mustChangePassword'] },
+                    failedLoginAttempts: { $cond: [valid, 0, '$failedLoginAttempts'] },
+                    lockedUntil: { $cond: [valid, null, '$lockedUntil'] },
+                    tokenVersion: { $cond: [valid, { $add: [{ $ifNull: ['$tokenVersion', 0] }, 1] }, '$tokenVersion'] },
+                },
+            },
+        ],
+        { new: true }
     )
-        .select('_id')
+        .select('_id +codeHash')
         .lean();
-    if (!user) await User.updateOne({ email, codeHash: { $exists: true } }, { $inc: { codeAttempts: 1 } });
-    return user;
-};
 
-// A second signup for an unverified email replaces name/password, so nobody can squat an address.
-// A verified email makes the upsert fail with a duplicate key error (code 11000).
-const upsertUnverifiedUser = ({ name, email, phone, passwordHash, role }) =>
-    User.findOneAndUpdate(
-        { email, status: 'unverified', roles: role },
-        { $set: { name, passwordHash, roles: [role], ...(phone && { phone }) } },
-        { upsert: true, setDefaultsOnInsert: true, runValidators: true }
-    );
+    return user && !user.codeHash ? user : null;
+};
 
 export {
-    findForLogin,
-    findById,
-    findByIdWithPassword,
-    createUser,
-    deleteUser,
-    recordFailedLogin,
-    clearFailedLogins,
-    setPassword,
-    setStatus,
-    updateProfile,
-    saveCode,
-    consumeCode,
-    upsertUnverifiedUser,
+    login,
+    loginFailed,
+    loginSuccess,
+    register,
+    verifyEmail,
+    resendCode,
+    getUserWithPassword,
+    changePassword,
+    forgotPassword,
+    resetPassword,
 };

@@ -1,28 +1,44 @@
-import { Router } from 'express';
-import validate from '../middleware/validate.js';
+import express from 'express';
 import authenticate from '../middleware/authenticate.js';
+import requireRoles from '../middleware/requireRoles.js';
+import validate from '../middleware/validate.js';
 import {
-    loginIpLimiter, loginAccountLimiter, registerLimiter, codeIpLimiter,
-    codeEmailLimiter, verifyCodeLimiter, changePasswordLimiter,
-} from '../middleware/rateLimiter.js';
-import {
-    loginSchema, registerSchema, changePasswordSchema, emailSchema, verifyEmailSchema, resetPasswordSchema,
+    registerSchema,
+    verifyEmailSchema,
+    emailSchema,
+    loginSchema,
+    resetPasswordSchema,
+    changePasswordSchema,
 } from '../validators/authValidator.js';
 import {
-    login, register, verifyEmail, resendCode, logout, getMe, changePassword, forgotPassword, resetPassword,
+    register,
+    verifyEmail,
+    resendCode,
+    login,
+    forgotPassword,
+    resetPassword,
+    logout,
+    getMe,
+    changePassword,
 } from '../controllers/authController.js';
 
-const router = Router();
+const router = express.Router();
 
-router.post('/login', loginIpLimiter, validate(loginSchema), loginAccountLimiter, login);
-router.post('/register', registerLimiter, validate(registerSchema), codeEmailLimiter, register);
-router.post('/verifyEmail', verifyCodeLimiter, validate(verifyEmailSchema), verifyEmail);
-router.post('/resendCode', codeIpLimiter, validate(emailSchema), codeEmailLimiter, resendCode);
-router.post('/forgotPassword', codeIpLimiter, validate(emailSchema), codeEmailLimiter, forgotPassword);
-router.post('/resetPassword', verifyCodeLimiter, validate(resetPasswordSchema), resetPassword);
+router.post('/register', validate(registerSchema), register);
+router.post('/verifyEmail', validate(verifyEmailSchema), verifyEmail);
+router.post('/resendCode', validate(emailSchema), resendCode);
+router.post('/login', validate(loginSchema), login);
+router.post('/forgotPassword', validate(emailSchema), forgotPassword);
+router.post('/resetPassword', validate(resetPasswordSchema), resetPassword);
 
 router.post('/logout', logout);
-router.get('/me', authenticate, getMe);
-router.patch('/changePassword', authenticate, changePasswordLimiter, validate(changePasswordSchema), changePassword);
+router.get('/me', authenticate, requireRoles('admin', 'kitchen', 'rider', 'customer'), getMe);
+router.post(
+    '/changePassword',
+    authenticate,
+    requireRoles('admin', 'kitchen', 'rider', 'customer'),
+    validate(changePasswordSchema),
+    changePassword
+);
 
-export { router as authRouter };
+export default router;
