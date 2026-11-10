@@ -113,7 +113,13 @@ const getMyOrders = async (customerId, skip, limit) => {
 // One order with items, customer name, delivery location, kitchen and the rider on the open delivery
 const trackLiveOrder = async (orderNumber, customerId) => {
     const [order] = await Order.aggregate([
-        { $match: { orderNumber, customerEmail, isDeleted: false } },
+        {
+            $match: {
+                orderNumber: String(orderNumber).trim().toUpperCase(),
+                customerId: toId(customerId),
+                isDeleted: false,
+            },
+        },
         { $lookup: { from: 'orderItems', localField: '_id', foreignField: 'orderId', as: 'items' } },
         {
             $lookup: {

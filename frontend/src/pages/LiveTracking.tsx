@@ -12,7 +12,6 @@ import { Clock, MapPin, Navigation, Phone, Star, Truck, X, Loader2 } from 'lucid
 
 interface LiveTrackingProps {
   orderNumber?: string;
-  customerEmail?: string;
 }
 
 function formatEta(estimatedDeliveryAt: string | null): string {
@@ -24,14 +23,13 @@ function formatEta(estimatedDeliveryAt: string | null): string {
   return diffMins > 0 ? `${diffMins} mins` : 'Arriving soon';
 }
 
-export function LiveTracking({ orderNumber: propOrderNumber, customerEmail: propCustomerEmail }: LiveTrackingProps): React.ReactElement {
+export function LiveTracking({ orderNumber: propOrderNumber }: LiveTrackingProps): React.ReactElement {
   const { orderNumber: paramOrderNumber } = useParams<{ orderNumber: string }>();
   const navigate = useNavigate();
 
   const orderNumber = propOrderNumber || paramOrderNumber || '';
-  const customerEmail = propCustomerEmail || 'philip@zerohunger.org';
 
-  const { tracking, loading, error, refetch } = useLiveTracking(orderNumber, customerEmail);
+  const { tracking, loading, error, refetch } = useLiveTracking(orderNumber);
 
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);

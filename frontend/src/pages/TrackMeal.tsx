@@ -117,7 +117,7 @@ export const TrackMeal: React.FC = () => {
 
     setLoading(true);
     try {
-      const response = await trackLiveOrder(identifiers[0], email);
+      const response = await trackLiveOrder(identifiers[0]);
       console.log('[TrackMeal] trackLiveOrder response:', response.data);
       console.log('[TrackMeal] kitchen details:', response.data.kitchen);
       setLiveTracking(response.data);
@@ -143,7 +143,7 @@ export const TrackMeal: React.FC = () => {
       if (requestInFlight) return;
       requestInFlight = true;
       try {
-        const response = await trackLiveOrder(orderNumber, trackingEmail);
+        const response = await trackLiveOrder(orderNumber);
         if (disposed) return;
 
         setTrackingRefreshError('');

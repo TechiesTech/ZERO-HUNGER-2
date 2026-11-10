@@ -6,14 +6,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { trackLiveOrder, type TrackingData } from '../services/trackingService';
 
-export function useLiveTracking(orderNumber: string, customerEmail: string) {
+export function useLiveTracking(orderNumber: string) {
   const [tracking, setTracking] = useState<TrackingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchTracking = useCallback(async () => {
     try {
-      const response = await trackLiveOrder(orderNumber, customerEmail);
+      const response = await trackLiveOrder(orderNumber);
       setTracking(response.data);
       setError(null);
     } catch (err: any) {
@@ -21,7 +21,7 @@ export function useLiveTracking(orderNumber: string, customerEmail: string) {
     } finally {
       setLoading(false);
     }
-  }, [orderNumber, customerEmail]);
+  }, [orderNumber]);
 
   useEffect(() => {
     fetchTracking();
