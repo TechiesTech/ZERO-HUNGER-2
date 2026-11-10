@@ -11,6 +11,7 @@ import authRoutes from './routes/authRoutes.js';
 import AppError from './utils/appError.js';
 import kitchenRoutes from './routes/kitchenRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import addressRoutes from './routes/addressRoutes.js'
 
 const app = express();
 
@@ -55,6 +56,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/riders', riderRoutes);
 app.use('/api/kitchen', kitchenRoutes);
+app.use('/api/addresses', addressRoutes)
 
 // 404 & Centralized Error Handlers
 app.use(notFoundHandler);

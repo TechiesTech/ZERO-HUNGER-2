@@ -164,7 +164,7 @@ const getMyActiveOrder = async (riderId) => {
                 customerName: '$order.customerName',
                 customerPhone: '$order.customerPhone',
                 deliveryAddress: '$order.deliveryAddress',
-                deliveryLocation: '$order.deliveryLocation',
+                deliveryLocation: '$order.deliveryAddress.location',
                 estimatedDeliveryAt: '$order.estimatedDeliveryAt',
                 totalAmountInr: '$order.totalAmountInr',
                 kitchen: { $arrayElemAt: ['$kitchen', 0] },

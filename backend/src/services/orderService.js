@@ -1,22 +1,22 @@
 import crypto from 'crypto';
 import AppError from '../utils/appError.js';
 import * as orderRepository from '../repositories/orderRepository.js';
+import * as addressRepository from '../repositories/addressRepository.js';
+import * as geocoder from '../utils/geocoder.js';
 import { getCachedRoute } from '../utils/roadRoute.js';
-import { reverseGeocode } from '../utils/geocoder.js';
 
-const lookupAddress = (point) => reverseGeocode(point);
+const createOrder = async (user, body) => {
+    // 1. The address must belong to this customer and not be deleted
+    const address = await addressRepository.getAddress(user._id, body.addressId);
+    if (!address) throw new AppError('Address not found', 404);
 
-const createOrder = async (body) => {
-    const quantityByMeal = new Map();
-    body.items.forEach(({ mealId, quantity }) => {
-        quantityByMeal.set(mealId, (quantityByMeal.get(mealId) || 0) + quantity);
-    });
-    const meals = await orderRepository.findActiveMealsByIds([...quantityByMeal.keys()]);
-    const mealById = new Map(meals.map((meal) => [String(meal._id), meal]));
+    // 2. Prices always come from the database, never from the request
+    const meals = await orderRepository.getActiveMeals(body.items.map((item) => item.mealId));
 
-    const orderItems = [...quantityByMeal].map(([mealId, quantity]) => {
-        const meal = mealById.get(mealId);
+    const orderItems = body.items.map(({ mealId, quantity }) => {
+        const meal = meals.find((m) => String(m._id) === mealId);
         if (!meal) throw new AppError('One or more meals are not available', 400);
+
         return {
             mealId: meal._id,
             productName: meal.mealName,
@@ -28,33 +28,26 @@ const createOrder = async (body) => {
         };
     });
 
-    if (new Set(meals.map((meal) => String(meal.kitchenId))).size > 1) {
+    // 3. One order can only use one kitchen
+    const kitchenId = meals[0].kitchenId;
+    if (meals.some((meal) => String(meal.kitchenId) !== String(kitchenId))) {
         throw new AppError('All meals in one order must be from the same kitchen', 400);
     }
 
     const orderData = {
-        customerName: body.customerName,
-        customerEmail: body.customerEmail,
-        customerPhone: body.customerPhone,
-        deliveryAddress: body.deliveryAddress,
-        deliveryLocation: body.deliveryLocation,
+        customerId: user._id,
+        addressId: address._id,
         paymentMethod: body.paymentMethod,
-        kitchenId: meals[0].kitchenId,
+        kitchenId,
         totalAmountInr: orderItems.reduce((sum, item) => sum + item.totalPriceInr, 0),
         sponsoredMealsCount: orderItems.reduce((sum, item) => sum + item.sponsoredChildMeals, 0),
     };
 
+    // 4. Random order number, try again if it already exists
     for (let attempt = 1; attempt <= 3; attempt += 1) {
-        const code = Array.from(
-            { length: 6 },
-            () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[crypto.randomInt(32)]
-        ).join('');
+        const orderNumber = `ZH-ORD-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
         try {
-            const { order, items } = await orderRepository.createOrderWithItems(
-                { ...orderData, orderNumber: `ZH-ORD-${code}` },
-                orderItems
-            );
-
+            const { order, items } = await orderRepository.createOrder({ ...orderData, orderNumber }, orderItems);
             return { ...order, items };
         } catch (error) {
             if (error.code !== 11000) throw error;
@@ -63,30 +56,30 @@ const createOrder = async (body) => {
     throw new AppError('Could not create the order, please try again', 409);
 };
 
-const trackOrder = async ({ orderNumber, customerEmail }) => {
-    const order = await orderRepository.trackOrder(orderNumber, customerEmail);
-    if (!order) {
-        throw new AppError('Order not found', 404);
-    }
-    return order;
+const getCheckoutDetails = async (user) => {
+    const addresses = await addressRepository.getMyAddresses(user._id);
+    return {
+        customer: { name: user.name, email: user.email || null, phone: user.phone || '' },
+        addresses,
+        defaultAddress: addresses.find((address) => address.isDefault) || addresses[0] || null,
+    };
 };
 
-const trackMyOrders = async ({ orders }) => orderRepository.trackMyOrders(orders);
+const getMyOrders = async (user, { page, limit }) => {
+    const { orders, total } = await orderRepository.getMyOrders(user._id, (page - 1) * limit, limit);
+    return { orders, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+};
 
-const trackLiveOrder = async ({ orderNumber, customerEmail }) => {
-    const order = await orderRepository.trackLiveOrder(orderNumber, customerEmail);
+const reverseGeocode = async (point) => geocoder.reverseGeocode(point);
 
-    if (!order) {
-        throw new AppError('Order not found', 404);
-    }
+const trackLiveOrder = async (user, orderNumber) => {
+    const order = await orderRepository.trackLiveOrder(orderNumber, user._id);
+    if (!order) throw new AppError('Order not found', 404);
+
     const status = order.customerMealStatus;
     const isFinished = status === 'delivered' || status === 'cancelled';
-    const loc = order.deliveryLocation || {};
-    const destination =
-        !isFinished && loc.latitude != null && loc.longitude != null
-            ? { latitude: loc.latitude, longitude: loc.longitude }
-            : null;
     const times = order.statusTimestamps || {};
+
     const timeline =
         status === 'cancelled'
             ? [
@@ -101,70 +94,64 @@ const trackLiveOrder = async ({ orderNumber, customerEmail }) => {
                 { status: 'delivered', at: times.deliveredAt || null },
             ];
 
-    const kitchen = order.kitchen;
-    const kitchenLocation = kitchen?.location || {};
-    const kitchenPoint =
-        kitchenLocation.latitude != null && kitchenLocation.longitude != null
-            ? { latitude: kitchenLocation.latitude, longitude: kitchenLocation.longitude }
-            : null;
-    const delivery = order.delivery;
-    const deliveryRider = delivery?.rider;
-    const riderLocation = deliveryRider?.currentLocation || {};
-    const riderPoint =
-        riderLocation.latitude != null && riderLocation.longitude != null
-            ? { latitude: riderLocation.latitude, longitude: riderLocation.longitude }
-            : null;
-    const locationUpdatedAt = riderLocation.updatedAt ? new Date(riderLocation.updatedAt) : null;
-
-    const rider = !isFinished && deliveryRider
-        ? {
-            name: deliveryRider.name,
-            vehicleType: deliveryRider.vehicleType,
-            status: delivery.status,
-            acceptedAt: delivery.acceptedAt || null,
-            pickedUpAt: delivery.pickedUpAt || null,
-            currentLocation: {
-                latitude: riderLocation.latitude ?? null,
-                longitude: riderLocation.longitude ?? null,
-                heading: riderLocation.heading ?? null,
-                updatedAt: locationUpdatedAt,
-            },
-            isLocationStale:
-                !locationUpdatedAt || Date.now() - locationUpdatedAt.getTime() > 2 * 60 * 1000,
-        }
-        : null;
-
+    // Map data is only needed while the order is still active
+    let destination = null;
+    let kitchen = null;
+    let rider = null;
     let toKitchen = null;
     let toCustomer = null;
-    if (!isFinished && destination) {
-        if (status === 'outfordelivery') {
-            if (riderPoint) {
-                toCustomer = await getCachedRoute(
-                    order.orderNumber,
-                    'rider-to-customer',
-                    riderPoint,
-                    destination
-                );
-            }
-        } else if (kitchenPoint) {
-            [toKitchen, toCustomer] = await Promise.all([
-                riderPoint
-                    ? getCachedRoute(order.orderNumber, 'rider-to-kitchen', riderPoint, kitchenPoint)
-                    : null,
-                getCachedRoute(order.orderNumber, 'kitchen-to-customer', kitchenPoint, destination),
-            ]);
-        }
-    }
-
     let estimatedDeliveryAt = null;
-    if (status === 'outfordelivery') {
-        estimatedDeliveryAt = toCustomer
-            ? new Date(Date.now() + toCustomer.durationSeconds * 1000)
-            : order.estimatedDeliveryAt || null;
-    } else if (status === 'readyforpickup' && toKitchen && toCustomer) {
-        estimatedDeliveryAt = new Date(
-            Date.now() + (toKitchen.durationSeconds + toCustomer.durationSeconds) * 1000
-        );
+
+    if (!isFinished) {
+        destination = order.deliveryLocation?.latitude != null ? order.deliveryLocation : null;
+
+        const kitchenPoint = order.kitchen?.location?.latitude != null ? order.kitchen.location : null;
+        if (order.kitchen) {
+            kitchen = { name: order.kitchen.name, address: order.kitchen.address, location: kitchenPoint };
+        }
+
+        const riderInfo = order.delivery?.rider;
+        const riderLocation = riderInfo?.currentLocation || {};
+        const riderPoint = riderLocation.latitude != null ? riderLocation : null;
+        const updatedAt = riderLocation.updatedAt ? new Date(riderLocation.updatedAt) : null;
+
+        if (riderInfo) {
+            rider = {
+                name: riderInfo.name,
+                vehicleType: riderInfo.vehicleType,
+                status: order.delivery.status,
+                acceptedAt: order.delivery.acceptedAt || null,
+                pickedUpAt: order.delivery.pickedUpAt || null,
+                currentLocation: {
+                    latitude: riderLocation.latitude ?? null,
+                    longitude: riderLocation.longitude ?? null,
+                    heading: riderLocation.heading ?? null,
+                    updatedAt,
+                },
+                isLocationStale: !updatedAt || Date.now() - updatedAt.getTime() > 2 * 60 * 1000,
+            };
+        }
+
+        // Routes and estimated delivery time
+        if (destination && status === 'outfordelivery' && riderPoint) {
+            toCustomer = await getCachedRoute(order.orderNumber, 'rider-to-customer', riderPoint, destination);
+            estimatedDeliveryAt = new Date(Date.now() + toCustomer.durationSeconds * 1000);
+        } else if (destination && status !== 'outfordelivery' && kitchenPoint) {
+            if (riderPoint) {
+                toKitchen = await getCachedRoute(order.orderNumber, 'rider-to-kitchen', riderPoint, kitchenPoint);
+            }
+            toCustomer = await getCachedRoute(order.orderNumber, 'kitchen-to-customer', kitchenPoint, destination);
+
+            if (status === 'readyforpickup' && toKitchen) {
+                const seconds = toKitchen.durationSeconds + toCustomer.durationSeconds;
+                estimatedDeliveryAt = new Date(Date.now() + seconds * 1000);
+            }
+        }
+
+        // No live route available, use the saved estimate
+        if (!estimatedDeliveryAt && status === 'outfordelivery') {
+            estimatedDeliveryAt = order.estimatedDeliveryAt || null;
+        }
     }
 
     return {
@@ -178,9 +165,7 @@ const trackLiveOrder = async ({ orderNumber, customerEmail }) => {
         estimatedDeliveryAt,
         timeline,
         destination,
-        kitchen: !isFinished && kitchen
-            ? { name: kitchen.name, address: kitchen.address, location: kitchenPoint }
-            : null,
+        kitchen,
         rider,
         routes: { toKitchen, toCustomer },
         items: order.items,
@@ -189,11 +174,19 @@ const trackLiveOrder = async ({ orderNumber, customerEmail }) => {
     };
 };
 
-const cancelOrder = async ({ orderNumber, customerEmail }) => {
-    const order = await orderRepository.cancelOrder(orderNumber, customerEmail);
-    if (!order) {
-        throw new AppError('Order not found or can no longer be cancelled', 404);
-    }
+const cancelOrder = async (user, orderNumber) => {
+    const order = await orderRepository.cancelOrder(orderNumber, user._id);
+    if (!order) throw new AppError('Order not found or can no longer be cancelled', 404);
+    return order;
+};
+
+// Delivers this order to another saved address of the same customer
+const updateDeliveryDetails = async (user, orderNumber, { addressId }) => {
+    const address = await addressRepository.getAddress(user._id, addressId);
+    if (!address) throw new AppError('Address not found', 404);
+
+    const order = await orderRepository.updateDeliveryDetails(orderNumber, user._id, address._id);
+    if (!order) throw new AppError('Order not found or can no longer be changed', 404);
     return order;
 };
 
@@ -201,34 +194,27 @@ const getAllOrders = async ({ customerMealStatus, paymentStatus, search, from, t
     const filter = { isDeleted: false };
     if (customerMealStatus) filter.customerMealStatus = customerMealStatus;
     if (paymentStatus) filter.paymentStatus = paymentStatus;
-    if (from || to) {
-        filter.createdAt = {};
-        if (from) filter.createdAt.$gte = from;
-        if (to) filter.createdAt.$lte = to;
-    }
-    if (search) {
-        const pattern = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-        filter.$or = [{ orderNumber: pattern }, { customerName: pattern }, { customerEmail: pattern }];
-    }
+    if (from) filter.createdAt = { ...filter.createdAt, $gte: from };
+    if (to) filter.createdAt = { ...filter.createdAt, $lte: to };
+    if (search) filter.orderNumber = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+
     const { orders, total } = await orderRepository.getAllOrders(filter, (page - 1) * limit, limit);
-    return {
-        orders,
-        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-    };
+    return { orders, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
 };
 
 const getOrderById = async (orderId) => {
     const order = await orderRepository.getOrderById(orderId);
-    if (!order) {
-        throw new AppError('Order not found', 404);
-    }
+    if (!order) throw new AppError('Order not found', 404);
     return order;
 };
 
 const getOrderStats = async () => {
-    const istNow = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+    // Start of today in Indian time (IST = UTC + 5:30)
+    const offset = 5.5 * 60 * 60 * 1000;
+    const istNow = new Date(Date.now() + offset);
     istNow.setUTCHours(0, 0, 0, 0);
-    const startOfToday = new Date(istNow.getTime() - 5.5 * 60 * 60 * 1000);
+    const startOfToday = new Date(istNow.getTime() - offset);
+
     const stats = await orderRepository.getOrderStats(startOfToday);
     return {
         totalOrders: stats.total[0]?.count || 0,
@@ -238,32 +224,15 @@ const getOrderStats = async () => {
     };
 };
 
-const deleteOrder = async (orderId) => {
-    const order = await orderRepository.deleteOrder(orderId);
-    if (!order) {
-        throw new AppError('Order not found or cannot be deleted', 404);
-    }
-    return order;
-};
-
-const updateDeliveryDetails = async (payload) => {
-    const order = await orderRepository.updateDeliveryDetails(payload);
-    if (!order) {
-        throw new AppError('Order not found or can no longer be changed', 404);
-    }
-    return order;
-};
-
 export {
     createOrder,
-    lookupAddress,
-    trackOrder,
-    trackMyOrders,
+    getCheckoutDetails,
+    getMyOrders,
+    reverseGeocode,
     trackLiveOrder,
     cancelOrder,
+    updateDeliveryDetails,
     getAllOrders,
     getOrderById,
     getOrderStats,
-    deleteOrder,
-    updateDeliveryDetails,
 };
