@@ -1,8 +1,10 @@
 import * as mealService from '../services/mealService.js';
 
+const kitchenIdFor = (user) => (user.roles.includes('admin') ? null : user._id);
+
 const createMeal = async (req, res, next) => {
     try {
-        const meal = await mealService.createMeal(req.body, req.admin.kitchenId);
+        const meal = await mealService.createMeal(req.body, req.user._id);
         res.status(201).json({
             success: true,
             message: 'Meal created',
@@ -15,7 +17,7 @@ const createMeal = async (req, res, next) => {
 
 const updateMeal = async (req, res, next) => {
     try {
-        const meal = await mealService.updateMeal(req.params.mealId, req.body, req.admin.kitchenId);
+        const meal = await mealService.updateMeal(req.params.mealId, req.body, kitchenIdFor(req.user));
 
         res.status(200).json({
             success: true,
@@ -29,7 +31,6 @@ const updateMeal = async (req, res, next) => {
 
 const getAllMeals = async (req, res, next) => {
     try {
-        const query = req.validatedQuery || req.query || {};
         const { meals, pagination } = await mealService.getAllMeals(req.validatedQuery);
         res.status(200).json({
             success: true,
@@ -56,7 +57,7 @@ const uploadMealImage = async (req, res, next) => {
 };
 const deleteMeal = async (req, res, next) => {
     try {
-        await mealService.deleteMeal(req.params.mealId, req.admin.kitchenId);
+        await mealService.deleteMeal(req.params.mealId, kitchenIdFor(req.user));
 
         res.status(200).json({
             success: true,

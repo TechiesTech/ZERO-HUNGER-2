@@ -1,14 +1,37 @@
-import { Router } from 'express';
+import express from 'express';
+import authenticate from '../middleware/authenticate.js';
 import validate from '../middleware/validate.js';
-import requireRole from '../middleware/requireRole.js';
-import { adminLoginLimiter } from '../middleware/rateLimiter.js';
-import { loginSchema } from '../validators/authValidator.js';
-import { login, logout, getMe } from '../controllers/authController.js';
+import {
+    registerSchema,
+    verifyEmailSchema,
+    emailSchema,
+    loginSchema,
+    resetPasswordSchema,
+    changePasswordSchema,
+} from '../validators/authValidator.js';
+import {
+    register,
+    verifyEmail,
+    resendCode,
+    login,
+    forgotPassword,
+    resetPassword,
+    logout,
+    getMe,
+    changePassword,
+} from '../controllers/authController.js';
 
-const router = Router();
+const router = express.Router();
 
-router.post('/login', adminLoginLimiter, validate(loginSchema), login);
-router.post('/logout', requireRole('admin', 'kitchen'), logout);
-router.get('/me', requireRole('admin', 'kitchen'), getMe);
+router.post('/register', validate(registerSchema), register);
+router.post('/verifyEmail', validate(verifyEmailSchema), verifyEmail);
+router.post('/resendCode', validate(emailSchema), resendCode);
+router.post('/login', validate(loginSchema), login);
+router.post('/forgotPassword', validate(emailSchema), forgotPassword);
+router.post('/resetPassword', validate(resetPasswordSchema), resetPassword);
 
-export { router as authRouter };
+router.post('/logout', logout);
+router.get('/me', authenticate, getMe);
+router.post('/changePassword', authenticate, validate(changePasswordSchema), changePassword);
+
+export default router;

@@ -28,6 +28,8 @@ import { getActiveKitchens, type Kitchen } from '../services/kitchenService';
 import { EditorialImage } from '../components/EditorialImage';
 import { ScrollReveal } from '../components/ScrollReveal';
 import { PlateToHandsSteps } from '../components/PlateToHandsSteps';
+import AddressSection from '../components/AddressSection';
+import type { DeliveryPoint } from '../services/orderService';
 
 const CATEGORIES: MealCategory[] = [
   'ALL',
@@ -75,6 +77,7 @@ export const MealBox: React.FC = () => {
     state: '',
     pincode: '',
   });
+  const [deliveryLocation, setDeliveryLocation] = useState<DeliveryPoint | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'CARD' | 'NET_BANKING'>('UPI');
   const [formError, setFormError] = useState('');
 
@@ -135,6 +138,10 @@ export const MealBox: React.FC = () => {
       setFormError('Please complete your name, email, and required delivery address fields.');
       return;
     }
+    if (!deliveryLocation) {
+      setFormError('Choose and confirm the delivery pin before placing your order.');
+      return;
+    }
     setFormError('');
     setSubmitting(true);
     try {
@@ -143,6 +150,7 @@ export const MealBox: React.FC = () => {
         customerEmail,
         customerPhone,
         deliveryAddress,
+        deliveryLocation,
         paymentMethod,
       });
       setConfirmedOrder(result.order);
@@ -858,37 +866,18 @@ export const MealBox: React.FC = () => {
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2.5">
-                              {([
-                                ['addressLine1', 'Address line 1', true],
-                                ['addressLine2', 'Address line 2', false],
-                                ['area', 'Area', true],
-                                ['landmark', 'Landmark', false],
-                                ['city', 'City', true],
-                                ['state', 'State', true],
-                                ['pincode', 'PIN code', true],
-                              ] as const).map(([field, label, required]) => (
-                                <div key={field} className={field === 'addressLine1' ? 'col-span-2' : ''}>
-                                  <label htmlFor={`delivery-${field}`} className="block text-[11px] font-mono-tabular uppercase text-[#122023]/70 mb-1">
-                                    {label}{required ? ' *' : ''}
-                                  </label>
-                                  <input
-                                    id={`delivery-${field}`}
-                                    type="text"
-                                    inputMode={field === 'pincode' ? 'numeric' : undefined}
-                                    pattern={field === 'pincode' ? '[1-9][0-9]{5}' : undefined}
-                                    maxLength={field === 'pincode' ? 6 : undefined}
-                                    value={deliveryAddress[field]}
-                                    onChange={(event) => setDeliveryAddress((current) => ({
-                                      ...current,
-                                      [field]: event.target.value,
-                                    }))}
-                                    className="w-full rounded-[8px] bg-white border border-[#122023]/20 px-3 py-2 text-xs text-[#122023] focus:outline-none focus:border-[#122023]"
-                                    required={required}
-                                  />
-                                </div>
-                              ))}
-                            </div>
+                            <AddressSection
+                              requestLocationOnMount
+                              value={{ address: deliveryAddress, location: deliveryLocation }}
+                              onChange={({ address, location }) => {
+                                setDeliveryAddress({
+                                  ...address,
+                                  addressLine2: address.addressLine2 || '',
+                                  landmark: address.landmark || '',
+                                });
+                                setDeliveryLocation(location);
+                              }}
+                            />
 
                             <div>
                               <label className="block text-[11px] font-mono-tabular uppercase text-[#122023]/70 mb-1">
@@ -923,7 +912,8 @@ export const MealBox: React.FC = () => {
 
                             <button
                               type="submit"
-                              className="w-full py-4 px-5 rounded-[10px] bg-[#49E619] hover:bg-[#3cd110] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-widest inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                              disabled={submitting || !deliveryLocation}
+                              className="w-full py-4 px-5 rounded-[10px] bg-[#49E619] hover:bg-[#3cd110] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-widest inline-flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               <ShieldCheck className="w-4 h-4" />
                               <span>PLACE ORDER · ₹{cartTotalInr}</span>

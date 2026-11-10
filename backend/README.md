@@ -87,19 +87,39 @@ npm run dev
 # Health check: http://localhost:5000/health
 ```
 
-If port `5000` is already in use, stop the other backend process or set `PORT`
-to an unused port before starting the server. If you use a different port, set
-`VITE_API_URL` in the frontend and admin environments to the matching backend
-URL.
+## Unified Authentication
 
-## Rider Authentication
+Admin, kitchen, rider, and customer accounts use the shared `users` collection
+and `authToken` cookie. Configure `JWT_SECRET` and `CODE_SECRET` with at least
+32 characters each. `MAIL_USER` and `MAIL_APP_PASSWORD` are needed to deliver
+email verification and password-reset codes; the server warns when either is
+missing.
 
-The backend requires `JWT_SECRET` and `RIDER_JWT_SECRET` to each contain at least
-32 characters. They must be different values; configure both in the backend
-environment and deployment settings. Rider routes use `/api/riders`: management
-routes require an admin cookie, while `/login`, `/logout`, `/me`, and
-`/updateRiderLocation` use the separate `riderToken` cookie. Admins set a rider's
-initial password through `PATCH /api/riders/setRiderPassword/:riderId`.
+Before deploying the unified account model, back up the database and run the
+migration against a database copy first (from the `backend` directory):
+
+```bash
+node scripts/migrateToUsers.js
+```
+
+The migration copies accounts from `admins`, `kitchens`, `riders`, and
+`customers` into `users`, preserves each `_id`, and leaves the old collections
+untouched. It is safe to rerun. Conflicting email addresses or phone numbers
+must be resolved before the unique indexes can be created.
+
+`POST /api/auth/login` accepts the following body and returns the account's
+`roles` in `data.user`. The former email-key body is also accepted for
+compatibility:
+
+```json
+{ "identifier": "email-or-phone", "password": "..." }
+```
+
+Customer registration uses `/api/auth/register` and email-code verification;
+rider registration uses `/api/riders/register`, then the same verification
+endpoints, followed by admin approval. Rider login, logout, and profile routes
+have moved to the shared `/api/auth` endpoints. Authenticated browser requests
+must include cookies (`credentials: 'include'`).
 
 ---
 

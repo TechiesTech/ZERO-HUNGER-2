@@ -1,20 +1,34 @@
 import { Router } from 'express';
-import requireRole from '../middleware/requireRole.js';
+import authenticate from '../middleware/authenticate.js';
+import requireRoles from '../middleware/requireRoles.js';
 import validate from '../middleware/validate.js';
 import { orderIdParamSchema } from '../validators/orderValidator.js';
-import { createKitchenSchema, getAllKitchensSchema } from '../validators/kitchenValidator.js';
-import { createKitchen, getPaidOrders, startPreparing, markReady, getAllKitchens, getActiveKitchens } from '../controllers/kitchenController.js';
+import { kitchenDetailsSchema, getAllKitchensSchema } from '../validators/kitchenValidator.js';
+import {
+    getMyKitchen,
+    saveMyKitchen,
+    getPaidOrders,
+    startPreparing,
+    markReady,
+    getAllKitchens,
+    getActiveKitchens,
+} from '../controllers/kitchenController.js';
 
 const router = Router();
 
-// Admin only: create a kitchen login
-router.post('/createKitchen', requireRole('admin'), validate(createKitchenSchema), createKitchen);
-router.get('/getAllKitchens', requireRole('admin'), validate(getAllKitchensSchema, 'query'), getAllKitchens);
+// Admin only
+router.get('/getAllKitchens', authenticate, requireRoles('admin'), validate(getAllKitchensSchema, 'query'), getAllKitchens);
+
+// Public
 router.get('/getActiveKitchens', getActiveKitchens);
 
-// Kitchen only
-router.get('/getPaidOrders', requireRole('kitchen'), getPaidOrders);
-router.patch('/startPreparing/:orderId', requireRole('kitchen'), validate(orderIdParamSchema, 'params'), startPreparing);
-router.patch('/markReady/:orderId', requireRole('kitchen'), validate(orderIdParamSchema, 'params'), markReady);
+// Kitchen only: fill or update its own address and location
+router.get('/me', authenticate, requireRoles('kitchen'), getMyKitchen);
+router.put('/me', authenticate, requireRoles('kitchen'), validate(kitchenDetailsSchema), saveMyKitchen);
+
+// Kitchen only: orders
+router.get('/getPaidOrders', authenticate, requireRoles('kitchen'), getPaidOrders);
+router.patch('/startPreparing/:orderId', authenticate, requireRoles('kitchen'), validate(orderIdParamSchema, 'params'), startPreparing);
+router.patch('/markReady/:orderId', authenticate, requireRoles('kitchen'), validate(orderIdParamSchema, 'params'), markReady);
 
 export default router;
