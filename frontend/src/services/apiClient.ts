@@ -9,7 +9,12 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const headers: Record<string, string> = {};
   if (body) headers['Content-Type'] = 'application/json';
 
-  const res = await fetch(`${API_URL}${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  const res = await fetch(`${API_URL}${path}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+    credentials: 'include',
+  });
   const responseText = await res.text();
   let json: { message?: string; errors?: Array<{ field?: string; message?: string }> } = {};
   if (responseText) {

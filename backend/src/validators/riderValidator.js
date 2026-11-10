@@ -46,14 +46,23 @@ const getAllRidersSchema = Joi.object({
     isAvailable: Joi.boolean(),
     isActive: Joi.boolean(),
 });
+
 const registerRiderSchema = createRiderSchema.keys({
     joiningDate: Joi.forbidden(),
+    email: Joi.string().trim().lowercase().email({ tlds: { allow: false } }).required(),
     password: Joi.string().min(8).max(72).required(),
 });
 
-const rejectRiderSchema = Joi.object({
-    reason: Joi.string().trim().max(200).allow(''),
+const createRiderAccountSchema = createRiderSchema.keys({
+    password: Joi.string().min(8).max(72).required(),
 });
+
+// One endpoint for approve and reject. A reason is allowed only when rejecting.
+const reviewRiderSchema = Joi.object({
+    status: Joi.string().trim().lowercase().valid('approved', 'rejected').required(),
+    reason: Joi.string().trim().max(200).allow('').when('status', { is: 'approved', then: Joi.forbidden() }),
+});
+
 export {
     createRiderSchema,
     riderIdParamSchema,
@@ -61,5 +70,6 @@ export {
     updateRiderLocationSchema,
     getAllRidersSchema,
     registerRiderSchema,
-    rejectRiderSchema,
+    createRiderAccountSchema,
+    reviewRiderSchema,
 };

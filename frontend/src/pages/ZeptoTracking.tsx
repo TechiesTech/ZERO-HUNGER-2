@@ -42,7 +42,6 @@ export function ZeptoTracking() {
   });
 
   const orderNumber = orderId || 'ZH-ORD-ABC123';
-  const customerEmail = 'philip@zerohunger.org';
 
   const restaurantLocation: [number, number] = [17.4326, 78.4071];
   const riderLocation =
@@ -53,7 +52,7 @@ export function ZeptoTracking() {
   useEffect(() => {
     const fetchTracking = async () => {
       try {
-        const res = await trackLiveOrder(orderNumber, customerEmail);
+        const res = await trackLiveOrder(orderNumber);
         setTracking(res.data);
       } catch (err) {
         console.error(err);
@@ -64,7 +63,7 @@ export function ZeptoTracking() {
     fetchTracking();
     const interval = setInterval(fetchTracking, 5000);
     return () => clearInterval(interval);
-  }, [orderNumber, customerEmail]);
+  }, [orderNumber]);
 
   useEffect(() => {
     if (riderLocation && tracking?.destination) {

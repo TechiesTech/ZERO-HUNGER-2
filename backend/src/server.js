@@ -13,13 +13,12 @@ const validateSecret = (name) => {
   }
 };
 
-validateSecret('JWT_SECRET');
-validateSecret('RIDER_JWT_SECRET');
-
-if (process.env.RIDER_JWT_SECRET === process.env.JWT_SECRET) {
-  console.error('RIDER_JWT_SECRET must be different from JWT_SECRET');
-  process.exit(1);
+if (!process.env.MAIL_USER || !process.env.MAIL_APP_PASSWORD) {
+  console.warn('MAIL_USER or MAIL_APP_PASSWORD is missing; email verification and password reset emails will fail');
 }
+
+validateSecret('JWT_SECRET');
+validateSecret('CODE_SECRET');
 
 // Other required variables: fail at startup instead of at the first request
 const requiredVars = ['MONGODB_URI', 'CLIENT_URL', 'ADMIN_URL'];
