@@ -69,9 +69,6 @@ export interface TrackingData {
   canCancel: boolean;
 }
 
-export async function trackLiveOrder(orderNumber: string, customerEmail: string): Promise<{ success: boolean; data: TrackingData }> {
-  return api.post('/api/orders/trackLiveOrder', {
-    orderNumber: orderNumber.trim().toUpperCase(),
-    customerEmail: customerEmail.trim().toLowerCase(),
-  });
+export async function trackLiveOrder(orderNumber: string): Promise<{ success: boolean; data: TrackingData }> {
+  return api.get(`/api/orders/trackLiveOrder/${encodeURIComponent(orderNumber.trim().toUpperCase())}`);
 }
