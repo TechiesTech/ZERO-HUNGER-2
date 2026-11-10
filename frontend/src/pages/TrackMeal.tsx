@@ -325,54 +325,6 @@ export const TrackMeal: React.FC = () => {
                 <>
               {/* INTERACTIVE LEAFLET GEOSPATIAL MAP: COMMUNITY KITCHENS & DELIVERY PATHS */}
               <DeliveryRouteMap token={activeToken} liveTracking={liveTracking || undefined} />
-
-              {/* Status-specific order timeline */}
-              {/* <section className="rounded-[18px] bg-brand-black border border-white/12 p-6 sm:p-8 shadow-xl">
-                <div className="pb-4 mb-5 border-b border-white/10 flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <span className="font-mono-tabular text-xs font-bold uppercase tracking-widest text-white">
-                      ORDER STATUS TIMELINE
-                    </span>
-                    {statusContent && (
-                      <p className="mt-2 text-sm text-white/65">{statusContent.description}</p>
-                    )}
-                    {trackingRefreshError && (
-                      <p role="status" className="mt-2 text-sm text-red-300">
-                        {trackingRefreshError}
-                      </p>
-                    )}
-                  </div>
-                  <span className="rounded-[7px] bg-brand-green px-3 py-1 font-mono-tabular text-xs font-bold uppercase text-brand-black">
-                    {statusLabel}
-                  </span>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                  {timelineSteps.map((step) => (
-                    <article
-                      key={step.status}
-                      aria-current={step.isCurrent ? 'step' : undefined}
-                      className={`rounded-[12px] border p-4 ${
-                        step.completed
-                          ? `${step.bgClass} border-transparent`
-                          : 'bg-white/5 border-white/10 text-white/55'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-display-sans text-sm font-black uppercase">
-                          {step.label}
-                        </span>
-                        {step.completed
-                          ? <Check className="h-4 w-4 shrink-0" />
-                          : <Clock className="h-4 w-4 shrink-0" />}
-                      </div>
-                      <p className="mt-2 text-xs leading-relaxed opacity-80">{step.description}</p>
-                      <p className="mt-3 font-mono-tabular text-[10px] font-bold uppercase opacity-75">
-                        {step.date}
-                      </p>
-                    </article>
-                  ))}
-                </div>
-              </section> */}
                 </>
               )}
 
