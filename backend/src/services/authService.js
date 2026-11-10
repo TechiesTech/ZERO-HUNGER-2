@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import AppError from '../utils/appError.js';
 import * as authRepository from '../repositories/authRepository.js';
 import * as userRepository from '../repositories/userRepository.js';
-import { sendCodeEmail } from './emailService.js';
+import { sendCodeEmail } from '../utils/emailService.js';
 
 const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 12);
 
@@ -103,12 +103,15 @@ const register = async ({ name, email, phone, password, role }) => {
     try {
         await authRepository.register({ name, email, phone: cleanPhone, passwordHash, role, codeHash, codeExpires });
     } catch (error) {
-        if (error.code === 11000) return;
+        if (error.code === 11000) {
+            console.warn(`[AUTH] Registration skipped: ${email} is already registered.`);
+            return;
+        }
         throw error;
     }
 
     sendCodeEmail({ to: email, code, purpose: 'signup' }).catch((error) => {
-        console.error('Signup email failed:', error.message);
+        console.error('[AUTH] Signup email sending failed:', error);
     });
 };
 
@@ -141,7 +144,6 @@ const verifyEmail = async ({ email, code }) => {
             maxAgeMs: hours * 60 * 60 * 1000,
             user: {
                 _id: user._id,
-                id: String(user._id),
                 name: user.name,
                 email: user.email || null,
                 phone: user.phone || null,
