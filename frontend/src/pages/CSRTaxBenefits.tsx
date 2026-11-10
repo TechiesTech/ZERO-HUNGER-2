@@ -18,12 +18,17 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { ScrollReveal } from '../components/ScrollReveal';
+import { SupportTab } from '../components/SupportModal';
 import {
   CSR_STATUTORY_CREDENTIALS,
   COMPLIANCE_DOCUMENTS,
   calculateCSRImpact,
   CSRComplianceDoc,
 } from '../data/csrCompliance';
+
+interface CSRTaxBenefitsProps {
+  onOpenSupport?: (tab?: SupportTab) => void;
+}
 
 const DOCUMENT_CARD_THEMES = [
   // Card 1 — Section 80G: Electric Green (#49E619)
@@ -132,7 +137,7 @@ const DOCUMENT_CARD_THEMES = [
   },
 ];
 
-export const CSRTaxBenefits: React.FC = () => {
+export const CSRTaxBenefits: React.FC<CSRTaxBenefitsProps> = ({ onOpenSupport }) => {
   const [budgetInput, setBudgetInput] = useState<number>(250000);
   const [selectedDoc, setSelectedDoc] = useState<CSRComplianceDoc | null>(null);
   const [downloadSuccessMessage, setDownloadSuccessMessage] = useState<string | null>(null);

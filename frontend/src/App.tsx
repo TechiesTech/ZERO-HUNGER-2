@@ -15,15 +15,14 @@ import { useMealProgram } from './context/MealProgramContext';
 const Home = lazy(() => import('./pages/Home').then(({ Home }) => ({ default: Home })));
 const About = lazy(() => import('./pages/About').then(({ About }) => ({ default: About })));
 const Projects = lazy(() => import('./pages/Projects').then(({ Projects }) => ({ default: Projects })));
+const CSRTaxBenefits = lazy(() => import('./pages/CSRTaxBenefits').then(({ CSRTaxBenefits }) => ({ default: CSRTaxBenefits })));
 const ProjectDetail = lazy(() => import('./pages/ProjectDetail').then(({ ProjectDetail }) => ({ default: ProjectDetail })));
-const Impact = lazy(() => import('./pages/Impact').then(({ Impact }) => ({ default: Impact })));
 const Contact = lazy(() => import('./pages/Contact').then(({ Contact }) => ({ default: Contact })));
 const MealBox = lazy(() => import('./pages/MealBox').then(({ MealBox }) => ({ default: MealBox })));
 const TrackMeal = lazy(() => import('./pages/TrackMeal').then(({ TrackMeal }) => ({ default: TrackMeal })));
 const LiveTracking = lazy(() => import('./pages/LiveTracking').then(({ LiveTracking }) => ({ default: LiveTracking })));
 const ZeptoTracking = lazy(() => import('./pages/ZeptoTracking').then(({ ZeptoTracking }) => ({ default: ZeptoTracking })));
 const CelebrateAndGive = lazy(() => import('./pages/CelebrateAndGive').then(({ CelebrateAndGive }) => ({ default: CelebrateAndGive })));
-const CSRTaxBenefits = lazy(() => import('./pages/CSRTaxBenefits').then(({ CSRTaxBenefits }) => ({ default: CSRTaxBenefits })));
 const SupportModal = lazy(() => import('./components/SupportModal').then(({ SupportModal }) => ({ default: SupportModal })));
 const CartModal = lazy(() => import('./components/CartModal').then(({ CartModal }) => ({ default: CartModal })));
 const NotificationToast = lazy(() => import('./components/NotificationToast').then(({ NotificationToast }) => ({ default: NotificationToast })));
@@ -90,7 +89,6 @@ function AppContent() {
                   path="/celebrate-and-give"
                   element={<CelebrateAndGive />}
                 />
-                <Route path="/csr-tax-benefits" element={<CSRTaxBenefits />} />
                 <Route
                   path="/about"
                   element={<About onOpenSupport={handleOpenSupport} />}
@@ -104,8 +102,8 @@ function AppContent() {
                   element={<ProjectDetail onOpenSupport={handleOpenSupport} />}
                 />
                 <Route
-                  path="/impact"
-                  element={<Impact onOpenSupport={handleOpenSupport} />}
+                  path="/csr-tax-benefits"
+                  element={<CSRTaxBenefits onOpenSupport={handleOpenSupport} />}
                 />
                 <Route path="/contact" element={<Contact />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
