@@ -1,20 +1,16 @@
-import bcrypt from 'bcryptjs';
 import AppError from '../utils/appError.js';
 import * as kitchenRepository from '../repositories/kitchenRepository.js';
 
-const createKitchen = async ({ password, ...rest }) => {
-    const passwordHash = await bcrypt.hash(password, 12);
-    try {
-        return await kitchenRepository.createKitchen({ ...rest, passwordHash });
-    } catch (error) {
-        if (error.code === 11000) throw new AppError('A kitchen with this email already exists', 409);
-        throw error;
-    }
+const saveMyKitchen = (kitchenId, { address, location }) =>
+    kitchenRepository.saveMyKitchen(kitchenId, { address, location });
+
+const getMyKitchen = async (kitchenId) => {
+    const kitchen = await kitchenRepository.findKitchenById(kitchenId);
+    return kitchen ? { ...kitchen, detailsComplete: true } : { detailsComplete: false };
 };
 
 const getAllKitchens = async ({ search, isActive, page, limit }) => {
-    const filter = {};
-    if (isActive !== undefined) filter.isActive = isActive;
+    const filter = { isActive };
     if (search) {
         const pattern = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
         filter.$or = [{ name: pattern }, { email: pattern }, { phone: pattern }];
@@ -42,4 +38,4 @@ const markReady = async (orderId, kitchenId) => {
     return order;
 };
 
-export { createKitchen, getAllKitchens, getActiveKitchens, getPaidOrders, startPreparing, markReady };
+export { saveMyKitchen, getMyKitchen, getAllKitchens, getActiveKitchens, getPaidOrders, startPreparing, markReady };

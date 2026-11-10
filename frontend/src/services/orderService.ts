@@ -23,6 +23,11 @@ export interface DeliveryAddress {
   pincode: string;
 }
 
+export interface DeliveryPoint {
+  latitude: number;
+  longitude: number;
+}
+
 export interface Order {
   _id: string;
   orderNumber: string;
@@ -30,12 +35,20 @@ export interface Order {
   customerEmail: string;
   customerPhone?: string;
   deliveryAddress?: DeliveryAddress;
+  deliveryLocation?: DeliveryPoint;
   items: OrderItem[];
   totalAmountInr: number;
   paymentStatus: string;
   paymentMethod: string;
   customerMealStatus: string;
   sponsoredMealsCount: number;
+  statusTimestamps?: {
+    preparingAt?: string | null;
+    readyAt?: string | null;
+    outForDeliveryAt?: string | null;
+    deliveredAt?: string | null;
+    cancelledAt?: string | null;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -45,7 +58,7 @@ export interface CreateOrderRequest {
   customerEmail: string;
   customerPhone: string;
   deliveryAddress: DeliveryAddress;
-  deliveryLocation?: { latitude: number; longitude: number };
+  deliveryLocation: DeliveryPoint;
   paymentMethod: 'upi' | 'card' | 'netbanking';
   items: Array<{ mealId: string; quantity: number }>;
 }
@@ -61,6 +74,17 @@ export interface OrderResponse {
 
 export async function createOrder(orderData: CreateOrderRequest): Promise<OrderResponse> {
   return api.post<OrderResponse>('/api/orders/createOrder', orderData);
+}
+
+export async function reverseGeocode(
+  point: DeliveryPoint
+): Promise<{
+  success: boolean;
+  data: {
+    address: (Partial<DeliveryAddress> & { formatted: string }) | null;
+  };
+}> {
+  return api.post('/api/orders/reverseGeocode', point);
 }
 
 export async function trackOrder(orderNumber: string, customerEmail: string): Promise<Order> {

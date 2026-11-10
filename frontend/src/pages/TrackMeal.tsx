@@ -1,276 +1,256 @@
-import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ArrowDown,
   Camera,
   Check,
   CheckCircle2,
   Clock,
   Lock,
-  Search,
   Send,
-  Ticket,
   Upload,
 } from 'lucide-react';
 import {
   BENEFICIARIES,
   CONSENTED_DELIVERY_PHOTOS,
-  CharityToken,
+  type CharityToken,
 } from '../data/mealProgram';
+import type { Order } from '../services/orderService';
+import { trackLiveOrder, type TrackingData } from '../services/trackingService';
 import { useMealProgram } from '../context/MealProgramContext';
 import { EditorialImage } from '../components/EditorialImage';
-import { ScrollReveal } from '../components/ScrollReveal';
 import { DeliveryRouteMap } from '../components/DeliveryRouteMap';
+import { OrderLookupResults } from '../components/trackMeal/OrderLookupResults';
+import { TrackMealHeader } from '../components/trackMeal/TrackMealHeader';
+import {
+  ORDER_STATUS_CONTENT,
+  ORDER_STATUS_STEPS,
+  createOrderFromLiveTracking,
+  createTrackingToken,
+  formatTrackingDate,
+  formatTrackingTimestamp,
+  getOrderTrackingStatus,
+  type OrderTrackingStatus,
+} from './trackMeal/trackMealUtils';
 
 export const TrackMeal: React.FC = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
   const {
-    tokens,
-    findToken,
     markTokenDelivered,
     uploadDeliveryPhoto,
     sendCustomerNotification,
   } = useMealProgram();
 
-  const initialQueryToken = searchParams.get('token') || 'ZH-2026-A8F42K';
-  const [tokenInput, setTokenInput] = useState(initialQueryToken);
-  const [activeTokenCode, setActiveTokenCode] = useState(initialQueryToken);
+  const [lookupMode, setLookupMode] = useState<'order' | 'tracking'>('order');
+  const [orderNumberInput, setOrderNumberInput] = useState('');
+  const [email, setEmail] = useState('');
+  const [liveTracking, setLiveTracking] = useState<TrackingData | null>(null);
+  const [trackingEmail, setTrackingEmail] = useState('');
+  const [trackingRefreshError, setTrackingRefreshError] = useState('');
+  const [orderError, setOrderError] = useState('');
+  const [searchPerformed, setSearchPerformed] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<'CUSTOMER_TRACKER' | 'ADMIN_DASHBOARD'>(
     'CUSTOMER_TRACKER'
   );
 
   // Admin Dashboard customization state
   const [selectedBeneficiary, setSelectedBeneficiary] = useState('ZH-10482');
-  const [selectedLocation, setSelectedLocation] = useState(
-    'Hyderabad Community Centre'
-  );
+  const [selectedLocation, setSelectedLocation] = useState('LOCATION NOT PROVIDED');
   const [selectedPhotoUrl, setSelectedPhotoUrl] = useState(
     CONSENTED_DELIVERY_PHOTOS[0].url
   );
   const [showPhotoSelector, setShowPhotoSelector] = useState(false);
 
-  useEffect(() => {
-    const paramToken = searchParams.get('token');
-    if (paramToken) {
-      setTokenInput(paramToken.toUpperCase());
-      setActiveTokenCode(paramToken.toUpperCase());
-    }
-  }, [searchParams]);
-
-  const activeToken: CharityToken | undefined =
-    findToken(activeTokenCode) || tokens[0];
+  const trackedOrder = useMemo(
+    () => liveTracking ? createOrderFromLiveTracking(liveTracking, email) : null,
+    [liveTracking, email],
+  );
+  const activeToken: CharityToken | undefined = useMemo(
+    () => trackedOrder ? createTrackingToken(trackedOrder) : undefined,
+    [trackedOrder],
+  );
+  const trackingStatus = trackedOrder
+    ? getOrderTrackingStatus(trackedOrder.customerMealStatus)
+    : undefined;
+  const sponsoredMealsCount = trackedOrder?.sponsoredMealsCount ?? 1;
+  const liveDestinationLabel = liveTracking?.destination &&
+    typeof liveTracking.destination.latitude === 'number' &&
+    typeof liveTracking.destination.longitude === 'number'
+    ? `${liveTracking.destination.latitude.toFixed(5)}, ${liveTracking.destination.longitude.toFixed(5)}`
+    : 'Not provided by tracking API';
+  const isCancelled = trackingStatus === 'cancelled';
+  const statusContent = trackingStatus ? ORDER_STATUS_CONTENT[trackingStatus] : undefined;
+  const statusLabel = ORDER_STATUS_STEPS.find(({ status }) => status === trackingStatus)?.label
+    || activeToken?.status.replace(/_/g, ' ')
+    || '';
 
   useEffect(() => {
     if (activeToken) {
       setSelectedBeneficiary(activeToken.beneficiaryId || 'ZH-10482');
-      setSelectedLocation(
-        activeToken.deliveryLocation || 'Hyderabad Community Centre'
-      );
+      setSelectedLocation(activeToken.deliveryLocation || 'LOCATION NOT PROVIDED');
       if (activeToken.deliveryPhoto) {
         setSelectedPhotoUrl(activeToken.deliveryPhoto);
       }
     }
   }, [activeToken]);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!tokenInput.trim()) return;
-    const formatted = tokenInput.trim().toUpperCase();
-    setActiveTokenCode(formatted);
-    setSearchParams({ token: formatted });
+  const clearTrackingResult = () => {
+    setLiveTracking(null);
+    setTrackingEmail('');
+    setTrackingRefreshError('');
+    setOrderError('');
+    setSearchPerformed(false);
+    setLookupMode('order');
   };
 
-  const handleSelectToken = (code: string) => {
-    setTokenInput(code);
-    setActiveTokenCode(code);
-    setSearchParams({ token: code });
+  const handleSearchSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    clearTrackingResult();
+    const identifiers = [...new Set(orderNumberInput.split(/[\s,;]+/).map((value) => value.trim().toUpperCase()).filter(Boolean))];
+    if (identifiers.length === 0) return;
+
+    setSearchPerformed(true);
+    if (!email.trim() || identifiers.length !== 1) {
+      setOrderError(!email.trim()
+        ? 'Enter the checkout email used for this meal.'
+        : 'Enter a single order number.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await trackLiveOrder(identifiers[0]);
+      console.log('[TrackMeal] trackLiveOrder response:', response.data);
+      console.log('[TrackMeal] kitchen details:', response.data.kitchen);
+      setLiveTracking(response.data);
+      setTrackingEmail(email.trim().toLowerCase());
+      setTrackingRefreshError('');
+      setViewMode('CUSTOMER_TRACKER');
+      setLookupMode('tracking');
+    } catch (lookupError) {
+      console.log('[TrackMeal] lookup error:', lookupError);
+      setOrderError(lookupError instanceof Error ? lookupError.message : 'Could not find these orders.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const isDelivered = activeToken?.status === 'DELIVERED';
+  useEffect(() => {
+    const orderNumber = liveTracking?.orderNumber;
+    if (!orderNumber || !trackingEmail || lookupMode !== 'tracking') return;
 
-  const timelineSteps = [
-    {
-      id: 'purchased',
-      label: 'PURCHASED',
-      date: activeToken?.purchasedAt || '29 SEP 2026',
-      description: `Order ${activeToken?.orderId || 'ORD-2026-9012'} confirmed. ₹150 payment allocated to dual-meal program.`,
-      completed: true,
-      isHeart: false,
-      bgClass: 'bg-[#49E619] text-[#122023]',
-    },
-    {
-      id: 'prepared',
-      label: 'MEAL PREPARED',
-      date: activeToken?.preparedAt || '30 SEP 2026',
-      description:
-        'Freshly cooked in our Secunderabad Community Kitchen under pediatric nutrition standards.',
-      completed: true,
-      isHeart: false,
-      bgClass: 'bg-[#4EDBE2] text-[#122023]',
-    },
-    {
-      id: 'assigned',
-      label: 'ASSIGNED TO COMMUNITY',
-      date: activeToken?.assignedAt || '30 SEP 2026',
-      description: `Linked to anonymized Beneficiary ID ${
-        activeToken?.beneficiaryId || 'ZH-10482'
-      } at ${activeToken?.deliveryLocation || 'Hyderabad Community Centre'}.`,
-      completed:
-        activeToken?.status === 'ASSIGNED' ||
-        activeToken?.status === 'OUT_FOR_DELIVERY' ||
-        activeToken?.status === 'DELIVERED',
-      isHeart: false,
-      bgClass: 'bg-[#B9FF2C] text-[#122023]',
-    },
-    {
-      id: 'delivered',
-      label: 'DELIVERED',
-      date: isDelivered ? activeToken?.deliveredAt || '01 OCT 2026' : 'PENDING DISPATCH',
-      description:
-        'Insulated thermal containers arrived at community distribution hub and verified by field coordinator.',
-      completed: isDelivered,
-      isHeart: false,
-      bgClass: 'bg-[#F2F4F3] text-[#122023]',
-    },
-    {
-      id: 'received',
-      label: 'CHILD RECEIVED MEAL',
-      date: isDelivered ? activeToken?.deliveredAt || '01 OCT 2026' : 'AWAITING CONFIRMATION',
-      description:
-        'Warm, balanced meal served with dignity. Safeguarding-verified proof uploaded.',
-      completed: isDelivered,
-      isHeart: true,
-      bgClass: 'bg-[#49E619] text-[#122023]',
-    },
+    let disposed = false;
+    let requestInFlight = false;
+    const refreshTracking = async () => {
+      if (requestInFlight) return;
+      requestInFlight = true;
+      try {
+        const response = await trackLiveOrder(orderNumber);
+        if (disposed) return;
+
+        setTrackingRefreshError('');
+        setLiveTracking((current) => {
+          if (!current) return response.data;
+          const timelineChanged =
+            current.timeline.length !== response.data.timeline.length ||
+            current.timeline.some(
+              (step, index) =>
+                step.status !== response.data.timeline[index]?.status ||
+                step.at !== response.data.timeline[index]?.at,
+            );
+          return current.customerMealStatus !== response.data.customerMealStatus ||
+            timelineChanged
+            ? response.data
+            : current;
+        });
+      } catch (refreshError) {
+        if (disposed) return;
+        console.error('[TrackMeal] status refresh error:', refreshError);
+        setTrackingRefreshError(
+          'Live updates are temporarily unavailable. Showing the last received status.',
+        );
+      } finally {
+        requestInFlight = false;
+      }
+    };
+
+    const interval = window.setInterval(refreshTracking, 5000);
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+    };
+  }, [liveTracking?.orderNumber, trackingEmail, lookupMode]);
+
+  const isDelivered = trackingStatus === 'delivered';
+
+  const statusOrder: OrderTrackingStatus[] = [
+    'confirmed',
+    'preparing',
+    'readyforpickup',
+    'outfordelivery',
+    'delivered',
   ];
+  const currentStatusIndex = trackingStatus ? statusOrder.indexOf(trackingStatus) : -1;
+  const timelineSteps = (isCancelled
+    ? ORDER_STATUS_STEPS.filter(({ status }) => status === 'confirmed' || status === 'cancelled')
+    : ORDER_STATUS_STEPS.filter(({ status }) => status !== 'cancelled')
+  ).map((step) => {
+    const stepIndex = statusOrder.indexOf(step.status);
+    const liveTimestamp = liveTracking?.timeline.find(({ status }) => status === step.status)?.at;
+    const timestamp = liveTracking
+      ? liveTimestamp
+      : step.timestampKey === 'createdAt'
+        ? trackedOrder?.createdAt
+        : trackedOrder?.statusTimestamps?.[step.timestampKey];
+    const completed = step.status === 'cancelled'
+      ? isCancelled
+      : stepIndex >= 0 && stepIndex <= currentStatusIndex;
+
+    return {
+      ...step,
+      date: (liveTracking ? formatTrackingTimestamp(timestamp) : formatTrackingDate(timestamp))
+        || (step.status === trackingStatus ? 'IN PROGRESS' : completed ? 'COMPLETED' : 'AWAITING'),
+      completed,
+      isCurrent: trackingStatus === step.status,
+    };
+  });
 
   return (
-    <div className="bg-[#080808] text-white min-h-screen">
-      {/* =====================================================================
-          HERO SECTION — FOLLOW YOUR IMPACT
-      ====================================================================== */}
-      <section className="bg-[#080808] pt-28 sm:pt-36 pb-16 sm:pb-20 border-b border-white/10">
-        <div className="max-w-[1160px] mx-auto px-5 sm:px-8 lg:px-12 text-center">
-          <ScrollReveal>
-            <span className="text-xs font-mono-tabular font-bold uppercase tracking-[0.22em] text-[#49E619] block mb-3">
-              VERIFIABLE HUMANITARIAN LEDGER
-            </span>
-
-            <h1 className="font-display-sans uppercase text-4xl sm:text-6xl lg:text-7xl font-black tracking-[-0.04em] leading-[0.92] text-white">
-              FOLLOW YOUR <span className="text-[#49E619]">IMPACT.</span>
-            </h1>
-
-            <p className="mt-4 font-display-sans uppercase text-lg sm:text-2xl text-[#B9FF2C] tracking-tight">
-              “Your meal didn&apos;t end at checkout.”
-            </p>
-
-            {/* Token Search Form */}
-            <form
-              onSubmit={handleSearchSubmit}
-              className="mt-8 max-w-xl mx-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3"
-            >
-              <label htmlFor="charity-token-input" className="sr-only">
-                Enter your token
-              </label>
-              <div className="relative flex-1">
-                <Ticket className="w-4 h-4 text-[#49E619] absolute left-4 top-1/2 -translate-y-1/2" />
-                <input
-                  id="charity-token-input"
-                  type="text"
-                  value={tokenInput}
-                  onChange={(e) => setTokenInput(e.target.value)}
-                  placeholder="ZH-2026-A8F42K"
-                  className="w-full rounded-[10px] bg-[#122023] border border-white/20 pl-11 pr-4 py-4 font-mono-tabular text-sm font-bold uppercase tracking-widest text-white focus:outline-none focus:border-[#49E619]"
-                />
-              </div>
-              <button
-                type="submit"
-                className="px-8 py-4 rounded-[10px] bg-[#49E619] hover:bg-[#B9FF2C] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer whitespace-nowrap inline-flex items-center justify-center gap-2"
-              >
-                <Search className="w-4 h-4" />
-                <span>TRACK MEAL</span>
-              </button>
-            </form>
-
-            {/* Quick Token Selector Bar */}
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs">
-              <span className="font-mono-tabular uppercase tracking-wider text-white/60 mr-1">
-                Available Tokens:
-              </span>
-              {tokens.map((tok) => {
-                const isSelected =
-                  tok.tokenNumber.toUpperCase() ===
-                  activeToken?.tokenNumber.toUpperCase();
-                return (
-                  <button
-                    key={tok.id}
-                    type="button"
-                    onClick={() => handleSelectToken(tok.tokenNumber)}
-                    className={`px-3.5 py-1.5 rounded-[8px] font-mono-tabular text-xs font-bold border transition-colors cursor-pointer inline-flex items-center gap-1.5 ${
-                      isSelected
-                        ? 'bg-[#49E619] text-[#080808] border-[#49E619]'
-                        : 'bg-[#122023] text-white border-white/15 hover:border-[#49E619]'
-                    }`}
-                  >
-                    <span>{tok.tokenNumber}</span>
-                    <span
-                      className={`text-[10px] uppercase ${
-                        isSelected
-                          ? 'text-[#080808]'
-                          : tok.status === 'DELIVERED'
-                          ? 'text-[#49E619]'
-                          : 'text-[#B9FF2C]'
-                      }`}
-                    >
-                      · {tok.status === 'DELIVERED' ? 'DELIVERED ✓' : 'READY'}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Mode Switcher: Customer Impact Tracker vs NGO Admin Delivery Dashboard */}
-            <div className="mt-9 pt-6 border-t border-white/10 inline-flex flex-wrap items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={() => setViewMode('CUSTOMER_TRACKER')}
-                className={`px-5 py-2.5 rounded-[10px] font-mono-tabular text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer ${
-                  viewMode === 'CUSTOMER_TRACKER'
-                    ? 'bg-[#49E619] text-[#080808]'
-                    : 'bg-[#122023] text-white/80 hover:text-white border border-white/15'
-                }`}
-              >
-                1. Customer Impact Tracker
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('ADMIN_DASHBOARD')}
-                className={`px-5 py-2.5 rounded-[10px] font-mono-tabular text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer ${
-                  viewMode === 'ADMIN_DASHBOARD'
-                    ? 'bg-[#B9FF2C] text-[#080808]'
-                    : 'bg-[#122023] text-white/80 hover:text-white border border-white/15'
-                }`}
-              >
-                2. NGO Admin Delivery Confirmation ({isDelivered ? 'Delivered ✓' : 'Action Ready'})
-              </button>
-            </div>
-          </ScrollReveal>
-        </div>
-      </section>
+    <div className="bg-brand-black text-white min-h-screen">
+      <TrackMealHeader
+        orderNumberInput={orderNumberInput}
+        setOrderNumberInput={setOrderNumberInput}
+        email={email}
+        setEmail={setEmail}
+        loading={loading}
+        onSubmit={handleSearchSubmit}
+        clearResult={clearTrackingResult}
+      />
 
       {/* =====================================================================
           MAIN CONTENT AREA
       ====================================================================== */}
-      <section className="bg-[#122023] py-16 sm:py-24">
-        <div className="max-w-[1280px] mx-auto px-5 sm:px-8 lg:px-12">
-          {!activeToken ? (
-            <div className="rounded-[18px] bg-[#080808] border border-white/15 p-12 text-center max-w-lg mx-auto">
+      <section className="bg-brand-slate py-16 sm:py-24">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8 lg:px-12">
+          {lookupMode === 'order' ? (
+            <OrderLookupResults
+              searchPerformed={searchPerformed}
+              orderError={orderError}
+            />
+          ) : !activeToken && !searchPerformed ? (
+            <div className="rounded-[18px] bg-brand-black border border-white/15 p-8 text-center max-w-lg mx-auto">
               <p className="font-display-sans uppercase text-2xl font-black text-white">
-                Token not found
+                Track your meal
               </p>
               <p className="text-sm text-white/70 mt-2">
-                Please verify your token code (for example, ZH-2026-A8F42K) or
-                purchase a ₹150 meal box to generate a new charity token.
+                Enter your order number and checkout email, then select Track Meal to see verified details.
+              </p>
+            </div>
+          ) : !activeToken ? (
+            <div className="rounded-[18px] bg-brand-black border border-white/15 p-12 text-center max-w-lg mx-auto">
+              <p className="font-display-sans uppercase text-2xl font-black text-white">
+                Order not found
+              </p>
+              <p className="text-sm text-white/70 mt-2">
+                Please verify your order number and checkout email, or place a meal box order to generate a new order number.
               </p>
             </div>
           ) : viewMode === 'CUSTOMER_TRACKER' ? (
@@ -281,158 +261,125 @@ export const TrackMeal: React.FC = () => {
               {/* Dual-Stream Distinction Banner: Customer's Purchased Meal vs Sponsored Child Meal */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {/* Box 1: Customer's Own Meal */}
-                <div className="rounded-[16px] bg-[#F2F4F3] text-[#122023] p-6 flex items-start justify-between gap-4">
+                <div className="rounded-[16px] bg-brand-alabaster text-brand-slate p-6 flex items-start justify-between gap-4">
                   <div>
-                    <span className="font-mono-tabular text-[10px] font-bold uppercase tracking-widest text-[#188D44] block">
+                    <span className="font-mono-tabular text-[10px] font-bold uppercase tracking-widest text-brand-emerald block">
                       ORDER {activeToken.orderId} · YOUR PURCHASED MEAL
                     </span>
-                    <h2 className="font-display-sans uppercase text-2xl font-black text-[#122023] mt-1">
+                    <h2 className="font-display-sans uppercase text-2xl font-black text-brand-slate mt-1">
                       {activeToken.productName} (For {activeToken.customerName})
                     </h2>
-                    <p className="text-xs text-[#122023]/75 mt-1">
-                      Paid: ₹{activeToken.amountPaidInr} · Prepared fresh for
-                      your personal meal order.
+                    <p className="text-xs text-brand-slate/75 mt-1">
+                      {trackedOrder ? 'Order total' : 'Paid'}: ₹{activeToken.amountPaidInr}
+                      {trackedOrder && ` · Payment ${trackedOrder.paymentStatus}`}
+                      {' · '}{statusContent?.description}
                     </p>
                   </div>
-                  <span className="px-3 py-1 rounded-[6px] bg-[#122023] text-[#4EDBE2] font-mono-tabular text-[11px] font-bold uppercase shrink-0">
-                    {activeToken.customerMealStatus === 'DELIVERED_TO_CUSTOMER'
-                      ? 'Delivered ✓'
-                      : 'Kitchen Preparing'}
+                  <span className="px-3 py-1 rounded-[6px] bg-brand-slate text-brand-cyan font-mono-tabular text-[11px] font-bold uppercase shrink-0">
+                    {statusLabel}
                   </span>
                 </div>
 
                 {/* Box 2: Linked Sponsored Child Meal */}
-                <div className="rounded-[16px] bg-[#49E619] text-[#122023] p-6 flex items-start justify-between gap-4">
+                <div className="rounded-[16px] bg-brand-green text-brand-slate p-6 flex items-start justify-between gap-4">
                   <div>
-                    <span className="font-mono-tabular text-[10px] font-bold uppercase tracking-widest text-[#122023]/80 block">
+                    <span className="font-mono-tabular text-[10px] font-bold uppercase tracking-widest text-brand-slate/80 block">
                       TOKEN {activeToken.tokenNumber} · SPONSORED CHILD MEAL
                     </span>
-                    <h2 className="font-display-sans uppercase text-2xl font-black text-[#122023] mt-1">
-                      1 Nutritious Child Meal
+                    <h2 className="font-display-sans uppercase text-2xl font-black text-brand-slate mt-1">
+                      {sponsoredMealsCount} Nutritious Child Meal{sponsoredMealsCount === 1 ? '' : 's'}
                     </h2>
-                    <p className="text-xs text-[#122023]/85 font-medium mt-1">
-                      Funded by your ₹150 purchase · Recipient Beneficiary ID:{' '}
-                      <strong className="font-mono-tabular text-[#122023]">
-                        {activeToken.beneficiaryId}
+                    <p className="text-xs text-brand-slate/85 font-medium mt-1">
+                      {trackedOrder
+                        ? `${trackedOrder.sponsoredMealsCount} sponsored meal${trackedOrder.sponsoredMealsCount === 1 ? '' : 's'} funded by this order. `
+                        : 'Funded by your purchase · Recipient Beneficiary ID: '}
+                      <strong className="font-mono-tabular text-brand-slate">
+                        {trackedOrder
+                          ? 'Assignment details pending'
+                          : activeToken.beneficiaryId}
                       </strong>
                     </p>
                   </div>
-                  <span className="px-3 py-1 rounded-[6px] bg-[#122023] text-[#B9FF2C] font-mono-tabular text-[11px] font-bold uppercase shrink-0">
-                    {isDelivered ? 'CHILD RECEIVED ❤️' : activeToken.status}
+                  <span className="px-3 py-1 rounded-[6px] bg-brand-slate text-brand-lime font-mono-tabular text-[11px] font-bold uppercase shrink-0">
+                    {trackedOrder ? 'SPONSORED MEAL FUNDED' : isDelivered ? 'CHILD RECEIVED ❤️' : activeToken.status}
                   </span>
                 </div>
               </div>
 
+              {isCancelled ? (
+                <section className="rounded-[18px] border border-red-300/30 bg-brand-black p-6 sm:p-8">
+                  <span className="inline-flex rounded-[7px] bg-red-300 px-3 py-1 font-mono-tabular text-xs font-bold uppercase text-brand-slate">
+                    ORDER CANCELLED
+                  </span>
+                  <h2 className="mt-4 font-display-sans text-2xl font-black uppercase text-white">
+                    {statusContent?.title}
+                  </h2>
+                  <p className="mt-2 text-sm text-white/70">{statusContent?.description}</p>
+                  <p className="mt-4 font-mono-tabular text-xs text-white/55">
+                    Order {trackedOrder?.orderNumber || activeToken.orderId}
+                    {trackedOrder?.statusTimestamps?.cancelledAt &&
+                      ` · ${formatTrackingDate(trackedOrder.statusTimestamps.cancelledAt)}`}
+                  </p>
+                </section>
+              ) : (
+                <>
               {/* INTERACTIVE LEAFLET GEOSPATIAL MAP: COMMUNITY KITCHENS & DELIVERY PATHS */}
-              <DeliveryRouteMap token={activeToken} />
+              <DeliveryRouteMap token={activeToken} liveTracking={liveTracking || undefined} />
+                </>
+              )}
 
-              {/* Main Two-Column Grid: Vertical Step-by-Step Timeline Left + Impact & Delivery Photo Right */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                {/* LEFT 5 COLUMNS: Vertical Timeline */}
-                <div className="lg:col-span-5 rounded-[18px] bg-[#080808] border border-white/12 p-6 sm:p-8 shadow-xl">
-                  <div className="pb-4 mb-6 border-b border-white/10 flex items-center justify-between">
-                    <span className="font-mono-tabular text-xs font-bold uppercase tracking-widest text-white">
-                      SPONSORED MEAL TIMELINE
-                    </span>
-                    <span className="font-mono-tabular text-xs font-bold text-[#49E619]">
-                      {activeToken.tokenNumber}
-                    </span>
-                  </div>
-
-                  <div className="space-y-2">
-                    {timelineSteps.map((step, index) => (
-                      <React.Fragment key={step.id}>
-                        <div
-                          className={`rounded-[12px] p-4 transition-colors ${
-                            step.completed
-                              ? step.bgClass
-                              : 'bg-white/5 border border-white/10 text-white/50'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2.5">
-                              {step.completed ? (
-                                <span className="w-6 h-6 rounded-full bg-[#122023] text-white flex items-center justify-center text-xs shrink-0">
-                                  {step.isHeart ? '❤️' : <Check className="w-3.5 h-3.5 text-[#49E619]" />}
-                                </span>
-                              ) : (
-                                <span className="w-6 h-6 rounded-full border border-white/30 text-white/60 flex items-center justify-center shrink-0">
-                                  <Clock className="w-3.5 h-3.5" />
-                                </span>
-                              )}
-                              <span className="font-display-sans uppercase text-sm font-black tracking-tight">
-                                {step.completed && !step.isHeart ? '✓ ' : ''}
-                                {step.label}
-                              </span>
-                            </div>
-
-                            <span className="font-mono-tabular text-[10px] font-bold opacity-80">
-                              {step.date}
-                            </span>
-                          </div>
-
-                          <p className="mt-2 pl-8 text-xs font-medium opacity-85 leading-relaxed">
-                            {step.description}
-                          </p>
-                        </div>
-
-                        {index < timelineSteps.length - 1 && (
-                          <div
-                            className="flex justify-center py-0.5 text-[#49E619]"
-                            aria-hidden="true"
-                          >
-                            <ArrowDown className="w-4 h-4" />
-                          </div>
-                        )}
-                      </React.Fragment>
-                    ))}
-                  </div>
-                </div>
-
+              {/* Status-specific impact and delivery details */}
+              {!isCancelled && <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                 {/* RIGHT 7 COLUMNS: YOUR IMPACT + DELIVERY PHOTO + PRIVACY PROTECTION */}
-                <div className="lg:col-span-7 space-y-6">
+                <div className="lg:col-span-12 space-y-6">
                   {isDelivered ? (
-                    <div className="rounded-[18px] bg-[#080808] border border-white/15 p-6 sm:p-9 shadow-2xl">
+                    <div className="rounded-[18px] bg-brand-black border border-white/15 p-6 sm:p-9 shadow-2xl">
                       <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-white/12">
                         <div>
-                          <span className="font-mono-tabular text-xs font-bold uppercase tracking-[0.2em] text-[#49E619] block">
+                          <span className="font-mono-tabular text-xs font-bold uppercase tracking-[0.2em] text-brand-green block">
                             YOUR IMPACT
                           </span>
                           <h3 className="font-display-sans uppercase text-3xl sm:text-4xl font-black text-white mt-1">
-                            Meal delivered successfully ❤️
+                            {trackedOrder ? statusContent?.title : 'Meal delivered successfully ❤️'}
                           </h3>
                         </div>
-                        <span className="px-3.5 py-1.5 rounded-[8px] bg-[#49E619] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-widest">
-                          VERIFIED DELIVERY ✓
+                        <span className="px-3.5 py-1.5 rounded-[8px] bg-brand-green text-brand-black font-mono-tabular text-xs font-bold uppercase tracking-widest">
+                          {trackedOrder ? 'ORDER DELIVERED ✓' : 'VERIFIED DELIVERY ✓'}
                         </span>
                       </div>
 
                       {/* Recipient & Location Metadata Grid */}
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-6 border-b border-white/12">
-                        <div className="rounded-[10px] bg-[#122023] p-3.5">
-                          <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-[#49E619] block">
-                            RECIPIENT (ANONYMIZED)
+                        <div className="rounded-[10px] bg-brand-slate p-3.5">
+                          <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-brand-green block">
+                            {trackedOrder ? 'SPONSORED MEAL' : 'RECIPIENT (ANONYMIZED)'}
                           </span>
                           <span className="font-mono-tabular text-sm font-bold text-white mt-1 block">
-                            Beneficiary ID: {activeToken.beneficiaryId}
+                            {trackedOrder
+                              ? 'Assignment is tracked separately'
+                              : `Beneficiary ID: ${activeToken.beneficiaryId}`}
                           </span>
                         </div>
 
-                        <div className="rounded-[10px] bg-[#122023] p-3.5">
-                          <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-[#4EDBE2] block">
-                            LOCATION
+                        <div className="rounded-[10px] bg-brand-slate p-3.5">
+                          <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-brand-cyan block">
+                            {trackedOrder ? 'CUSTOMER DELIVERY AREA' : 'LOCATION'}
                           </span>
                           <span className="text-sm font-bold text-white mt-1 block">
-                            {activeToken.deliveryLocation}
+                            {liveTracking ? liveDestinationLabel : activeToken.deliveryLocation}
                           </span>
                         </div>
 
-                        <div className="rounded-[10px] bg-[#122023] p-3.5">
-                          <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-[#B9FF2C] block">
+                        <div className="rounded-[10px] bg-brand-slate p-3.5">
+                          <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-brand-lime block">
                             DELIVERED
                           </span>
                           <span className="font-mono-tabular text-sm font-bold text-white mt-1 block">
-                            01 October 2026
+                            {(liveTracking
+                              ? formatTrackingTimestamp(liveTracking.timeline.find(({ status }) => status === 'delivered')?.at)
+                              : formatTrackingDate(trackedOrder?.statusTimestamps?.deliveredAt)) ||
+                              activeToken.deliveredAt ||
+                              'Delivery confirmed'}
                           </span>
                         </div>
                       </div>
@@ -441,96 +388,151 @@ export const TrackMeal: React.FC = () => {
                       <div className="mt-6">
                         <div className="flex items-center justify-between mb-3">
                           <span className="font-mono-tabular text-xs font-bold uppercase tracking-widest text-white inline-flex items-center gap-2">
-                            <Camera className="w-4 h-4 text-[#49E619]" />
+                            <Camera className="w-4 h-4 text-brand-green" />
                             <span>PHOTO OF MEAL DELIVERY</span>
                           </span>
-                          <span className="font-mono-tabular text-[11px] text-[#49E619] font-bold">
-                            Safeguarding Consent Verified ✓
+                          <span className="font-mono-tabular text-[11px] text-brand-green font-bold">
+                            {trackedOrder ? 'Photo not provided' : 'Safeguarding Consent Verified ✓'}
                           </span>
                         </div>
 
-                        <div className="relative rounded-[14px] aspect-[16/10] overflow-hidden border border-white/15 bg-[#122023]">
-                          <EditorialImage
-                            src={
-                              activeToken.deliveryPhoto ||
-                              CONSENTED_DELIVERY_PHOTOS[0].url
-                            }
-                            alt={`Verified meal delivery for token ${activeToken.tokenNumber} at ${activeToken.deliveryLocation}`}
-                            className="w-full h-full"
-                          />
-                          <div className="absolute bottom-3 left-3 right-3 rounded-[8px] bg-[#080808]/90 backdrop-blur-xs text-white px-3.5 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono-tabular">
-                            <span>
-                              TOKEN: {activeToken.tokenNumber} · BENEFICIARY:{' '}
-                              {activeToken.beneficiaryId}
-                            </span>
-                            <span className="text-[#49E619] font-bold">
-                              {activeToken.deliveryLocation.toUpperCase()}
-                            </span>
-                          </div>
+                        <div className="relative rounded-[14px] aspect-[16/10] overflow-hidden border border-white/15 bg-brand-slate">
+                          {activeToken.deliveryPhoto && activeToken.photoUploaded ? (
+                            <>
+                              <EditorialImage
+                                src={activeToken.deliveryPhoto}
+                                alt={`Verified meal delivery for token ${activeToken.tokenNumber} at ${activeToken.deliveryLocation}`}
+                                className="w-full h-full"
+                              />
+                              <div className="absolute bottom-3 left-3 right-3 rounded-[8px] bg-brand-black/90 backdrop-blur-xs text-white px-3.5 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono-tabular">
+                                <span>
+                                  TOKEN: {activeToken.tokenNumber} · BENEFICIARY:{' '}
+                                  {activeToken.beneficiaryId}
+                                </span>
+                                <span className="text-brand-green font-bold">
+                                  {activeToken.deliveryLocation.toUpperCase()}
+                                </span>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="h-full flex flex-col items-center justify-center px-6 text-center">
+                              <Camera className="h-8 w-8 text-brand-green" />
+                              <p className="mt-3 font-display-sans text-lg font-black uppercase text-white">
+                                Delivery photo not available
+                              </p>
+                              <p className="mt-2 text-sm text-white/60">
+                                The order is delivered, but a verified delivery photo has not been added.
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </div>
 
                       {/* Customer Notification Receipt Card */}
-                      <div className="mt-6 rounded-[14px] bg-[#B9FF2C] text-[#122023] p-5">
-                        <span className="font-mono-tabular text-[10px] font-bold uppercase tracking-widest text-[#122023]/80 block">
+                      {!trackedOrder && <div className="mt-6 rounded-[14px] bg-brand-lime text-brand-slate p-5">
+                        <span className="font-mono-tabular text-[10px] font-bold uppercase tracking-widest text-brand-slate/80 block">
                           CUSTOMER DISPATCH MESSAGE
                         </span>
-                        <p className="font-display-sans uppercase text-xl font-black text-[#122023] mt-1">
+                        <p className="font-display-sans uppercase text-xl font-black text-brand-slate mt-1">
                           Your meal has reached a child in need ❤️
                         </p>
-                        <p className="font-mono-tabular text-xs text-[#122023] mt-1">
+                        <p className="font-mono-tabular text-xs text-brand-slate mt-1">
                           Token: <strong>{activeToken.tokenNumber}</strong>
                         </p>
-                        <p className="text-xs text-[#122023]/80 font-medium mt-1">
+                        <p className="text-xs text-brand-slate/80 font-medium mt-1">
                           Thank you for helping provide a nutritious meal through
                           our community distribution program.
                         </p>
-                      </div>
+                      </div>}
                     </div>
                   ) : (
-                    /* Pending Delivery Card with shortcut to Admin Confirmation */
-                    <div className="rounded-[18px] bg-[#080808] border border-white/15 p-8 shadow-xl">
-                      <span className="px-3 py-1 rounded-[6px] bg-[#B9FF2C] font-mono-tabular text-xs font-bold uppercase tracking-wider text-[#122023]">
-                        STATUS: READY FOR FIELD DELIVERY
-                      </span>
-                      <h3 className="font-display-sans uppercase text-3xl font-black text-white mt-4">
-                        Your sponsored meal is assigned and ready for community
-                        distribution.
-                      </h3>
-                      <p className="mt-3 text-sm text-white/75 leading-relaxed">
-                        Token{' '}
-                        <strong className="font-mono-tabular text-[#49E619]">
-                          {activeToken.tokenNumber}
-                        </strong>{' '}
-                        has been linked to Beneficiary ID{' '}
-                        <strong className="font-mono-tabular text-[#4EDBE2]">
-                          {activeToken.beneficiaryId}
-                        </strong>{' '}
-                        at{' '}
-                        <strong className="text-white">
-                          {activeToken.deliveryLocation}
-                        </strong>
-                        . Once our field team confirms handoff and uploads the
-                        delivery photo, your impact proof will appear here.
-                      </p>
+                    <div className="rounded-[18px] bg-brand-black border border-white/15 p-6 sm:p-9 shadow-2xl">
+                      <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-white/12">
+                        <div>
+                          <span className="font-mono-tabular text-xs font-bold uppercase tracking-[0.2em] text-brand-green block">
+                            YOUR IMPACT
+                          </span>
+                          <h3 className="font-display-sans uppercase text-3xl sm:text-4xl font-black text-white mt-1">
+                            {statusContent?.title}
+                          </h3>
+                        </div>
+                        <span className="px-3.5 py-1.5 rounded-[8px] bg-brand-lime text-brand-black font-mono-tabular text-xs font-bold uppercase tracking-widest">
+                          {statusLabel}
+                        </span>
+                      </div>
 
-                      <div className="mt-6 pt-6 border-t border-white/10 flex flex-wrap items-center gap-4">
-                        <button
-                          type="button"
-                          onClick={() => setViewMode('ADMIN_DASHBOARD')}
-                          className="px-6 py-3.5 rounded-[10px] bg-[#49E619] hover:bg-[#B9FF2C] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer"
-                        >
-                          OPEN ADMIN DASHBOARD TO CONFIRM DELIVERY →
-                        </button>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-6 border-b border-white/12">
+                        <div className="rounded-[10px] bg-brand-slate p-3.5">
+                          <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-brand-green block">
+                            {trackedOrder ? 'SPONSORED MEAL' : 'RECIPIENT (ANONYMIZED)'}
+                          </span>
+                          <span className="font-mono-tabular text-sm font-bold text-white mt-1 block">
+                            {trackedOrder
+                              ? 'Assignment details pending'
+                              : activeToken.beneficiaryId === 'PENDING ASSIGNMENT'
+                              ? 'Assignment pending'
+                              : `Beneficiary ID: ${activeToken.beneficiaryId}`}
+                          </span>
+                        </div>
+                        <div className="rounded-[10px] bg-brand-slate p-3.5">
+                          <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-brand-cyan block">
+                            {trackedOrder ? 'CUSTOMER DELIVERY AREA' : 'LOCATION'}
+                          </span>
+                          <span className="text-sm font-bold text-white mt-1 block">
+                            {liveTracking
+                              ? liveDestinationLabel
+                              : trackedOrder
+                                ? `${trackedOrder.deliveryAddress?.city || ''}${trackedOrder.deliveryAddress?.state ? `, ${trackedOrder.deliveryAddress.state}` : ''}` || 'Address on order'
+                                : activeToken.deliveryLocation}
+                          </span>
+                        </div>
+                        <div className="rounded-[10px] bg-brand-slate p-3.5">
+                          <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-brand-lime block">
+                            DELIVERY
+                          </span>
+                          <span className="font-mono-tabular text-sm font-bold text-white mt-1 block">
+                            {trackingStatus === 'outfordelivery'
+                              ? 'In transit'
+                              : trackingStatus === 'readyforpickup'
+                                ? 'Awaiting dispatch'
+                                : 'Not dispatched yet'}
+                          </span>
+                          {liveTracking?.estimatedDeliveryAt && (
+                            <span className="mt-1 block text-xs text-white/65">
+                              ETA: {formatTrackingTimestamp(liveTracking.estimatedDeliveryAt)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-6">
+                        <div className="flex items-center justify-between gap-3 mb-3">
+                          <span className="font-mono-tabular text-xs font-bold uppercase tracking-widest text-white inline-flex items-center gap-2">
+                            <Camera className="w-4 h-4 text-brand-green" />
+                            <span>PHOTO OF MEAL DELIVERY</span>
+                          </span>
+                          <span className="font-mono-tabular text-[11px] text-white/55 font-bold">
+                            Proof pending
+                          </span>
+                        </div>
+                        <div className="rounded-[14px] aspect-[16/10] border border-white/15 bg-brand-slate flex flex-col items-center justify-center px-6 text-center">
+                          <Clock className="w-8 h-8 text-brand-green" />
+                          <p className="mt-3 font-display-sans uppercase text-lg font-black text-white">
+                            Delivery proof will appear here
+                          </p>
+                          <p className="mt-2 text-sm text-white/60">
+                            {statusContent?.description}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   )}
 
                   {/* Strict Child Privacy & Safeguarding Policy Box */}
-                  <div className="rounded-[18px] bg-[#080808] text-white p-6 sm:p-7 border border-[#49E619]/30">
+                  <div className="rounded-[18px] bg-brand-black text-white p-6 sm:p-7 border border-brand-green/30">
                     <div className="flex items-center gap-2.5 mb-3">
-                      <Lock className="w-4 h-4 text-[#49E619]" />
-                      <h4 className="font-mono-tabular text-xs font-bold uppercase tracking-[0.18em] text-[#49E619]">
+                      <Lock className="w-4 h-4 text-brand-green" />
+                      <h4 className="font-mono-tabular text-xs font-bold uppercase tracking-[0.18em] text-brand-green">
                         CHILD PRIVACY & SAFEGUARDING PROTECTION
                       </h4>
                     </div>
@@ -542,7 +544,7 @@ export const TrackMeal: React.FC = () => {
                         personally identifying information
                       </strong>
                       . All impact records use an anonymized{' '}
-                      <span className="font-mono-tabular text-[#B9FF2C]">
+                      <span className="font-mono-tabular text-brand-lime">
                         Beneficiary ID ({activeToken.beneficiaryId})
                       </span>{' '}
                       and community-level photography published only when
@@ -551,17 +553,17 @@ export const TrackMeal: React.FC = () => {
                     </p>
                   </div>
                 </div>
-              </div>
+              </div>}
             </div>
           ) : (
             /* ===============================================================
                 VIEW 2: NGO ADMIN DELIVERY CONFIRMATION DASHBOARD
             ================================================================ */
             <div className="max-w-4xl mx-auto space-y-8">
-              <div className="rounded-[20px] bg-[#080808] border border-white/20 shadow-2xl p-6 sm:p-10">
+              <div className="rounded-[20px] bg-brand-black border border-white/20 shadow-2xl p-6 sm:p-10">
                 <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-white/12">
                   <div>
-                    <span className="font-mono-tabular text-xs font-bold uppercase tracking-[0.2em] text-[#49E619] block">
+                    <span className="font-mono-tabular text-xs font-bold uppercase tracking-[0.2em] text-brand-green block">
                       NGO FIELD OPERATIONS
                     </span>
                     <h2 className="font-display-sans uppercase text-3xl sm:text-4xl font-black text-white mt-1">
@@ -572,8 +574,8 @@ export const TrackMeal: React.FC = () => {
                   <span
                     className={`px-4 py-1.5 rounded-[8px] font-mono-tabular text-xs font-bold uppercase tracking-widest ${
                       isDelivered
-                        ? 'bg-[#49E619] text-[#080808]'
-                        : 'bg-[#B9FF2C] text-[#122023]'
+                        ? 'bg-brand-green text-brand-black'
+                        : 'bg-brand-lime text-brand-slate'
                     }`}
                   >
                     {isDelivered ? 'DELIVERED ✓' : 'READY FOR DELIVERY'}
@@ -586,7 +588,7 @@ export const TrackMeal: React.FC = () => {
                     <dt className="font-mono-tabular text-[11px] uppercase tracking-widest text-white/60">
                       Token:
                     </dt>
-                    <dd className="font-mono-tabular text-lg font-bold text-[#49E619] mt-1">
+                    <dd className="font-mono-tabular text-lg font-bold text-brand-green mt-1">
                       {activeToken.tokenNumber}
                     </dd>
                   </div>
@@ -613,7 +615,7 @@ export const TrackMeal: React.FC = () => {
                     <dt className="font-mono-tabular text-[11px] uppercase tracking-widest text-white/60">
                       Amount:
                     </dt>
-                    <dd className="font-mono-tabular text-lg font-bold text-[#B9FF2C] mt-1">
+                    <dd className="font-mono-tabular text-lg font-bold text-brand-lime mt-1">
                       ₹{activeToken.amountPaidInr}
                     </dd>
                   </div>
@@ -622,7 +624,7 @@ export const TrackMeal: React.FC = () => {
                     <dt className="font-mono-tabular text-[11px] uppercase tracking-widest text-white/60">
                       Sponsored Meal:
                     </dt>
-                    <dd className="font-mono-tabular text-lg font-bold text-[#49E619] mt-1">
+                    <dd className="font-mono-tabular text-lg font-bold text-brand-green mt-1">
                       YES
                     </dd>
                   </div>
@@ -653,7 +655,7 @@ export const TrackMeal: React.FC = () => {
                             setSelectedLocation(found.communityCenter);
                           }
                         }}
-                        className="w-full rounded-[8px] border border-white/20 bg-[#122023] px-3 py-2.5 font-mono-tabular text-xs font-bold text-white"
+                        className="w-full rounded-[8px] border border-white/20 bg-brand-slate px-3 py-2.5 font-mono-tabular text-xs font-bold text-white"
                       >
                         {BENEFICIARIES.map((b) => (
                           <option key={b.id} value={b.beneficiaryCode}>
@@ -673,7 +675,7 @@ export const TrackMeal: React.FC = () => {
                         type="text"
                         value={selectedLocation}
                         onChange={(e) => setSelectedLocation(e.target.value)}
-                        className="w-full rounded-[8px] border border-white/20 bg-[#122023] px-3 py-2.5 text-xs font-semibold text-white"
+                        className="w-full rounded-[8px] border border-white/20 bg-brand-slate px-3 py-2.5 text-xs font-semibold text-white"
                       />
                     </dd>
                   </div>
@@ -684,8 +686,8 @@ export const TrackMeal: React.FC = () => {
                   <div
                     className={`p-3.5 rounded-[10px] font-mono-tabular text-xs font-bold flex items-center justify-between ${
                       isDelivered
-                        ? 'bg-[#49E619] text-[#080808]'
-                        : 'bg-[#122023] text-white/60'
+                        ? 'bg-brand-green text-brand-black'
+                        : 'bg-brand-slate text-white/60'
                     }`}
                   >
                     <span>DELIVERED</span>
@@ -695,8 +697,8 @@ export const TrackMeal: React.FC = () => {
                   <div
                     className={`p-3.5 rounded-[10px] font-mono-tabular text-xs font-bold flex items-center justify-between ${
                       activeToken.photoUploaded
-                        ? 'bg-[#4EDBE2] text-[#080808]'
-                        : 'bg-[#122023] text-white/60'
+                        ? 'bg-brand-cyan text-brand-black'
+                        : 'bg-brand-slate text-white/60'
                     }`}
                   >
                     <span>Photo uploaded</span>
@@ -706,8 +708,8 @@ export const TrackMeal: React.FC = () => {
                   <div
                     className={`p-3.5 rounded-[10px] font-mono-tabular text-xs font-bold flex items-center justify-between ${
                       activeToken.notificationSent
-                        ? 'bg-[#B9FF2C] text-[#080808]'
-                        : 'bg-[#122023] text-white/60'
+                        ? 'bg-brand-lime text-brand-black'
+                        : 'bg-brand-slate text-white/60'
                     }`}
                   >
                     <span>Notification sent</span>
@@ -717,8 +719,8 @@ export const TrackMeal: React.FC = () => {
 
                 {/* Consented Photo Picker Drawer */}
                 {showPhotoSelector && (
-                  <div className="my-5 p-4 rounded-[12px] bg-[#122023] border border-white/15">
-                    <span className="font-mono-tabular text-[11px] font-bold uppercase tracking-wider text-[#49E619] block mb-3">
+                  <div className="my-5 p-4 rounded-[12px] bg-brand-slate border border-white/15">
+                    <span className="font-mono-tabular text-[11px] font-bold uppercase tracking-wider text-brand-green block mb-3">
                       Select Safeguarding-Cleared Community Delivery Photo:
                     </span>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -736,8 +738,8 @@ export const TrackMeal: React.FC = () => {
                           }}
                           className={`rounded-[10px] text-left border p-2 transition-all cursor-pointer ${
                             selectedPhotoUrl === photo.url
-                              ? 'border-[#49E619] bg-[#080808]'
-                              : 'border-white/15 bg-[#080808]/60 hover:bg-[#080808]'
+                              ? 'border-brand-green bg-brand-black'
+                              : 'border-white/15 bg-brand-black/60 hover:bg-brand-black'
                           }`}
                         >
                           <div className="aspect-[4/3] rounded-[6px] overflow-hidden mb-2">
@@ -767,7 +769,7 @@ export const TrackMeal: React.FC = () => {
                         selectedLocation
                       )
                     }
-                    className="py-4 px-4 rounded-[10px] bg-[#49E619] hover:bg-[#B9FF2C] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    className="py-4 px-4 rounded-[10px] bg-brand-green hover:bg-brand-lime text-brand-black font-mono-tabular text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     <span>MARK AS DELIVERED</span>
@@ -782,9 +784,9 @@ export const TrackMeal: React.FC = () => {
                       );
                       setShowPhotoSelector((prev) => !prev);
                     }}
-                    className="py-4 px-4 rounded-[10px] bg-white hover:bg-[#4EDBE2] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    className="py-4 px-4 rounded-[10px] bg-white hover:bg-brand-cyan text-brand-black font-mono-tabular text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
                   >
-                    <Upload className="w-4 h-4 text-[#188D44]" />
+                    <Upload className="w-4 h-4 text-brand-emerald" />
                     <span>UPLOAD PHOTO</span>
                   </button>
 
@@ -798,7 +800,7 @@ export const TrackMeal: React.FC = () => {
                       );
                       sendCustomerNotification(activeToken.tokenNumber);
                     }}
-                    className="py-4 px-4 rounded-[10px] bg-[#B9FF2C] hover:bg-[#49E619] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    className="py-4 px-4 rounded-[10px] bg-brand-lime hover:bg-brand-green text-brand-black font-mono-tabular text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
                   >
                     <Send className="w-4 h-4" />
                     <span>SEND CUSTOMER NOTIFICATION</span>
@@ -807,14 +809,14 @@ export const TrackMeal: React.FC = () => {
 
                 {/* Preview of Dispatched Customer Message */}
                 {activeToken.notificationSent && (
-                  <div className="mt-6 rounded-[14px] bg-[#122023] text-white p-5 border-l-4 border-l-[#49E619]">
-                    <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-[#49E619] font-bold block">
+                  <div className="mt-6 rounded-[14px] bg-brand-slate text-white p-5 border-l-4 border-l-brand-green">
+                    <span className="font-mono-tabular text-[10px] uppercase tracking-widest text-brand-green font-bold block">
                       DISPATCHED TO CUSTOMER (WEB + EMAIL + SMS/WHATSAPP)
                     </span>
                     <p className="font-display-sans uppercase text-lg font-black mt-1">
                       Your meal has reached a child in need ❤️
                     </p>
-                    <p className="font-mono-tabular text-xs text-[#B9FF2C] mt-1">
+                    <p className="font-mono-tabular text-xs text-brand-lime mt-1">
                       Token: {activeToken.tokenNumber}
                     </p>
                     <p className="text-xs text-white/75 mt-1">
@@ -823,7 +825,7 @@ export const TrackMeal: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setViewMode('CUSTOMER_TRACKER')}
-                      className="mt-4 px-4 py-2 rounded-[8px] bg-[#49E619] text-[#080808] font-mono-tabular text-[11px] font-bold uppercase tracking-widest cursor-pointer"
+                      className="mt-4 px-4 py-2 rounded-[8px] bg-brand-green text-brand-black font-mono-tabular text-[11px] font-bold uppercase tracking-widest cursor-pointer"
                     >
                       VIEW CUSTOMER IMPACT SCREEN →
                     </button>

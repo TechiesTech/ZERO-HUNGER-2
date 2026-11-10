@@ -28,6 +28,8 @@ import { getActiveKitchens, type Kitchen } from '../services/kitchenService';
 import { EditorialImage } from '../components/EditorialImage';
 import { ScrollReveal } from '../components/ScrollReveal';
 import { PlateToHandsSteps } from '../components/PlateToHandsSteps';
+import AddressSection from '../components/AddressSection';
+import type { DeliveryPoint } from '../services/orderService';
 
 const CATEGORIES: MealCategory[] = [
   'ALL',
@@ -76,6 +78,7 @@ export const MealBox: React.FC = () => {
     state: '',
     pincode: '',
   });
+  const [deliveryLocation, setDeliveryLocation] = useState<DeliveryPoint | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'CARD' | 'NET_BANKING'>('UPI');
   const [formError, setFormError] = useState('');
 
@@ -136,6 +139,10 @@ export const MealBox: React.FC = () => {
       setFormError('Please complete your name, email, and required delivery address fields.');
       return;
     }
+    if (!deliveryLocation) {
+      setFormError('Choose and confirm the delivery pin before placing your order.');
+      return;
+    }
     setFormError('');
     setSubmitting(true);
     try {
@@ -144,6 +151,7 @@ export const MealBox: React.FC = () => {
         customerEmail,
         customerPhone,
         deliveryAddress,
+        deliveryLocation,
         paymentMethod,
       });
       setConfirmedOrder(result.order);
@@ -517,6 +525,411 @@ export const MealBox: React.FC = () => {
                 )}
               </motion.div>
             </div>
+<<<<<<< HEAD
+=======
+
+            {/* RIGHT 4 COLUMNS: Sticky Cart, Transparent Dual Breakdown, Checkout & Token Confirmation */}
+            <div
+              id="your-cart-module"
+              className="lg:col-span-4 lg:sticky lg:top-24"
+            >
+              <div className="rounded-[18px] bg-[#F2F4F3] text-[#122023] border border-white/20 shadow-2xl p-6 sm:p-7">
+                {/* =========================================================
+                    STATE 3: ORDER CREATED
+                ========================================================== */}
+                {checkoutStep === 'CONFIRMED' && confirmedOrder ? (
+                  <div>
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-[6px] bg-[#49E619] text-[#122023] text-xs font-mono-tabular font-bold uppercase tracking-widest mb-4">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>ORDER SUBMITTED</span>
+                    </div>
+
+                    <h3 className="font-display-sans uppercase text-2xl font-black text-[#122023]">
+                      Your order request has been submitted.
+                    </h3>
+                    <p className="mt-2 text-sm text-[#122023]/75">
+                      Order <strong>{confirmedOrder.orderNumber}</strong> is awaiting payment. No payment has been processed.
+                    </p>
+                    <Link
+                      to={`/track-meal?orderNumber=${encodeURIComponent(confirmedOrder.orderNumber || '')}&email=${encodeURIComponent(confirmedOrder.customerEmail)}`}
+                      className="mt-3 inline-flex text-sm font-bold text-[#188D44] underline"
+                    >
+                      View your order status
+                    </Link>
+
+                    {confirmedTokens.length > 0 ? (
+                      <div className="mt-5 rounded-[12px] bg-[#122023] text-white p-5">
+                        <span className="text-[10px] font-mono-tabular uppercase tracking-[0.2em] text-white/60 block">
+                          YOUR MEAL TOKEN
+                        </span>
+                        {confirmedTokens.map((tok) => (
+                          <div
+                            key={tok.id}
+                            className="mt-2 flex items-center justify-between gap-2 pt-2 border-t border-white/10 first:border-t-0 first:pt-0"
+                          >
+                            <span className="font-mono-tabular text-xl sm:text-2xl font-bold text-[#49E619] tracking-wider">
+                              {tok.tokenNumber}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyToken(tok.tokenNumber)}
+                              className="inline-flex items-center gap-1 rounded-[6px] text-[11px] font-mono-tabular uppercase tracking-wider bg-white/10 hover:bg-[#49E619] hover:text-[#080808] px-2.5 py-1.5 text-white transition-colors cursor-pointer"
+                            >
+                              <Copy className="w-3 h-3" />
+                              <span>
+                                {copiedToken === tok.tokenNumber ? 'Copied' : 'Copy'}
+                              </span>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-5 rounded-xl border border-[#122023]/15 bg-white p-4 text-sm text-[#122023]/70">
+                        Charity meal-token tracking is not available for this order yet.
+                      </p>
+                    )}
+
+                    {/* Clear Dual-Stream Summary: Customer Meal vs Sponsored Child Meal */}
+                    <div className="mt-5 space-y-3 text-xs border-y border-[#122023]/12 py-4">
+                      <div className="rounded-[10px] bg-white p-3 border border-[#122023]/10">
+                        <span className="font-mono-tabular text-[10px] uppercase tracking-wider text-[#6F6F6F] block">
+                          1. YOUR PURCHASED MEAL (FOR YOU)
+                        </span>
+                        <div className="font-bold text-[#122023] text-sm mt-0.5 flex items-center justify-between">
+                          <span>Order total</span>
+                          <span className="font-mono-tabular">
+                            ₹{confirmedOrder.totalAmountInr}
+                          </span>
+                        </div>
+                        <span className="mt-1 inline-block text-[11px] text-[#188D44] font-semibold">
+                          Order status: {confirmedOrder.customerMealStatus.toLowerCase()} · Payment: {confirmedOrder.paymentStatus?.toLowerCase() || 'pending'}
+                        </span>
+                      </div>
+
+                      <div className="rounded-[10px] bg-[#B9FF2C] p-3 border border-[#122023]/15">
+                        <span className="font-mono-tabular text-[10px] uppercase tracking-wider text-[#122023] font-bold block">
+                          2. SPONSORED MEAL (FOR A CHILD IN NEED)
+                        </span>
+                        <div className="font-bold text-[#122023] text-sm mt-0.5">
+                          {confirmedOrder.sponsoredMealsCount} nutritious{' '}
+                          {confirmedOrder.sponsoredMealsCount === 1 ? 'meal' : 'meals'}{' '}
+                          for a child
+                        </div>
+                        <span className="mt-1 inline-block text-[11px] text-[#122023]/85">
+                          Sponsorship allocation is pending payment confirmation.
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 space-y-3">
+                      {confirmedTokens.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigate(
+                              `/track-meal?token=${encodeURIComponent(confirmedTokens[0].tokenNumber)}`
+                            )
+                          }
+                          className="w-full py-4 px-5 rounded-[10px] bg-[#49E619] hover:bg-[#3cd110] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-widest inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                        >
+                          <span>TRACK YOUR IMPACT</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setCheckoutStep('CART')}
+                        className="w-full py-3 px-4 rounded-[10px] bg-white hover:bg-[#122023] text-[#122023] hover:text-white border border-[#122023]/20 font-mono-tabular text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer"
+                      >
+                        ORDER ANOTHER MEAL BOX
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* =========================================================
+                      STATE 1 & 2: YOUR CART & CHECKOUT
+                  ========================================================== */
+                  <div>
+                    <div className="flex items-center justify-between pb-4 border-b border-[#122023]/15">
+                      <div className="flex items-center gap-2">
+                        <ShoppingBag className="w-4 h-4 text-[#188D44]" />
+                        <h3 className="font-mono-tabular text-xs font-bold uppercase tracking-[0.2em] text-[#122023]">
+                          YOUR CART
+                        </h3>
+                      </div>
+                      <span className="font-mono-tabular text-xs font-bold text-[#122023]/70">
+                        {cartCount} {cartCount === 1 ? 'Meal' : 'Meals'}
+                      </span>
+                    </div>
+
+                    {cart.length === 0 ? (
+                      <div className="py-12 text-center">
+                        <Utensils className="w-8 h-8 text-[#122023]/40 mx-auto mb-3 stroke-[1.5]" />
+                        <p className="font-display-sans uppercase text-xl font-black text-[#122023]">
+                          Your meal box is empty
+                        </p>
+                        <p className="text-xs text-[#122023]/70 mt-1.5 max-w-xs mx-auto leading-relaxed">
+                          Add any ₹150 meal box from the menu to nourish yourself
+                          and sponsor a linked hot meal for a child.
+                        </p>
+                        {backendMeals.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => addToCart(backendMeals[0])}
+                            className="mt-5 px-5 py-3 rounded-[10px] bg-[#49E619] hover:bg-[#B9FF2C] text-[#080808] font-mono-tabular text-[11px] font-bold uppercase tracking-widest transition-colors cursor-pointer"
+                          >
+                            + Quick Add {backendMeals[0].name} (₹{backendMeals[0].priceInr})
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        {/* Itemized Cart List */}
+                        <div className="divide-y divide-[#122023]/10 my-4 max-h-64 overflow-y-auto pr-1">
+                          {cart.map((item) => (
+                            <div key={item.product.id} className="py-3.5">
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <h4 className="font-display-sans uppercase text-lg font-black text-[#122023]">
+                                    {item.product.name}
+                                  </h4>
+                                  <span className="font-mono-tabular text-sm font-bold text-[#188D44] block">
+                                    ₹{item.product.priceInr}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => removeFromCart(item.product.id)}
+                                  aria-label={`Remove ${item.product.name}`}
+                                  className="text-[#122023]/50 hover:text-[#122023] transition-colors p-1 cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+
+                              <div className="mt-2.5 flex items-center justify-between text-xs">
+                                <span className="text-[#122023]/70 font-mono-tabular">
+                                  Quantity: {item.quantity}
+                                </span>
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      updateQuantity(
+                                        item.product.id,
+                                        item.quantity - 1
+                                      )
+                                    }
+                                    aria-label="Decrease quantity"
+                                    className="w-6 h-6 rounded-[4px] bg-white border border-[#122023]/20 flex items-center justify-center hover:bg-[#122023] hover:text-white cursor-pointer"
+                                  >
+                                    <Minus className="w-3 h-3" />
+                                  </button>
+                                  <span className="font-mono-tabular text-xs font-bold w-5 text-center">
+                                    {item.quantity}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      updateQuantity(
+                                        item.product.id,
+                                        item.quantity + 1
+                                      )
+                                    }
+                                    aria-label="Increase quantity"
+                                    className="w-6 h-6 rounded-[4px] bg-white border border-[#122023]/20 flex items-center justify-center hover:bg-[#122023] hover:text-white cursor-pointer"
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Exact Requested Breakdown: YOUR MEAL vs CHILD MEAL vs TOTAL */}
+                        <div className="border-t border-b border-[#122023]/15 py-4 space-y-3.5">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="font-mono-tabular text-xs font-bold uppercase tracking-wider text-[#122023] block">
+                                YOUR MEAL
+                              </span>
+                              <span className="text-[11px] text-[#122023]/70">
+                                Prepared fresh for your delivery
+                              </span>
+                            </div>
+                            <span className="font-mono-tabular text-base font-bold text-[#122023]">
+                              ₹{cartTotalInr}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between rounded-[10px] bg-[#B9FF2C] p-3">
+                            <div>
+                              <span className="font-mono-tabular text-xs font-bold uppercase tracking-wider text-[#122023] block">
+                                CHILD MEAL ({sponsoredMealsCount}×)
+                              </span>
+                              <span className="text-[11px] text-[#122023] font-semibold">
+                                Sponsored by your purchase
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <span className="font-mono-tabular text-xs text-[#122023]/60 line-through block">
+                                ₹{cartTotalInr}
+                              </span>
+                              <span className="font-mono-tabular text-xs font-bold text-[#188D44]">
+                                ₹0 EXTRA
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Total Row */}
+                        <div className="py-4 flex items-center justify-between">
+                          <span className="font-mono-tabular text-sm font-bold uppercase tracking-widest text-[#122023]">
+                            TOTAL
+                          </span>
+                          <span className="font-mono-tabular text-2xl font-bold text-[#122023]">
+                            ₹{cartTotalInr}
+                          </span>
+                        </div>
+
+                        {/* Prominent Message */}
+                        <div className="rounded-[10px] bg-[#122023] text-white p-3.5 text-xs leading-relaxed flex items-start gap-2.5">
+                          <Heart className="w-4 h-4 text-[#49E619] fill-[#49E619] shrink-0 mt-0.5" />
+                          <p>
+                            “Your purchase helps us provide a nutritious meal to a
+                            child in need.”
+                          </p>
+                        </div>
+
+                        {/* Checkout Step Toggle or Form */}
+                        {checkoutStep === 'CART' ? (
+                          <button
+                            type="button"
+                            onClick={() => setCheckoutStep('CHECKOUT')}
+                            className="mt-5 w-full py-4 px-5 rounded-[10px] bg-[#49E619] hover:bg-[#3cd110] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-widest inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                          >
+                            <span>PROCEED TO ₹{cartTotalInr} CHECKOUT</span>
+                            <ArrowRight className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <form
+                            onSubmit={handleCompletePayment}
+                            className="mt-5 pt-5 border-t border-[#122023]/15 space-y-3.5"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono-tabular text-[11px] font-bold uppercase tracking-wider text-[#122023]">
+                                DELIVERY & PAYMENT DETAILS
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setCheckoutStep('CART')}
+                                className="text-[11px] font-mono-tabular text-[#122023]/70 hover:text-[#122023] cursor-pointer"
+                              >
+                                ← Back
+                              </button>
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-mono-tabular uppercase text-[#122023]/70 mb-1">
+                                Your Name
+                              </label>
+                              <input
+                                type="text"
+                                value={customerName}
+                                onChange={(e) => setCustomerName(e.target.value)}
+                                className="w-full rounded-[8px] bg-white border border-[#122023]/20 px-3 py-2 text-xs text-[#122023] focus:outline-none focus:border-[#122023]"
+                                required
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2.5">
+                              <div>
+                                <label className="block text-[11px] font-mono-tabular uppercase text-[#122023]/70 mb-1">
+                                  Email
+                                </label>
+                                <input
+                                  type="email"
+                                  value={customerEmail}
+                                  onChange={(e) => setCustomerEmail(e.target.value)}
+                                  className="w-full rounded-[8px] bg-white border border-[#122023]/20 px-3 py-2 text-xs text-[#122023] focus:outline-none focus:border-[#122023]"
+                                  required
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[11px] font-mono-tabular uppercase text-[#122023]/70 mb-1">
+                                  Phone (SMS/WhatsApp)
+                                </label>
+                                <input
+                                  type="tel"
+                                  value={customerPhone}
+                                  onChange={(e) => setCustomerPhone(e.target.value)}
+                                  className="w-full rounded-[8px] bg-white border border-[#122023]/20 px-3 py-2 text-xs text-[#122023] focus:outline-none focus:border-[#122023]"
+                                />
+                              </div>
+                            </div>
+
+                            <AddressSection
+                              requestLocationOnMount
+                              value={{ address: deliveryAddress, location: deliveryLocation }}
+                              onChange={({ address, location }) => {
+                                setDeliveryAddress({
+                                  ...address,
+                                  addressLine2: address.addressLine2 || '',
+                                  landmark: address.landmark || '',
+                                });
+                                setDeliveryLocation(location);
+                              }}
+                            />
+
+                            <div>
+                              <label className="block text-[11px] font-mono-tabular uppercase text-[#122023]/70 mb-1">
+                                Payment Method
+                              </label>
+                              <p className="mb-2 text-[11px] text-[#122023]/60">
+                                Payments are not processed yet; this selection is saved as a preference and the order remains pending payment.
+                              </p>
+                              <div className="grid grid-cols-3 gap-2">
+                                {(['UPI', 'CARD', 'NET_BANKING'] as const).map(
+                                  (method) => (
+                                    <button
+                                      key={method}
+                                      type="button"
+                                      onClick={() => setPaymentMethod(method)}
+                                      className={`py-2 rounded-[6px] text-[11px] font-mono-tabular font-bold border cursor-pointer ${
+                                        paymentMethod === method
+                                          ? 'bg-[#122023] text-white border-[#122023]'
+                                          : 'bg-white text-[#122023]/70 border-[#122023]/20'
+                                      }`}
+                                    >
+                                      {method.replace('_', ' ')}
+                                    </button>
+                                  )
+                                )}
+                              </div>
+                            </div>
+
+                            {formError && (
+                              <p className="text-xs text-red-600 font-semibold">{formError}</p>
+                            )}
+
+                            <button
+                              type="submit"
+                              disabled={submitting || !deliveryLocation}
+                              className="w-full py-4 px-5 rounded-[10px] bg-[#49E619] hover:bg-[#3cd110] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-widest inline-flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <ShieldCheck className="w-4 h-4" />
+                              <span>PLACE ORDER · ₹{cartTotalInr}</span>
+                            </button>
+                          </form>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+>>>>>>> staging
           </div>
         </div>
       </section>

@@ -76,6 +76,7 @@ function AppContent() {
                   element={<Home onOpenSupport={handleOpenSupport} />}
                 />
                 <Route path="/meal-box" element={<MealBox />} />
+                <Route path="/track-order" element={<Navigate to={`/track-meal${search}`} replace />} />
                 <Route path="/track-meal" element={<TrackMeal />} />
                 <Route
                   path="/live-tracking/:orderNumber"

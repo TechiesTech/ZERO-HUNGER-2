@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { Rider } from '../models/schemas/riderSchema.js';
 
 const createRider = async (data) => {
@@ -29,33 +30,107 @@ const updateRiderById = (riderId, updates) =>
         { _id: riderId, isDeleted: false },
         { $set: updates },
         { new: true, runValidators: true }
-    ).lean();
+    )
+        .select('-passwordHash -tokenVersion')
+        .lean();
+
+const updateRiderLocation = (riderId, { latitude, longitude, heading }) =>
+    Rider.findOneAndUpdate(
+        { _id: riderId, isDeleted: false },
+        {
+            $set: {
+                'currentLocation.latitude': latitude,
+                'currentLocation.longitude': longitude,
+                'currentLocation.heading': heading ?? null,
+                'currentLocation.updatedAt': new Date(),
+            },
+        },
+        { new: true, runValidators: true }
+    )
+        .select('-passwordHash -tokenVersion')
+        .lean();
 
 const getAllRiders = async ({ page, limit, zone, isAvailable, isActive, approvalStatus }) => {
     const filter = { isDeleted: false };
     if (zone) filter.deliveryZones = zone;
     if (isAvailable !== undefined) filter.isAvailable = isAvailable;
-    if (isActive !== undefined) filter.isActive = isActive;
     if (approvalStatus === 'approved') filter.approvalStatus = { $nin: ['pending', 'rejected'] };
     else if (approvalStatus) filter.approvalStatus = approvalStatus;
 
-    const [riders, total] = await Promise.all([
-        Rider.find(filter)
-            .sort({ createdAt: -1 })
-            .skip((page - 1) * limit)
-            .limit(limit)
-            .lean(),
-        Rider.countDocuments(filter),
+    const [result] = await Rider.aggregate([
+        { $match: filter },
+        {
+            $lookup: {
+                from: 'users',
+                let: { riderId: '$_id' },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $and: [
+                                    { $eq: ['$_id', '$$riderId'] },
+                                    { $in: ['rider', { $ifNull: ['$roles', []] }] },
+                                ],
+                            },
+                        },
+                    },
+                    { $project: { status: 1 } },
+                ],
+                as: 'account',
+            },
+        },
+        { $unwind: { path: '$account', preserveNullAndEmptyArrays: true } },
+        { $addFields: { isActive: { $eq: ['$account.status', 'active'] } } },
+        ...(isActive === undefined ? [] : [{ $match: { isActive } }]),
+        {
+            $facet: {
+                riders: [
+                    { $sort: { createdAt: -1 } },
+                    { $skip: (page - 1) * limit },
+                    { $limit: limit },
+                    { $project: { account: 0, passwordHash: 0, tokenVersion: 0, lockedUntil: 0, failedLoginAttempts: 0 } },
+                ],
+                metadata: [{ $count: 'total' }],
+            },
+        },
     ]);
-    return { riders, total };
+    return { riders: result?.riders || [], total: result?.metadata[0]?.total || 0 };
 };
 
-const getRiderById = (riderId) => Rider.findOne({ _id: riderId, isDeleted: false }).lean();
+const getRiderById = async (riderId) => {
+    const [rider] = await Rider.aggregate([
+        { $match: { _id: new mongoose.Types.ObjectId(riderId), isDeleted: false } },
+        {
+            $lookup: {
+                from: 'users',
+                let: { riderId: '$_id' },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $and: [
+                                    { $eq: ['$_id', '$$riderId'] },
+                                    { $in: ['rider', { $ifNull: ['$roles', []] }] },
+                                ],
+                            },
+                        },
+                    },
+                    { $project: { status: 1 } },
+                ],
+                as: 'account',
+            },
+        },
+        { $unwind: { path: '$account', preserveNullAndEmptyArrays: true } },
+        { $addFields: { isActive: { $eq: ['$account.status', 'active'] } } },
+        { $project: { account: 0, passwordHash: 0, tokenVersion: 0, lockedUntil: 0, failedLoginAttempts: 0 } },
+    ]);
+    return rider;
+};
 
 const deleteRider = (riderId) =>
     Rider.findOneAndUpdate(
         { _id: riderId, isDeleted: false },
-        { $set: { isDeleted: true, deletedAt: new Date(), isActive: false, isAvailable: false } },
+        { $set: { isDeleted: true, deletedAt: new Date(), isAvailable: false } },
         { new: true }
     ).lean();
 
@@ -65,44 +140,46 @@ const getRiderForTracking = (riderId) =>
         .select('name vehicleType currentLocation')
         .lean();
 
-const approveRider = (riderId) =>
-    Rider.findOneAndUpdate(
-        { _id: riderId, isDeleted: false, approvalStatus: { $in: ['pending', 'rejected'] } },
+// status is 'approved' or 'rejected'
+const reviewRider = (riderId, status, reason) => {
+    const approving = status === 'approved';
+    return Rider.findOneAndUpdate(
         {
-            $set: {
-                approvalStatus: 'approved',
-                approvedAt: new Date(),
-                rejectedAt: null,
-                rejectionReason: '',
-                isActive: true,
-                isAvailable: true,
-            },
+            _id: riderId,
+            isDeleted: false,
+            approvalStatus: approving ? { $in: ['pending', 'rejected'] } : { $ne: 'rejected' },
         },
-        { new: true }
-    ).lean();
-
-const rejectRider = (riderId, reason) =>
-    Rider.findOneAndUpdate(
-        { _id: riderId, isDeleted: false, approvalStatus: { $ne: 'rejected' } },
-        {
-            $set: {
-                approvalStatus: 'rejected',
-                rejectedAt: new Date(),
-                rejectionReason: reason || '',
-                isAvailable: false,
+        approving
+            ? {
+                $set: {
+                    approvalStatus: 'approved',
+                    approvedAt: new Date(),
+                    rejectedAt: null,
+                    rejectionReason: '',
+                    isAvailable: true,
+                },
+            }
+            : {
+                $set: {
+                    approvalStatus: 'rejected',
+                    rejectedAt: new Date(),
+                    rejectionReason: reason || '',
+                    isAvailable: false,
+                },
             },
-            $inc: { tokenVersion: 1 }, // logs the rider out
-        },
         { new: true }
-    ).lean();
+    )
+            .select('-passwordHash -tokenVersion -lockedUntil -failedLoginAttempts')
+            .lean();
+};
 
 export {
     createRider,
     updateRiderById,
+    updateRiderLocation,
     getAllRiders,
     getRiderById,
     deleteRider,
     getRiderForTracking,
-    approveRider,
-    rejectRider,
+    reviewRider,
 };

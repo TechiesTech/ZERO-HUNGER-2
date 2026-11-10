@@ -23,25 +23,25 @@ export const EditorialImage: React.FC<EditorialImageProps> = ({
 
   return (
     <div className={`relative overflow-hidden bg-[#1A1A1A] ${className}`}>
-      {!hasError ? (
-        <img
-          src={optimizeImageUrl(src)}
-          alt={alt}
-          width={1200}
-          height={896}
-          referrerPolicy="no-referrer"
-          loading={priority ? 'eager' : 'lazy'}
-          fetchPriority={priority ? 'high' : 'auto'}
-          decoding="async"
-          onError={() => setHasError(true)}
-          className={`w-full h-full object-cover ${
-            priority
-              ? ''
-              : 'transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]'
-          } ${imgClassName}`}
-        />
-      ) : (
-        <div className="w-full h-full min-h-[240px] flex flex-col items-center justify-center p-8 text-center bg-gradient-to-br from-[#F3EDE4] to-[#E8DED0] text-[#080808]">
+      <img
+        src={optimizeImageUrl(src)}
+        alt={alt}
+        width={1200}
+        height={896}
+        referrerPolicy="no-referrer"
+        loading={priority ? 'eager' : 'lazy'}
+        fetchPriority={priority ? 'high' : 'auto'}
+        decoding="async"
+        onError={() => setHasError(true)}
+        aria-hidden={hasError}
+        className={`w-full h-full object-cover ${
+          priority
+            ? ''
+            : 'transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]'
+        } ${imgClassName} ${hasError ? 'invisible' : ''}`}
+      />
+      {hasError && (
+        <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 text-center bg-gradient-to-br from-[#F3EDE4] to-[#E8DED0] text-[#080808]">
           <HeartHandshake className="w-8 h-8 text-[#D7262F] mb-3 stroke-[1.5]" />
           <p className="font-serif-editorial text-lg font-medium text-[#080808] max-w-xs">
             {alt}
