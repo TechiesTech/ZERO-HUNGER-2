@@ -40,19 +40,22 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
-        isScrolled || mobileMenuOpen
-          ? 'bg-[#080808]/95 backdrop-blur-md border-b border-white/10 py-3.5 shadow-lg'
-          : 'bg-[#080808]/85 backdrop-blur-xs border-b border-white/10 py-4'
-      }`}
+      className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${isScrolled || mobileMenuOpen
+        ? 'bg-[#080808]/95 backdrop-blur-md border-b border-white/10 py-3.5 shadow-lg'
+        : 'bg-[#080808]/85 backdrop-blur-xs border-b border-white/10 py-4'
+        }`}
     >
       <div className="max-w-[1360px] mx-auto px-5 sm:px-8 lg:px-12 flex items-center justify-between">
         {/* Zone 1: Brand Wordmark */}
         <Link
           to="/"
-          className="font-display-sans uppercase text-xl sm:text-2xl font-black tracking-[-0.04em] whitespace-nowrap text-white hover:text-[#49E619] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#49E619]"
+          className="flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#49E619]"
         >
-          ZERO <span className="text-[#49E619]">HUNGER</span>
+          <img
+            src="/assets/images/Logo.png"
+            alt="Zero Hunger"
+            className="h-12 sm:h-16 w-auto"
+          />
         </Link>
 
         {/* Zone 2: Primary Navigation Links */}
@@ -66,12 +69,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
               to={item.path}
               end={item.path === '/'}
               className={({ isActive }) =>
-                `${
-                  item.hideOnCompact ? 'hidden xl:inline-block' : ''
-                } relative py-1 text-sm font-medium tracking-tight whitespace-nowrap transition-colors duration-200 group ${
-                  isActive
-                    ? 'text-[#49E619]'
-                    : 'text-white/80 hover:text-white'
+                `${item.hideOnCompact ? 'hidden xl:inline-block' : ''
+                } relative py-1 text-sm font-medium tracking-tight whitespace-nowrap transition-colors duration-200 group ${isActive
+                  ? 'text-[#49E619]'
+                  : 'text-white/80 hover:text-white'
                 }`
               }
             >
@@ -79,11 +80,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
                 <>
                   <span>{item.label}</span>
                   <span
-                    className={`absolute left-0 right-0 -bottom-0.5 h-[2px] transition-transform duration-200 origin-left ${
-                      isActive
-                        ? 'scale-x-100 bg-[#49E619]'
-                        : 'scale-x-0 group-hover:scale-x-100 bg-[#B9FF2C]'
-                    }`}
+                    className={`absolute left-0 right-0 -bottom-0.5 h-[2px] transition-transform duration-200 origin-left ${isActive
+                      ? 'scale-x-100 bg-[#49E619]'
+                      : 'scale-x-0 group-hover:scale-x-100 bg-[#B9FF2C]'
+                      }`}
                   />
                 </>
               )}
@@ -198,8 +198,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
                   end={item.path === '/'}
                   onClick={() => setMobileMenuOpen(false)}
                   className={({ isActive }) =>
-                    `py-3.5 text-lg font-display-sans uppercase font-black tracking-tight flex items-center justify-between ${
-                      isActive ? 'text-[#49E619]' : 'text-white'
+                    `py-3.5 text-lg font-display-sans uppercase font-black tracking-tight flex items-center justify-between ${isActive ? 'text-[#49E619]' : 'text-white'
                     }`
                   }
                 >
