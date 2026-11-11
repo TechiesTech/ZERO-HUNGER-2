@@ -39,9 +39,13 @@ export const Footer: React.FC = () => {
           <div className="lg:col-span-5 pr-0 lg:pr-12">
             <Link
               to="/"
-              className="font-display-sans uppercase text-2xl sm:text-3xl font-black tracking-[-0.04em] text-white inline-block"
+              className="inline-block"
             >
-              ZERO <span className="text-[#49E619]">HUNGER</span>
+              <img
+                src="/assets/images/Logo.png"
+                alt="Zero Hunger"
+                className="h-1 sm:h-14 w-auto"
+              />
             </Link>
             <p className="mt-4 text-sm sm:text-base text-white/70 leading-relaxed max-w-sm">
               Working toward a world where every person has access to nutritious food.

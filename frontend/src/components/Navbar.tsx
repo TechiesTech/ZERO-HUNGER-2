@@ -16,9 +16,6 @@ const NAV_ITEMS = [
   { label: 'Meal Box', path: '/meal-box', hideOnCompact: false },
   { label: 'Celebrate & Give', path: '/celebrate-and-give', hideOnCompact: false },
   { label: 'Track Meal', path: '/track-meal', hideOnCompact: false },
-  { label: 'Projects & Impact', path: '/projects', hideOnCompact: false },
-  { label: 'CSR & Tax', path: '/csr-tax-benefits', hideOnCompact: false },
-  { label: 'About', path: '/about', hideOnCompact: true },
   { label: 'Contact', path: '/contact', hideOnCompact: true },
 ];
 
@@ -112,19 +109,22 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
-        isScrolled || mobileMenuOpen
-          ? 'bg-[#080808]/95 backdrop-blur-md border-b border-white/10 py-3.5 shadow-lg'
-          : 'bg-[#080808]/85 backdrop-blur-xs border-b border-white/10 py-4'
-      }`}
+      className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${isScrolled || mobileMenuOpen
+        ? 'bg-[#080808]/95 backdrop-blur-md border-b border-white/10 py-3.5 shadow-lg'
+        : 'bg-[#080808]/85 backdrop-blur-xs border-b border-white/10 py-4'
+        }`}
     >
       <div className="relative max-w-[1360px] mx-auto px-5 sm:px-8 lg:px-12 flex items-center justify-between">
         {/* Zone 1: Brand Wordmark */}
         <Link
           to="/"
-          className="font-display-sans uppercase text-xl sm:text-2xl font-black tracking-[-0.04em] whitespace-nowrap text-white hover:text-[#49E619] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#49E619]"
+          className="flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#49E619]"
         >
-          ZERO <span className="text-[#49E619]">HUNGER</span>
+          <img
+            src="/assets/images/Logo.png"
+            alt="Zero Hunger"
+            className="h-12 sm:h-16 w-auto"
+          />
         </Link>
 
         {/* Zone 2: Primary Navigation Links */}
@@ -138,12 +138,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
               to={item.path}
               end={item.path === '/'}
               className={({ isActive }) =>
-                `${
-                  item.hideOnCompact ? 'hidden xl:inline-block' : ''
-                } relative py-1 text-sm font-medium tracking-tight whitespace-nowrap transition-colors duration-200 group ${
-                  isActive
-                    ? 'text-[#49E619]'
-                    : 'text-white/80 hover:text-white'
+                `${item.hideOnCompact ? 'hidden xl:inline-block' : ''
+                } relative py-1 text-sm font-medium tracking-tight whitespace-nowrap transition-colors duration-200 group ${isActive
+                  ? 'text-[#49E619]'
+                  : 'text-white/80 hover:text-white'
                 }`
               }
             >
@@ -151,16 +149,61 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
                 <>
                   <span>{item.label}</span>
                   <span
-                    className={`absolute left-0 right-0 -bottom-0.5 h-[2px] transition-transform duration-200 origin-left ${
-                      isActive
-                        ? 'scale-x-100 bg-[#49E619]'
-                        : 'scale-x-0 group-hover:scale-x-100 bg-[#B9FF2C]'
-                    }`}
+                    className={`absolute left-0 right-0 -bottom-0.5 h-[2px] transition-transform duration-200 origin-left ${isActive
+                      ? 'scale-x-100 bg-[#49E619]'
+                      : 'scale-x-0 group-hover:scale-x-100 bg-[#B9FF2C]'
+                      }`}
                   />
                 </>
               )}
             </NavLink>
           ))}
+
+          {/* About Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setAboutDropdownOpen(!aboutDropdownOpen)}
+              className="flex items-center gap-1 py-1 text-sm font-medium tracking-tight whitespace-nowrap transition-colors duration-200 text-white/80 hover:text-white"
+            >
+              <span>About</span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${aboutDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            <AnimatePresence>
+              {aboutDropdownOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute top-full left-0 mt-2 w-56 bg-[#080808] border border-white/15 rounded-lg shadow-2xl overflow-hidden z-50"
+                >
+                  <Link
+                    to="/about"
+                    onClick={() => setAboutDropdownOpen(false)}
+                    className="block px-4 py-3 text-sm text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+                  >
+                    About Zero Hunger
+                  </Link>
+                  <Link
+                    to="/csr-tax-benefits"
+                    onClick={() => setAboutDropdownOpen(false)}
+                    className="block px-4 py-3 text-sm text-white/80 hover:text-white hover:bg-white/10 transition-colors border-t border-white/10"
+                  >
+                    CSR & Tax Benefits
+                  </Link>
+                  <Link
+                    to="/projects"
+                    onClick={() => setAboutDropdownOpen(false)}
+                    className="block px-4 py-3 text-sm text-white/80 hover:text-white hover:bg-white/10 transition-colors border-t border-white/10"
+                  >
+                    Projects & Impact
+                  </Link>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </nav>
 
         {/* Zone 3: Primary Actions + Mobile Hamburger */}
@@ -286,8 +329,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
                   end={item.path === '/'}
                   onClick={() => setMobileMenuOpen(false)}
                   className={({ isActive }) =>
-                    `py-3.5 text-lg font-display-sans uppercase font-black tracking-tight flex items-center justify-between ${
-                      isActive ? 'text-[#49E619]' : 'text-white'
+                    `py-3.5 text-lg font-display-sans uppercase font-black tracking-tight flex items-center justify-between ${isActive ? 'text-[#49E619]' : 'text-white'
                     }`
                   }
                 >
@@ -297,6 +339,37 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
                   </span>
                 </NavLink>
               ))}
+
+              {/* About Section with Sub-items */}
+              <div className="py-3.5">
+                <div className="text-lg font-display-sans uppercase font-black tracking-tight text-white flex items-center justify-between mb-4">
+                  <span>About</span>
+                  <ChevronDown className="w-5 h-5 text-[#49E619]" />
+                </div>
+                <div className="pl-4 space-y-3">
+                  <Link
+                    to="/about"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block py-2 text-base text-white/80 hover:text-white"
+                  >
+                    About Zero Hunger
+                  </Link>
+                  <Link
+                    to="/csr-tax-benefits"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block py-2 text-base text-white/80 hover:text-white"
+                  >
+                    CSR & Tax Benefits
+                  </Link>
+                  <Link
+                    to="/projects"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block py-2 text-base text-white/80 hover:text-white"
+                  >
+                    Projects & Impact
+                  </Link>
+                </div>
+              </div>
             </nav>
             <div className="mt-6">
               <button

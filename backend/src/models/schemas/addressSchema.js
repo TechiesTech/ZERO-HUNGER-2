@@ -1,7 +1,8 @@
 import mongoose from 'mongoose';
+
 const addressSchema = new mongoose.Schema(
     {
-        userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
         addresses: [
             {
                 label: { type: String, trim: true, lowercase: true, enum: ['home', 'work', 'other'], default: 'home' },
@@ -19,10 +20,15 @@ const addressSchema = new mongoose.Schema(
                     longitude: { type: Number, required: true },
                 },
                 isDefault: { type: Boolean, default: false },
+
+                // Never removed from the array, because old orders still point to it
+                isDeleted: { type: Boolean, default: false },
             },
         ],
     },
     { timestamps: true }
 );
 
+addressSchema.index({ userId: 1 }, { unique: true });
+addressSchema.index({ 'addresses._id': 1 });
 export const Address = mongoose.model('Address', addressSchema, 'addresses');

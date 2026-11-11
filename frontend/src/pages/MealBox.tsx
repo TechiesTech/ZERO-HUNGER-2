@@ -486,7 +486,7 @@ export const MealBox: React.FC = () => {
               )}
               {mealsError && (
                 <div role="alert" className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
-                  Could not load this kitchen’s meals: {mealsError}
+                  Could not load this kitchen's meals: {mealsError}
                 </div>
               )}
               <motion.div
