@@ -6,6 +6,7 @@
 import React, { lazy, Suspense, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { MealProgramProvider } from './context/MealProgramContext';
+import { AuthProvider } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { PageTransition } from './components/PageTransition';
@@ -146,7 +147,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <MealProgramProvider>
-        <AppContent />
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
       </MealProgramProvider>
     </BrowserRouter>
   );

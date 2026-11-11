@@ -73,8 +73,6 @@ const createOrder = async (orderData, orderItems) => {
         // Items failed, so remove the order to avoid an order with no items
         await Order.deleteOne({ _id: order._id });
         throw error;
-    } finally {
-        await session.endSession();
     }
 };
 

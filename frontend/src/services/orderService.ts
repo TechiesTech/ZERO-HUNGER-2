@@ -54,11 +54,7 @@ export interface Order {
 }
 
 export interface CreateOrderRequest {
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
-  deliveryAddress: DeliveryAddress;
-  deliveryLocation: DeliveryPoint;
+  addressId: string;
   paymentMethod: 'upi' | 'card' | 'netbanking';
   items: Array<{ mealId: string; quantity: number }>;
 }
@@ -66,9 +62,15 @@ export interface CreateOrderRequest {
 export interface OrderResponse {
   success: boolean;
   message: string;
-  data: Order & {
-    customerPhone: string;
-    deliveryAddress: DeliveryAddress;
+  data: {
+    _id: string;
+    orderNumber: string;
+    totalAmountInr: number;
+    paymentStatus: string;
+    paymentMethod: string;
+    customerMealStatus: string;
+    sponsoredMealsCount: number;
+    createdAt: string;
   };
 }
 
