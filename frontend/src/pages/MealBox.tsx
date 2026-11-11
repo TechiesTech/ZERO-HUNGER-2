@@ -63,6 +63,7 @@ export const MealBox: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<MealCategory>('ALL');
   const [checkoutStep, setCheckoutStep] = useState<'CART' | 'CHECKOUT' | 'CONFIRMED'>('CART');
   const [submitting, setSubmitting] = useState(false);
+  const [isCartModalOpen, setIsCartModalOpen] = useState(false);
 
   // Customer checkout fields
   const [customerName, setCustomerName] = useState('');
@@ -372,8 +373,8 @@ export const MealBox: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
-            {/* LEFT 8 COLUMNS: Meal Box Product Grid */}
-            <div className="lg:col-span-8">
+            {/* LEFT 12 COLUMNS: Meal Box Product Grid (full width now that cart is modal) */}
+            <div className="lg:col-span-12">
               {!selectedKitchenId && !kitchensLoading && kitchens.length > 0 && (
                 <div className="mb-5 rounded-xl border border-white/10 bg-[#080808]/40 p-5 text-sm text-white/60">
                   Select a kitchen above to browse its available meals.
@@ -381,7 +382,7 @@ export const MealBox: React.FC = () => {
               )}
               {mealsError && (
                 <div role="alert" className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
-                  Could not load this kitchen’s meals: {mealsError}
+                  Could not load this kitchen's meals: {mealsError}
                 </div>
               )}
               <motion.div
