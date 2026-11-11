@@ -525,8 +525,6 @@ export const MealBox: React.FC = () => {
                 )}
               </motion.div>
             </div>
-<<<<<<< HEAD
-=======
 
             {/* RIGHT 4 COLUMNS: Sticky Cart, Transparent Dual Breakdown, Checkout & Token Confirmation */}
             <div
@@ -929,7 +927,6 @@ export const MealBox: React.FC = () => {
                 )}
               </div>
             </div>
->>>>>>> staging
           </div>
         </div>
       </section>

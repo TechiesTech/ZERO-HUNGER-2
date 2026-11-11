@@ -34,7 +34,7 @@ function AppContent() {
   const [preselectedProject, setPreselectedProject] = useState<string>('all');
   const [cartModalOpen, setCartModalOpen] = useState(false);
   const [cartModalLoaded, setCartModalLoaded] = useState(false);
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const { activeToast } = useMealProgram();
 
   const handleOpenSupport = (
