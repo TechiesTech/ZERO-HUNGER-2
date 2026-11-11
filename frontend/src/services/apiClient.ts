@@ -5,6 +5,13 @@
 
 import { API_URL } from '../config';
 
+export class ApiError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = {};
   if (body) headers['Content-Type'] = 'application/json';
@@ -30,7 +37,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
       ?.map((item) => [item.field, item.message].filter(Boolean).join(': '))
       .filter(Boolean)
       .join('; ');
-    throw new Error(details ? `${message}: ${details}` : message);
+    throw new ApiError(details ? `${message}: ${details}` : message, res.status);
   }
   return json as T;
 }
