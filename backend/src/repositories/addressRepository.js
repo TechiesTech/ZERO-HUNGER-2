@@ -76,14 +76,12 @@ const setDefaultAddress = async (userId, addressId) => {
     return doc?.addresses.find((address) => String(address._id) === String(chosenId)) || null;
 };
 
-// The address is only hidden, never removed, because old orders still point to it
 const deleteAddress = async (userId, addressId) => {
     const removedId = new mongoose.Types.ObjectId(addressId);
-
     const doc = await Address.findOneAndUpdate(
-        { userId, addresses: { $elemMatch: { _id: removedId, isDeleted: false } } },
-        { $set: { 'addresses.$[target].isDeleted': true, 'addresses.$[target].isDefault': false } },
-        { arrayFilters: [{ 'target._id': removedId }] }
+        { userId, addresses: { $elemMatch: { _id: removedId, isDeleted: { $ne: true } } } },
+        { $set: { 'addresses.$.isDeleted': true, 'addresses.$.isDefault': false } },
+        { new: false }
     ).lean();
 
     return doc?.addresses.find((address) => String(address._id) === String(removedId)) || null;
