@@ -34,41 +34,21 @@ const createAddress = async (userId, address, makeDefault) => {
     return doc.addresses[doc.addresses.length - 1];
 };
 
-// One update: the old address is hidden and the new one (with a new _id) is added to the list
-const updateAddress = async (userId, addressId, newAddress) => {
-    const oldId = new mongoose.Types.ObjectId(addressId);
-    const created = { ...newAddress, _id: new mongoose.Types.ObjectId(), isDeleted: false };
+// Changes only the sent fields of the same address, the _id stays the same
+const updateAddress = async (userId, addressId, changes) => {
+    const savedId = new mongoose.Types.ObjectId(addressId);
 
     const doc = await Address.findOneAndUpdate(
-        { userId, addresses: { $elemMatch: { _id: oldId, isDeleted: false } } },
-        [
-            {
-                $set: {
-                    addresses: {
-                        $concatArrays: [
-                            {
-                                $map: {
-                                    input: '$addresses',
-                                    as: 'saved',
-                                    in: {
-                                        $cond: [
-                                            { $eq: ['$$saved._id', oldId] },
-                                            { $mergeObjects: ['$$saved', { isDeleted: true, isDefault: false }] },
-                                            '$$saved',
-                                        ],
-                                    },
-                                },
-                            },
-                            { $literal: [created] },
-                        ],
-                    },
-                },
-            },
-        ],
-        { new: true }
+        { userId, addresses: { $elemMatch: { _id: savedId, isDeleted: false } } },
+        {
+            $set: Object.fromEntries(
+                Object.entries(changes).map(([key, value]) => [`addresses.$[target].${key}`, value])
+            ),
+        },
+        { arrayFilters: [{ 'target._id': savedId }], new: true }
     ).lean();
 
-    return doc ? created : null;
+    return doc?.addresses.find((address) => String(address._id) === String(savedId)) || null;
 };
 
 // One update: the chosen address becomes the default and all the others stop being the default
