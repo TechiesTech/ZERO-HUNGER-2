@@ -1,7 +1,7 @@
 import AppError from '../utils/appError.js';
 import * as addressRepository from '../repositories/addressRepository.js';
 
-const MAX_ADDRESSES = 10;
+const MAX_ADDRESSES = 3;
 
 const getMyAddresses = async (user) => addressRepository.getMyAddresses(user._id);
 
@@ -23,16 +23,11 @@ const createAddress = async (user, body) => {
     return addressRepository.createAddress(user._id, address, saved.length === 0 || isDefault);
 };
 
-// The old address is hidden (old orders still use it) and a new address with the changes takes its place
 const updateAddress = async (user, addressId, body) => {
-    const current = await addressRepository.getAddress(user._id, addressId);
-    if (!current) throw new AppError('Address not found', 404);
-
-    const { _id, ...fields } = current;
     const changes = { ...body };
     if (changes.customerPhone) changes.customerPhone = changes.customerPhone.replace(/\D/g, '').slice(-10);
 
-    const address = await addressRepository.updateAddress(user._id, addressId, { ...fields, ...changes });
+    const address = await addressRepository.updateAddress(user._id, addressId, changes);
     if (!address) throw new AppError('Address not found', 404);
     return address;
 };
