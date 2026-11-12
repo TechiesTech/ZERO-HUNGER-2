@@ -1,6 +1,18 @@
+import bcrypt from 'bcryptjs';
 import AppError from '../utils/appError.js';
 import { uploadImage, deleteImage, getPhotoUrl } from '../config/cloudinary.js';
 import * as riderRepository from '../repositories/riderRepository.js';
+
+const registerRider = async ({ name, email, phone, password, vehicleType, vehicleNumber }) => {
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    return riderRepository
+        .registerRider({ name, email, phone, passwordHash, vehicleType, vehicleNumber })
+        .catch((error) => {
+            if (error.code === 11000) throw new AppError('Email, phone or vehicle number is already registered', 409);
+            throw error;
+        });
+};
 
 const setAvailability = async (user, { isAvailable }) => {
     const rider = await riderRepository.setAvailability(user._id, isAvailable);
@@ -103,6 +115,7 @@ const reviewRider = async (userId, { status, reason }) => {
 };
 
 export {
+    registerRider,
     setAvailability,
     updateLocation,
     getAvailableOrders,

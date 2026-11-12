@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+    registerRider,
     setAvailability,
     updateLocation,
     getAvailableOrders,
@@ -12,6 +13,7 @@ import {
     reviewRider
 } from '../controllers/riderController.js';
 import {
+    registerRiderSchema,
     setAvailabilitySchema,
     updateLocationSchema,
     updateStatusSchema,
@@ -25,10 +27,11 @@ import validate from '../middleware/validate.js';
 import authenticate from '../middleware/authenticate.js';
 import requireRoles from '../middleware/requireRoles.js';
 import uploadImage from '../middleware/uploadImage.js';
-import { riderLocationLimiter } from '../middleware/rateLimiter.js';
+import { riderLocationLimiter, riderRegisterLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
+router.post('/registerRider', riderRegisterLimiter, validate(registerRiderSchema), registerRider);
 router.patch('/setAvailability', authenticate, requireRoles('rider'), validate(setAvailabilitySchema), setAvailability);
 router.patch('/updateLocation', authenticate, requireRoles('rider'), riderLocationLimiter, validate(updateLocationSchema), updateLocation);
 router.get('/getAvailableOrders', authenticate, requireRoles('rider'), getAvailableOrders);

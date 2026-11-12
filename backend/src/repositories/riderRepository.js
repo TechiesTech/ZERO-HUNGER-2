@@ -18,6 +18,17 @@ const statusFlow = {
     },
 };
 
+const registerRider = async ({ name, email, phone, passwordHash, vehicleType, vehicleNumber }) => {
+    const user = await User.create({ name, email, phone, passwordHash, role: 'rider', status: 'pending' });
+    try {
+        await Rider.create({ userId: user._id, vehicleType, vehicleNumber });
+    } catch (error) {
+        await User.deleteOne({ _id: user._id });
+        throw error;
+    }
+    return { name: user.name, email: user.email, status: user.status };
+};
+
 const getRider = async (userId) => {
     return Rider.findOne({ userId }).select('isAvailable').lean();
 };
@@ -323,7 +334,7 @@ const getMyDeliveries = async (userId, from, to, skip, limit) => {
 
 const getRiderStats = async (since) => {
     const [stats] = await User.aggregate([
-        { $match: { roles: 'rider' } },
+        { $match: { role: 'rider' } },
         { $lookup: { from: 'riders', localField: '_id', foreignField: 'userId', as: 'rider' } },
         { $set: { rider: { $arrayElemAt: ['$rider', 0] } } },
         {
@@ -373,7 +384,7 @@ const getAllRiders = async (status, since, skip, limit) => {
     };
 
     const [result] = await User.aggregate([
-        { $match: { roles: 'rider' } },
+        { $match: { role: 'rider' } },
         { $lookup: { from: 'riders', localField: '_id', foreignField: 'userId', as: 'rider' } },
         { $set: { rider: { $arrayElemAt: ['$rider', 0] } } },
         {
@@ -437,7 +448,7 @@ const getAllRiders = async (status, since, skip, limit) => {
 
 const reviewRider = async (userId, status, reason) => {
     return User.findOneAndUpdate(
-        { _id: userId, roles: 'rider', status: 'pending' },
+        { _id: userId, role: 'rider', status: 'pending' },
         { $set: { status, rejectionReason: reason ?? '' } },
         { new: true }
     )
@@ -446,6 +457,7 @@ const reviewRider = async (userId, status, reason) => {
 };
 
 export {
+    registerRider,
     getRider,
     setAvailability,
     updateLocation,

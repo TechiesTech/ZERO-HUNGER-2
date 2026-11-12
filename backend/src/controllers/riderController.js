@@ -1,5 +1,14 @@
 import * as riderService from '../services/riderService.js';
 
+const registerRider = async (req, res, next) => {
+    try {
+        const data = await riderService.registerRider(req.body);
+        return res.status(201).json({ success: true, message: 'Registration submitted, waiting for admin approval', data });
+    } catch (error) {
+        return next(error);
+    }
+};
+
 const setAvailability = async (req, res, next) => {
     try {
         const data = await riderService.setAvailability(req.user, req.body);
@@ -89,6 +98,7 @@ const reviewRider = async (req, res, next) => {
 };
 
 export {
+    registerRider,
     setAvailability,
     updateLocation,
     getAvailableOrders,

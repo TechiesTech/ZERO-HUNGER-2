@@ -45,6 +45,16 @@ const reviewRiderSchema = Joi.object({
     }),
 });
 
+const registerRiderSchema = Joi.object({
+    name: Joi.string().trim().min(2).max(80).required(),
+    email: Joi.string().trim().lowercase().email().required(),
+    phone: Joi.string().trim().pattern(/^[6-9]\d{9}$/).required()
+        .messages({ 'string.pattern.base': 'phone must be a valid 10 digit Indian number' }),
+    password: Joi.string().min(8).max(64).required(),
+    vehicleType: Joi.string().trim().lowercase().valid('bike', 'scooty').required(),
+    vehicleNumber: Joi.string().trim().uppercase().min(4).max(15).required(),
+});
+
 export {
     setAvailabilitySchema,
     updateLocationSchema,
@@ -54,4 +64,5 @@ export {
     orderNumberParamSchema,
     userIdParamSchema,
     reviewRiderSchema,
+    registerRiderSchema
 };
