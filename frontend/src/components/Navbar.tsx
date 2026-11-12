@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { KeyRound, LogOut, Menu, ShoppingBag, UserRound, X } from 'lucide-react';
+import { ChevronDown, KeyRound, LogOut, Menu, ShoppingBag, UserRound, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { SupportTab } from './SupportModal';
 import { useMealProgram } from '../context/MealProgramContext';
 import { useAuth } from '../context/AuthContext';
-import { AuthModal } from './AuthModal';
 
 interface NavbarProps {
   onOpenSupport: (tab?: SupportTab) => void;
@@ -22,27 +21,20 @@ const NAV_ITEMS = [
 export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [aboutDropdownOpen, setAboutDropdownOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [passwordChanged, setPasswordChanged] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [passwordConfirmation, setPasswordConfirmation] = useState('');
   const [accountError, setAccountError] = useState('');
-  const [accountNotice, setAccountNotice] = useState('');
   const [accountLoading, setAccountLoading] = useState(false);
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { cartCount, setIsCartOpen } = useMealProgram();
   const {
     user,
-    signIn,
-    signUp,
-    verifyEmail,
-    resendVerificationCode,
-    sendPasswordResetCode,
-    resetPassword,
-    refreshUser,
     changePassword,
     signOut,
   } = useAuth();
@@ -66,13 +58,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
     setAccountLoading(true);
     try {
       await changePassword(currentPassword, newPassword);
-      setChangePasswordOpen(false);
       setAccountMenuOpen(false);
       setCurrentPassword('');
       setNewPassword('');
       setPasswordConfirmation('');
-      setAccountNotice('Password changed. Please sign in again.');
-      setAuthModalOpen(true);
+      setPasswordChanged(true);
     } catch (error) {
       setAccountError(error instanceof Error ? error.message : 'Could not change your password.');
     } finally {
@@ -86,7 +76,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
     try {
       await signOut();
       setAccountMenuOpen(false);
-      setAccountNotice('');
     } catch (error) {
       setAccountError(error instanceof Error ? error.message : 'Could not sign out.');
     } finally {
@@ -223,7 +212,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
             </button>
           )}
 
-          {user ? (
+          {user && (
             <div className="relative">
               <button
                 type="button"
@@ -239,9 +228,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
               </button>
               {accountMenuOpen && (
                 <div className="absolute right-0 top-full z-50 mt-2 w-60 rounded-[10px] border border-white/15 bg-[#122023] p-2 text-white shadow-2xl">
-                  {accountNotice && (
-                    <p role="status" className="px-3 py-2 text-xs text-[#B9FF2C]">{accountNotice}</p>
-                  )}
                   {accountError && (
                     <p role="alert" className="px-3 py-2 text-xs text-red-300">{accountError}</p>
                   )}
@@ -250,7 +236,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
                     disabled={accountLoading}
                     onClick={() => {
                       setAccountError('');
-                      setAccountNotice('');
+                      setPasswordChanged(false);
                       setAccountMenuOpen(false);
                       setChangePasswordOpen(true);
                     }}
@@ -269,17 +255,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
                 </div>
               )}
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                setAccountNotice('');
-                setAuthModalOpen(true);
-              }}
-              className="inline-flex items-center justify-center rounded-[8px] border border-[#49E619]/60 px-3 py-2 text-xs font-bold text-white hover:bg-[#49E619] hover:text-[#080808]"
-            >
-              Sign in
-            </button>
           )}
 
           <button
@@ -387,30 +362,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
         )}
       </AnimatePresence>
 
-      <AuthModal
-        isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
-        initialNotice={accountNotice}
-        onAuthenticated={async () => {
-          const currentUser = await refreshUser();
-          if (!currentUser) throw new Error('Sign in is required to continue.');
-          setAccountNotice('');
-        }}
-        onSignIn={signIn}
-        onSignUp={signUp}
-        onVerifyEmail={verifyEmail}
-        onResendVerificationCode={resendVerificationCode}
-        onForgotPassword={sendPasswordResetCode}
-        onResetPassword={resetPassword}
-      />
-
       {changePasswordOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#080808]/80 p-4 backdrop-blur-xs">
-          <form
+          <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="change-password-title"
-            onSubmit={(event) => void submitChangePassword(event)}
             className="w-full max-w-md space-y-4 rounded-[16px] bg-white p-6 shadow-2xl sm:p-8"
           >
             <div className="flex items-start justify-between">
@@ -428,53 +385,70 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
                 ×
               </button>
             </div>
-            <p className="text-sm text-[#6F6F6F]">You will be signed out after changing your password.</p>
-            {accountError && <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">{accountError}</p>}
-            <label className="block space-y-1.5 text-xs font-semibold uppercase tracking-wider text-[#6F6F6F]">
-              Current password
-              <input
-                className="w-full rounded-[8px] border border-[#122023]/20 px-3 py-2.5 text-sm text-[#080808] focus:border-[#122023] focus:outline-none"
-                type="password"
-                autoComplete="current-password"
-                value={currentPassword}
-                onChange={(event) => setCurrentPassword(event.target.value)}
-                required
-              />
-            </label>
-            <label className="block space-y-1.5 text-xs font-semibold uppercase tracking-wider text-[#6F6F6F]">
-              New password
-              <input
-                className="w-full rounded-[8px] border border-[#122023]/20 px-3 py-2.5 text-sm text-[#080808] focus:border-[#122023] focus:outline-none"
-                type="password"
-                autoComplete="new-password"
-                minLength={8}
-                maxLength={72}
-                value={newPassword}
-                onChange={(event) => setNewPassword(event.target.value)}
-                required
-              />
-            </label>
-            <label className="block space-y-1.5 text-xs font-semibold uppercase tracking-wider text-[#6F6F6F]">
-              Confirm new password
-              <input
-                className="w-full rounded-[8px] border border-[#122023]/20 px-3 py-2.5 text-sm text-[#080808] focus:border-[#122023] focus:outline-none"
-                type="password"
-                autoComplete="new-password"
-                minLength={8}
-                maxLength={72}
-                value={passwordConfirmation}
-                onChange={(event) => setPasswordConfirmation(event.target.value)}
-                required
-              />
-            </label>
-            <button
-              type="submit"
-              disabled={accountLoading}
-              className="w-full rounded-[8px] bg-[#49E619] px-4 py-3 text-sm font-bold text-[#080808] hover:bg-[#B9FF2C] disabled:opacity-50"
-            >
-              {accountLoading ? 'Please wait...' : 'Change password'}
-            </button>
-          </form>
+            {passwordChanged ? (
+              <>
+                <p role="status" className="text-sm text-[#122023]">
+                  Password changed. You are signed out. Sign in again when you proceed to checkout.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setChangePasswordOpen(false)}
+                  className="w-full rounded-[8px] bg-[#49E619] px-4 py-3 text-sm font-bold text-[#080808] hover:bg-[#B9FF2C]"
+                >
+                  Close
+                </button>
+              </>
+            ) : (
+              <form onSubmit={(event) => void submitChangePassword(event)} className="space-y-4">
+                <p className="text-sm text-[#6F6F6F]">You will be signed out after changing your password.</p>
+                {accountError && <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">{accountError}</p>}
+                <label className="block space-y-1.5 text-xs font-semibold uppercase tracking-wider text-[#6F6F6F]">
+                  Current password
+                  <input
+                    className="w-full rounded-[8px] border border-[#122023]/20 px-3 py-2.5 text-sm text-[#080808] focus:border-[#122023] focus:outline-none"
+                    type="password"
+                    autoComplete="current-password"
+                    value={currentPassword}
+                    onChange={(event) => setCurrentPassword(event.target.value)}
+                    required
+                  />
+                </label>
+                <label className="block space-y-1.5 text-xs font-semibold uppercase tracking-wider text-[#6F6F6F]">
+                  New password
+                  <input
+                    className="w-full rounded-[8px] border border-[#122023]/20 px-3 py-2.5 text-sm text-[#080808] focus:border-[#122023] focus:outline-none"
+                    type="password"
+                    autoComplete="new-password"
+                    minLength={8}
+                    maxLength={72}
+                    value={newPassword}
+                    onChange={(event) => setNewPassword(event.target.value)}
+                    required
+                  />
+                </label>
+                <label className="block space-y-1.5 text-xs font-semibold uppercase tracking-wider text-[#6F6F6F]">
+                  Confirm new password
+                  <input
+                    className="w-full rounded-[8px] border border-[#122023]/20 px-3 py-2.5 text-sm text-[#080808] focus:border-[#122023] focus:outline-none"
+                    type="password"
+                    autoComplete="new-password"
+                    minLength={8}
+                    maxLength={72}
+                    value={passwordConfirmation}
+                    onChange={(event) => setPasswordConfirmation(event.target.value)}
+                    required
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={accountLoading}
+                  className="w-full rounded-[8px] bg-[#49E619] px-4 py-3 text-sm font-bold text-[#080808] hover:bg-[#B9FF2C] disabled:opacity-50"
+                >
+                  {accountLoading ? 'Please wait...' : 'Change password'}
+                </button>
+              </form>
+            )}
+          </div>
         </div>
       )}
     </header>

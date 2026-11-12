@@ -112,7 +112,7 @@ const resetPassword = async (email, codeHash, passwordHash) => {
                     codeAttempts: { $cond: [valid, '$codeAttempts', { $add: [{ $ifNull: ['$codeAttempts', 0] }, 1] }] },
                     codeHash: { $cond: [valid, '$$REMOVE', '$codeHash'] },
                     codeExpires: { $cond: [valid, '$$REMOVE', '$codeExpires'] },
-                    passwordHash: { $cond: [valid, passwordHash, '$passwordHash'] },
+                    passwordHash: { $cond: [valid, { $literal: passwordHash }, '$passwordHash'] },
                     mustChangePassword: { $cond: [valid, false, '$mustChangePassword'] },
                     failedLoginAttempts: { $cond: [valid, 0, '$failedLoginAttempts'] },
                     lockedUntil: { $cond: [valid, null, '$lockedUntil'] },

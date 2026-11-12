@@ -289,10 +289,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {view === 'signin' && (
                 <form onSubmit={submitSignIn} className="space-y-4">
                   <label className="block space-y-1.5 text-xs font-semibold uppercase tracking-wider text-[#6F6F6F]">
-                    Email address
+                    Email or phone
                     <span className="relative block">
                       <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#122023]/50" />
-                      <input className={`${inputClass} pl-10`} type="email" autoComplete="email" placeholder="you@example.com" value={email} onChange={(event) => setEmail(event.target.value)} required />
+                      <input className={`${inputClass} pl-10`} type="text" autoComplete="username" placeholder="you@example.com or 9876543210" value={email} onChange={(event) => setEmail(event.target.value)} required />
                     </span>
                   </label>
                   <label className="block space-y-1.5 text-xs font-semibold uppercase tracking-wider text-[#6F6F6F]">
@@ -321,10 +321,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     </span>
                   </label>
                   <label className="block space-y-1.5 text-xs font-semibold uppercase tracking-wider text-[#6F6F6F]">
-                    Email or phone
+                    Email address
                     <span className="relative block">
                       <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#122023]/50" />
-                      <input className={`${inputClass} pl-10`} type="text" autoComplete="username" placeholder="you@example.com or 9876543210" value={email} onChange={(event) => setEmail(event.target.value)} required />
+                      <input className={`${inputClass} pl-10`} type="email" autoComplete="email" placeholder="you@example.com" value={email} onChange={(event) => setEmail(event.target.value)} required />
                     </span>
                   </label>
                   <label className="block space-y-1.5 text-xs font-semibold uppercase tracking-wider text-[#6F6F6F]">
