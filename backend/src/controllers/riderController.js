@@ -1,18 +1,70 @@
 import * as riderService from '../services/riderService.js';
 
-const createRider = async (req, res, next) => {
+const setAvailability = async (req, res, next) => {
     try {
-        const data = await riderService.createRider(req.body);
-        return res.status(201).json({ success: true, message: 'Rider created successfully', data });
+        const data = await riderService.setAvailability(req.user, req.body);
+        return res.status(200).json({ success: true, message: 'Availability updated successfully', data });
     } catch (error) {
         return next(error);
     }
 };
 
-const updateRider = async (req, res, next) => {
+const updateLocation = async (req, res, next) => {
     try {
-        const data = await riderService.updateRider(req.params.riderId, req.body);
-        return res.status(200).json({ success: true, message: 'Rider updated successfully', data });
+        const data = await riderService.updateLocation(req.user, req.body);
+        return res.status(200).json({ success: true, data });
+    } catch (error) {
+        return next(error);
+    }
+};
+
+const getAvailableOrders = async (_req, res, next) => {
+    try {
+        const data = await riderService.getAvailableOrders();
+        return res.status(200).json({ success: true, data });
+    } catch (error) {
+        return next(error);
+    }
+};
+
+const acceptOrder = async (req, res, next) => {
+    try {
+        const data = await riderService.acceptOrder(req.user, req.params.orderNumber);
+        return res.status(201).json({ success: true, message: 'Order accepted successfully', data });
+    } catch (error) {
+        return next(error);
+    }
+};
+const updateStatus = async (req, res, next) => {
+    try {
+        const data = await riderService.updateStatus(req.user, req.params.orderNumber, req.body, req.file);
+        return res.status(200).json({ success: true, message: 'Order status updated successfully', data });
+    } catch (error) {
+        return next(error);
+    }
+};
+const currentDelivery = async (req, res, next) => {
+    try {
+        const data = await riderService.currentDelivery(req.user);
+        return res.status(200).json({ success: true, data });
+    } catch (error) {
+        return next(error);
+    }
+};
+
+const getMyDeliveries = async (req, res, next) => {
+    try {
+        const data = await riderService.getMyDeliveries(req.user, req.validatedQuery);
+        return res.status(200).json({ success: true, data });
+    } catch (error) {
+        return next(error);
+    }
+};
+
+const getRiderStats = async (_req, res, next) => {
+    try {
+        const data = await riderService.getRiderStats();
+        return res.status(200).json({ success: true, data });
     } catch (error) {
         return next(error);
     }
@@ -27,62 +79,24 @@ const getAllRiders = async (req, res, next) => {
     }
 };
 
-const getRiderById = async (req, res, next) => {
-    try {
-        const data = await riderService.getRiderById(req.params.riderId);
-        return res.status(200).json({ success: true, data });
-    } catch (error) {
-        return next(error);
-    }
-};
-
-const deleteRider = async (req, res, next) => {
-    try {
-        await riderService.deleteRider(req.params.riderId);
-        return res.status(200).json({ success: true, message: 'Rider deleted successfully' });
-    } catch (error) {
-        return next(error);
-    }
-};
-
-const updateMyLocation = async (req, res, next) => {
-    try {
-        await riderService.updateRiderLocation(String(req.user._id), req.body);
-        return res.status(200).json({ success: true, message: 'Location updated' });
-    } catch (error) {
-        return next(error);
-    }
-};
-
-const registerRider = async (req, res, next) => {
-    try {
-        const data = await riderService.registerRider(req.body);
-        return res.status(201).json({
-            success: true,
-            message: 'Registration submitted. Verify your email before admin approval',
-            data,
-        });
-    } catch (error) {
-        return next(error);
-    }
-};
 const reviewRider = async (req, res, next) => {
     try {
-        const { status, reason } = req.body;
-        const data = await riderService.reviewRider(req.params.riderId, status, reason);
-        return res.status(200).json({ success: true, message: `Rider ${status}`, data });
+        const data = await riderService.reviewRider(req.params.userId, req.body);
+        return res.status(200).json({ success: true, message: 'Rider reviewed successfully', data });
     } catch (error) {
         return next(error);
     }
 };
 
 export {
-    createRider,
-    updateRider,
+    setAvailability,
+    updateLocation,
+    getAvailableOrders,
+    acceptOrder,
+    updateStatus,
+    currentDelivery,
+    getMyDeliveries,
+    getRiderStats,
     getAllRiders,
-    getRiderById,
-    deleteRider,
-    updateMyLocation,
-    registerRider,
-    reviewRider,
+    reviewRider
 };
