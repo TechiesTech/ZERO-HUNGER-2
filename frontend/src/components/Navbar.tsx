@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronDown, KeyRound, LogOut, Menu, ShoppingBag, UserRound, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
@@ -362,7 +363,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
         )}
       </AnimatePresence>
 
-      {changePasswordOpen && (
+      {changePasswordOpen && createPortal(
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#080808]/80 p-4 backdrop-blur-xs">
           <div
             role="dialog"
@@ -449,7 +450,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
               </form>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </header>
   );
