@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 
 interface NavbarProps {
   onOpenSupport: (tab?: SupportTab) => void;
+  onOpenSignIn: () => void;
 }
 
 const NAV_ITEMS = [
@@ -19,7 +20,7 @@ const NAV_ITEMS = [
   { label: 'Contact', path: '/contact', hideOnCompact: true },
 ];
 
-export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
+export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport, onOpenSignIn }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [aboutDropdownOpen, setAboutDropdownOpen] = useState(false);
@@ -213,7 +214,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
             </button>
           )}
 
-          {user && (
+          <button
+            type="button"
+            onClick={() => onOpenSupport('donate')}
+            className="hidden md:inline-flex items-center justify-center px-5 py-2.5 rounded-[10px] text-xs sm:text-sm font-bold tracking-tight whitespace-nowrap bg-[#49E619] text-[#080808] hover:bg-[#B9FF2C] transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#49E619]"
+          >
+            Support the Mission
+          </button>
+
+          {user ? (
             <div className="relative">
               <button
                 type="button"
@@ -256,15 +265,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
                 </div>
               )}
             </div>
+          ) : (
+            <button
+              type="button"
+              onClick={onOpenSignIn}
+              aria-label="Sign in"
+              title="Sign in"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-[8px] border border-white/20 text-white hover:border-[#49E619] hover:text-[#49E619]"
+            >
+              <UserRound className="h-4 w-4" />
+            </button>
           )}
-
-          <button
-            type="button"
-            onClick={() => onOpenSupport('donate')}
-            className="hidden md:inline-flex items-center justify-center px-5 py-2.5 rounded-[10px] text-xs sm:text-sm font-bold tracking-tight whitespace-nowrap bg-[#49E619] text-[#080808] hover:bg-[#B9FF2C] transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#49E619]"
-          >
-            Support the Mission
-          </button>
 
           <button
             type="button"
