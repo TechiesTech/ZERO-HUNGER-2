@@ -108,7 +108,6 @@ const getMyOrders = async (customerId, skip, limit) => {
     return { orders: result.orders, total: result.total[0]?.count || 0 };
 };
 
-// One order with items, customer name, delivery location, kitchen and the rider on the open delivery
 const trackLiveOrder = async (orderNumber, customerId) => {
     const [order] = await Order.aggregate([
         {
@@ -118,13 +117,26 @@ const trackLiveOrder = async (orderNumber, customerId) => {
                 isDeleted: false,
             },
         },
-        { $lookup: { from: 'orderItems', localField: '_id', foreignField: 'orderId', as: 'items' } },
+        ...customerStages,
+        ...addressStages,
+        itemStage,
         {
             $lookup: {
-                from: 'meals',
-                localField: 'items.mealId',
+                from: 'kitchens',
+                localField: 'kitchenId',
                 foreignField: '_id',
-                pipeline: [{ $project: { _id: 0, name: 1, address: 1, location: 1 } }],
+                pipeline: [
+                    {
+                        $lookup: {
+                            from: 'users',
+                            localField: 'user',
+                            foreignField: '_id',
+                            pipeline: [{ $project: { _id: 0, name: 1 } }],
+                            as: 'account',
+                        },
+                    },
+                    { $project: { _id: 0, name: { $arrayElemAt: ['$account.name', 0] }, address: 1, location: 1 } },
+                ],
                 as: 'kitchen',
             },
         },
@@ -140,9 +152,7 @@ const trackLiveOrder = async (orderNumber, customerId) => {
                             from: 'riders',
                             localField: 'riderId',
                             foreignField: '_id',
-                            pipeline: [
-                                { $project: { _id: 0, name: 1, vehicleType: 1, currentLocation: 1 } },
-                            ],
+                            pipeline: [{ $project: { _id: 0, name: 1, vehicleType: 1, currentLocation: 1 } }],
                             as: 'rider',
                         },
                     },
@@ -171,7 +181,7 @@ const trackLiveOrder = async (orderNumber, customerId) => {
                 createdAt: 1,
                 estimatedDeliveryAt: 1,
                 statusTimestamps: 1,
-                deliveryLocation: 1,
+                deliveryLocation: '$deliveryAddress.location',
                 kitchen: { $arrayElemAt: ['$kitchen', 0] },
                 delivery: { $arrayElemAt: ['$deliveries', 0] },
                 items: {
