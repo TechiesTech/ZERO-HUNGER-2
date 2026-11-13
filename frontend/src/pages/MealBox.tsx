@@ -27,13 +27,20 @@ import { useMealProgram } from '../context/MealProgramContext';
 import { useAuth } from '../context/AuthContext';
 import { useMeals } from '../hooks';
 import { getActiveKitchens, type Kitchen } from '../services/kitchenService';
-import { createAddress, getMyAddresses, type SavedAddress } from '../services/addressService';
+import {
+  createAddress,
+  deleteAddress,
+  getMyAddresses,
+  type SavedAddress,
+  updateAddress,
+} from '../services/addressService';
 import { AuthModal } from '../components/AuthModal';
+import { SavedAddressPicker } from '../components/SavedAddressPicker';
 import { EditorialImage } from '../components/EditorialImage';
 import { ScrollReveal } from '../components/ScrollReveal';
 import { PlateToHandsSteps } from '../components/PlateToHandsSteps';
 import AddressSection from '../components/AddressSection';
-import type { DeliveryPoint } from '../services/orderService';
+import type { DeliveryAddress, DeliveryPoint } from '../services/orderService';
 
 const CATEGORIES: MealCategory[] = [
   'ALL',
@@ -43,6 +50,16 @@ const CATEGORIES: MealCategory[] = [
   'KIDS MEALS',
   'FAMILY MEALS',
 ];
+
+const EMPTY_ADDRESS: DeliveryAddress = {
+  addressLine1: '',
+  addressLine2: '',
+  area: '',
+  landmark: '',
+  city: '',
+  state: '',
+  pincode: '',
+};
 
 export const MealBox: React.FC = () => {
   const navigate = useNavigate();
@@ -83,20 +100,16 @@ export const MealBox: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [isAddingNewAddress, setIsAddingNewAddress] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [addressActionLoading, setAddressActionLoading] = useState(false);
 
   // Customer checkout fields
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [deliveryAddress, setDeliveryAddress] = useState({
-    addressLine1: '',
-    addressLine2: '',
-    area: '',
-    landmark: '',
-    city: '',
-    state: '',
-    pincode: '',
-  });
+  const [deliveryAddress, setDeliveryAddress] = useState<DeliveryAddress>(EMPTY_ADDRESS);
   const [deliveryLocation, setDeliveryLocation] = useState<DeliveryPoint | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'CARD' | 'NET_BANKING'>('UPI');
   const [formError, setFormError] = useState('');
@@ -168,13 +181,15 @@ export const MealBox: React.FC = () => {
     if (!authenticatedUser.roles.includes('customer')) {
       throw new Error('A customer account is required to place a meal order.');
     }
-    setCustomerName(authenticatedUser.name);
     setCustomerEmail(authenticatedUser.email || '');
-    setCustomerPhone(authenticatedUser.phone || '');
     const addresses = await getMyAddresses();
     setSavedAddresses(addresses);
     const defaultAddress = addresses.find((address) => address.isDefault) || addresses[0];
+    setSelectedAddressId(defaultAddress?._id || null);
+    setIsAddingNewAddress(!defaultAddress);
     if (defaultAddress) {
+      setCustomerName(defaultAddress.customerName);
+      setCustomerPhone(defaultAddress.customerPhone || authenticatedUser.phone || '');
       setDeliveryAddress({
         addressLine1: defaultAddress.addressLine1,
         addressLine2: defaultAddress.addressLine2 || '',
@@ -185,10 +200,135 @@ export const MealBox: React.FC = () => {
         pincode: defaultAddress.pincode,
       });
       setDeliveryLocation(defaultAddress.location);
+    } else {
+      setCustomerName(authenticatedUser.name);
+      setCustomerPhone(authenticatedUser.phone || '');
+      setDeliveryAddress(EMPTY_ADDRESS);
+      setDeliveryLocation(null);
     }
     setFormError('');
     setCheckoutStep('CHECKOUT');
     setIsCartOpen(false);
+  };
+
+  const selectSavedAddress = (address: SavedAddress) => {
+    setSelectedAddressId(address._id);
+    setIsAddingNewAddress(false);
+    setEditingAddressId(null);
+    setCustomerName(address.customerName);
+    setCustomerPhone(address.customerPhone || '');
+    setDeliveryAddress({
+      addressLine1: address.addressLine1,
+      addressLine2: address.addressLine2 || '',
+      area: address.area,
+      landmark: address.landmark || '',
+      city: address.city,
+      state: address.state,
+      pincode: address.pincode,
+    });
+    setDeliveryLocation(address.location);
+    setFormError('');
+  };
+
+  const addNewAddress = () => {
+    setSelectedAddressId(null);
+    setIsAddingNewAddress(true);
+    setEditingAddressId(null);
+    setCustomerName(user?.name || '');
+    setCustomerPhone(user?.phone || '');
+    setDeliveryAddress(EMPTY_ADDRESS);
+    setDeliveryLocation(null);
+    setFormError('');
+  };
+
+  const editSavedAddress = (address: SavedAddress) => {
+    setSelectedAddressId(address._id);
+    setIsAddingNewAddress(false);
+    setEditingAddressId(address._id);
+    setCustomerName(address.customerName);
+    setCustomerPhone(address.customerPhone || '');
+    setDeliveryAddress({
+      addressLine1: address.addressLine1,
+      addressLine2: address.addressLine2 || '',
+      area: address.area,
+      landmark: address.landmark || '',
+      city: address.city,
+      state: address.state,
+      pincode: address.pincode,
+    });
+    setDeliveryLocation(address.location);
+    setFormError('');
+  };
+
+  const saveEditedAddress = async () => {
+    if (!editingAddressId) return;
+    if (
+      !customerName.trim() ||
+      !deliveryAddress.addressLine1.trim() ||
+      !deliveryAddress.area.trim() ||
+      !deliveryAddress.city.trim() ||
+      !deliveryAddress.state.trim() ||
+      !deliveryAddress.pincode.trim() ||
+      !deliveryLocation
+    ) {
+      setFormError('Complete the required address fields and confirm its delivery pin.');
+      return;
+    }
+
+    setAddressActionLoading(true);
+    setFormError('');
+    try {
+      const currentAddress = savedAddresses.find((address) => address._id === editingAddressId);
+      if (!currentAddress) throw new Error('The address could not be found. Refresh and try again.');
+      const updatedAddress = await updateAddress(editingAddressId, {
+        ...deliveryAddress,
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim(),
+        label: currentAddress.label || 'home',
+        location: deliveryLocation,
+      });
+      setSavedAddresses((previous) => previous.map((address) =>
+        address._id === updatedAddress._id ? updatedAddress : address
+      ));
+      selectSavedAddress(updatedAddress);
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Could not update this address.');
+    } finally {
+      setAddressActionLoading(false);
+    }
+  };
+
+  const removeSavedAddress = async (address: SavedAddress) => {
+    if (!window.confirm('Delete this saved delivery address?')) return;
+    setAddressActionLoading(true);
+    setFormError('');
+    try {
+      await deleteAddress(address._id);
+      const remaining = savedAddresses.filter((saved) => saved._id !== address._id);
+      const nextAddress = remaining.find((saved) => saved.isDefault) || remaining[0];
+      const updatedAddresses = address.isDefault && nextAddress
+        ? remaining.map((saved) => ({ ...saved, isDefault: saved._id === nextAddress._id }))
+        : remaining;
+      setSavedAddresses(updatedAddresses);
+      if (selectedAddressId === address._id || editingAddressId === address._id) {
+        if (nextAddress) {
+          const nextSavedAddress = updatedAddresses.find((saved) => saved._id === nextAddress._id);
+          if (nextSavedAddress) selectSavedAddress(nextSavedAddress);
+        } else {
+          setSelectedAddressId(null);
+          setEditingAddressId(null);
+          setIsAddingNewAddress(true);
+          setCustomerName(user?.name || '');
+          setCustomerPhone(user?.phone || '');
+          setDeliveryAddress(EMPTY_ADDRESS);
+          setDeliveryLocation(null);
+        }
+      }
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Could not delete this address.');
+    } finally {
+      setAddressActionLoading(false);
+    }
   };
 
   const handleProceedToCheckout = async () => {
@@ -208,6 +348,10 @@ export const MealBox: React.FC = () => {
 
   const handleCompletePayment = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (editingAddressId) {
+      setFormError('Save the address changes or choose another address before placing your order.');
+      return;
+    }
     if (
       !customerName.trim() ||
       !customerEmail.trim() ||
@@ -227,18 +371,14 @@ export const MealBox: React.FC = () => {
     setFormError('');
     setSubmitting(true);
     try {
-      const savedAddress = savedAddresses.find((address) =>
-        address.addressLine1 === deliveryAddress.addressLine1.trim() &&
-        (address.addressLine2 || '') === deliveryAddress.addressLine2.trim() &&
-        address.area === deliveryAddress.area.trim() &&
-        (address.landmark || '') === deliveryAddress.landmark.trim() &&
-        address.city === deliveryAddress.city.trim() &&
-        address.state === deliveryAddress.state.trim() &&
-        address.pincode === deliveryAddress.pincode.trim() &&
-        address.location.latitude === deliveryLocation.latitude &&
-        address.location.longitude === deliveryLocation.longitude
-      );
-      const createdAddress = savedAddress ? null : await createAddress({
+      const selectedAddress = savedAddresses.find((address) => address._id === selectedAddressId);
+      if (selectedAddressId && !selectedAddress) {
+        throw new Error('The selected delivery address is no longer available. Choose another address.');
+      }
+      if (!selectedAddress && savedAddresses.length >= 3) {
+        throw new Error('You can save up to 3 addresses. Select one of your saved addresses to continue.');
+      }
+      const createdAddress = selectedAddress ? null : await createAddress({
         ...deliveryAddress,
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
@@ -246,8 +386,12 @@ export const MealBox: React.FC = () => {
         isDefault: savedAddresses.length === 0,
         location: deliveryLocation,
       });
-      if (createdAddress) setSavedAddresses((previous) => [...previous, createdAddress]);
-      const addressId = savedAddress?._id || createdAddress?._id;
+      if (createdAddress) {
+        setSavedAddresses((previous) => [...previous, createdAddress]);
+        setSelectedAddressId(createdAddress._id);
+        setIsAddingNewAddress(false);
+      }
+      const addressId = selectedAddress?._id || createdAddress?._id;
       if (!addressId) throw new Error('Could not save your delivery address. Please try again.');
       const result = await placeOrder({
         addressId,
@@ -405,37 +549,42 @@ export const MealBox: React.FC = () => {
             <label htmlFor="kitchen-picker" className="block text-xs font-mono-tabular font-bold uppercase tracking-widest text-[#49E619] mb-2">
               Choose a kitchen
             </label>
-            {kitchensLoading ? (
-              <p className="text-sm text-white/60">Loading available kitchens…</p>
-            ) : kitchensError ? (
-              <p role="alert" className="text-sm text-red-300">{kitchensError}</p>
+            <select
+              id="kitchen-picker"
+              value={selectedKitchenId}
+              disabled={kitchensLoading || Boolean(kitchensError) || kitchens.length === 0}
+              onChange={(event) => {
+                if (event.target.value === selectedKitchenId) return;
+                clearCart();
+                setCheckoutStep('CART');
+                setSelectedKitchenId(event.target.value);
+              }}
+              className="w-full max-w-xl rounded-[8px] bg-[#080808] border border-white/20 px-3 py-3 text-sm text-white focus:outline-none focus:border-[#49E619] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">
+                {kitchensLoading
+                  ? 'Loading available kitchens…'
+                  : kitchensError
+                    ? 'Kitchens unavailable'
+                    : kitchens.length === 0
+                      ? 'No active kitchens available'
+                      : 'Select a kitchen to see its menu'}
+              </option>
+              {kitchens.map((kitchen) => (
+                <option key={kitchen._id} value={kitchen._id}>{kitchen.name}</option>
+              ))}
+            </select>
+            {kitchensError ? (
+              <p role="alert" className="mt-2 text-sm text-red-300">{kitchensError}</p>
+            ) : kitchensLoading ? (
+              <p role="status" className="mt-2 text-sm text-white/60">Loading available kitchens…</p>
             ) : kitchens.length === 0 ? (
-              <p className="text-sm text-white/60">There are no active kitchens available right now.</p>
-            ) : (
-              <>
-                <select
-                  id="kitchen-picker"
-                  value={selectedKitchenId}
-                  onChange={(event) => {
-                    if (event.target.value === selectedKitchenId) return;
-                    clearCart();
-                    setCheckoutStep('CART');
-                    setSelectedKitchenId(event.target.value);
-                  }}
-                  className="w-full max-w-xl rounded-[8px] bg-[#080808] border border-white/20 px-3 py-3 text-sm text-white focus:outline-none focus:border-[#49E619]"
-                >
-                  <option value="">Select a kitchen to see its menu</option>
-                  {kitchens.map((kitchen) => (
-                    <option key={kitchen._id} value={kitchen._id}>{kitchen.name}</option>
-                  ))}
-                </select>
-                {selectedKitchenId && (
-                  <p className="mt-2 text-xs text-white/50">
-                    {kitchens.find((kitchen) => kitchen._id === selectedKitchenId)?.address}
-                  </p>
-                )}
-              </>
-            )}
+              <p className="mt-2 text-sm text-white/60">There are no active kitchens available right now.</p>
+            ) : selectedKitchenId ? (
+              <p className="mt-2 text-xs text-white/50">
+                {kitchens.find((kitchen) => kitchen._id === selectedKitchenId)?.address}
+              </p>
+            ) : null}
           </div>
 
           {/* Category Filter Tabs */}
@@ -1056,17 +1205,45 @@ export const MealBox: React.FC = () => {
                   </div>
                 </div>
 
-                <AddressSection
-                  value={{ address: deliveryAddress, location: deliveryLocation }}
-                  onChange={({ address, location }) => {
-                    setDeliveryAddress({
-                      ...address,
-                      addressLine2: address.addressLine2 || '',
-                      landmark: address.landmark || '',
-                    });
-                    setDeliveryLocation(location);
-                  }}
+                <SavedAddressPicker
+                  addresses={savedAddresses}
+                  selectedAddressId={selectedAddressId}
+                  isAddingNewAddress={isAddingNewAddress}
+                  editingAddressId={editingAddressId}
+                  isBusy={addressActionLoading}
+                  onSelect={selectSavedAddress}
+                  onEdit={editSavedAddress}
+                  onDelete={(address) => void removeSavedAddress(address)}
+                  onAddNew={addNewAddress}
                 />
+                {(isAddingNewAddress || editingAddressId) && (
+                  <AddressSection
+                    value={{ address: deliveryAddress, location: deliveryLocation }}
+                    onChange={({ address, location }) => {
+                      setDeliveryAddress({
+                        ...address,
+                        addressLine2: address.addressLine2 || '',
+                        landmark: address.landmark || '',
+                      });
+                      setDeliveryLocation(location);
+                    }}
+                  />
+                )}
+                {editingAddressId && (
+                  <button
+                    type="button"
+                    onClick={() => void saveEditedAddress()}
+                    disabled={addressActionLoading || submitting}
+                    className="w-full rounded-[8px] border border-[#122023]/20 bg-white px-4 py-3 text-sm font-bold text-[#122023] hover:border-[#188D44] disabled:opacity-50"
+                  >
+                    {addressActionLoading ? 'Saving address…' : 'Save address changes'}
+                  </button>
+                )}
+                {editingAddressId && (
+                  <p className="text-xs text-[#122023]/65">
+                    Save the address changes or select another saved address before placing your order.
+                  </p>
+                )}
 
                 <div>
                   <label className="mb-1 block text-[11px] font-mono-tabular uppercase text-[#122023]/70">
@@ -1101,7 +1278,7 @@ export const MealBox: React.FC = () => {
 
                 <button
                   type="submit"
-                  disabled={submitting || !deliveryLocation}
+                  disabled={submitting || addressActionLoading || Boolean(editingAddressId) || !deliveryLocation}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-[10px] bg-[#49E619] px-5 py-4 text-xs font-mono-tabular font-bold uppercase tracking-widest text-[#080808] transition-colors hover:bg-[#3cd110] cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <ShieldCheck className="h-4 w-4" />

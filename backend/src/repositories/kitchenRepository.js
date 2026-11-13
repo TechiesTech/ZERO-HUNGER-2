@@ -55,7 +55,7 @@ const getAllKitchens = async ({ isActive, $or }, skip, limit) => {
     return { kitchens: result?.kitchens || [], total: result?.metadata[0]?.total || 0 };
 };
 
-// Public route: only name, address and location (no email or phone)
+// Public menu picker: expose every kitchen profile without account details.
 const getActiveKitchens = () =>
     Kitchen.aggregate([
         {
@@ -63,15 +63,22 @@ const getActiveKitchens = () =>
                 from: 'users',
                 localField: 'user',
                 foreignField: '_id',
-                pipeline: [
-                    { $match: { status: 'active', roles: 'kitchen' } },
-                    { $project: { name: 1 } },
-                ],
+                pipeline: [{ $project: { name: 1 } }],
                 as: 'account',
             },
         },
-        { $unwind: '$account' },
-        { $project: { name: '$account.name', address: 1, location: 1 } },
+        {
+            $addFields: {
+                name: { $ifNull: [{ $arrayElemAt: ['$account.name', 0] }, '$address'] },
+            },
+        },
+        {
+            $project: {
+                name: 1,
+                address: 1,
+                location: 1,
+            },
+        },
         { $sort: { name: 1 } },
     ]);
 
