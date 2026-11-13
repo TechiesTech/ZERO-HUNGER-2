@@ -20,7 +20,7 @@ interface PlaceOrderInput {
   customerEmail: string;
   customerPhone: string;
   deliveryAddress: DeliveryAddress;
-  deliveryLocation: DeliveryPoint;
+  deliveryLocation?: DeliveryPoint;
   paymentMethod: 'UPI' | 'CARD' | 'NET_BANKING';
 }
 
@@ -183,7 +183,7 @@ export const MealProgramProvider: React.FC<{ children: React.ReactNode }> = ({
       customerEmail: input.customerEmail,
       customerPhone: input.customerPhone,
       deliveryAddress: input.deliveryAddress,
-      deliveryLocation: input.deliveryLocation,
+      deliveryLocation: input.deliveryLocation ?? { latitude: 17.385044, longitude: 78.486671 },
       paymentMethod: input.paymentMethod.toLowerCase() as 'upi' | 'card' | 'netbanking',
       items: cart.map((item) => ({ mealId: item.product.id, quantity: item.quantity })),
     });

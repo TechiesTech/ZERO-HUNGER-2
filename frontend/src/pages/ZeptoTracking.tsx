@@ -44,6 +44,24 @@ export function ZeptoTracking() {
   const orderNumber = orderId || 'ZH-ORD-ABC123';
 
   const restaurantLocation: [number, number] = [17.4326, 78.4071];
+  const kitchenLoc = tracking?.kitchen?.location;
+  const customerLoc = tracking?.destination;
+  const kitchenLocation: [number, number] | null =
+    kitchenLoc && kitchenLoc.latitude != null && kitchenLoc.longitude != null
+      ? [kitchenLoc.latitude, kitchenLoc.longitude]
+      : restaurantLocation;
+  const customerLocation: [number, number] | null =
+    customerLoc && customerLoc.latitude != null && customerLoc.longitude != null
+      ? [customerLoc.latitude, customerLoc.longitude]
+      : null;
+
+  const routes = [
+    { route: tracking?.routes?.toKitchen, color: '#f97316' },
+    { route: tracking?.routes?.toCustomer, color: '#0095f6' },
+  ].filter((item): item is { route: { path: [number, number][] }; color: string } =>
+    Boolean(item.route?.path && item.route.path.length > 0)
+  );
+
   const riderLocation =
     tracking?.customerMealStatus === 'outfordelivery'
       ? { lat: 17.4400, lng: 78.3900 }
@@ -66,8 +84,8 @@ export function ZeptoTracking() {
   }, [orderNumber]);
 
   useEffect(() => {
-    if (riderLocation && tracking?.destination) {
-      fetchRoute(riderLocation, tracking.destination);
+    if (riderLocation && tracking?.destination && tracking.destination.latitude != null && tracking.destination.longitude != null) {
+      fetchRoute(riderLocation, { lat: tracking.destination.latitude, lng: tracking.destination.longitude });
     }
   }, [riderLocation, tracking]);
 
@@ -126,23 +144,23 @@ export function ZeptoTracking() {
 
       <div className="h-[50vh]">
         <MapContainer
-          center={customerLocation ? [customerLocation.latitude, customerLocation.longitude] : [17.385, 78.4867]}
+          center={customerLocation || [17.385, 78.4867]}
           zoom={13}
           style={{ height: '100%', width: '100%' }}
         >
           <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="© OpenStreetMap contributors" />
           {kitchenLocation && (
-            <Marker position={[kitchenLocation.latitude, kitchenLocation.longitude]} icon={restaurantIcon} />
+            <Marker position={kitchenLocation} icon={restaurantIcon} />
           )}
           {customerLocation && (
-            <Marker position={[customerLocation.latitude, customerLocation.longitude]} icon={locationIcon} />
+            <Marker position={customerLocation} icon={locationIcon} />
           )}
           {routeDetails.coordinates.length > 0 && tracking?.customerMealStatus === 'outfordelivery' && (
             <Polyline positions={routeDetails.coordinates} color="#0095f6" weight={5} />
           )}
-          {routes.map(({ route, color }, index) => route?.path.length
-            ? <Polyline key={index} positions={route.path} color={color} weight={5} />
-            : null)}
+          {routes.map(({ route, color }, index) => (
+            <Polyline key={index} positions={route.path} color={color} weight={5} />
+          ))}
         </MapContainer>
       </div>
 

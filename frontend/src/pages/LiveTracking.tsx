@@ -76,7 +76,7 @@ export function LiveTracking({ orderNumber: propOrderNumber }: LiveTrackingProps
 
     const boundsPoints: L.LatLngExpression[] = [];
     const kitchen = tracking.kitchen?.location;
-    if (kitchen) {
+    if (kitchen && kitchen.latitude != null && kitchen.longitude != null) {
       const kitchenLocation: [number, number] = [kitchen.latitude, kitchen.longitude];
       const kitchenIcon = L.divIcon({
         className: 'bg-transparent border-0',
@@ -96,7 +96,7 @@ export function LiveTracking({ orderNumber: propOrderNumber }: LiveTrackingProps
       boundsPoints.push(kitchenLocation);
     }
 
-    if (tracking.destination) {
+    if (tracking.destination && tracking.destination.latitude != null && tracking.destination.longitude != null) {
       const customerLocation: [number, number] = [
         tracking.destination.latitude,
         tracking.destination.longitude,
@@ -142,8 +142,10 @@ export function LiveTracking({ orderNumber: propOrderNumber }: LiveTrackingProps
       boundsPoints.push(riderCoords);
     }
 
-    const bounds = L.latLngBounds([restaurantLocation, customerLocation]);
-    map.fitBounds(bounds, { padding: [50, 50] });
+    if (boundsPoints.length > 0) {
+      const bounds = L.latLngBounds(boundsPoints);
+      map.fitBounds(bounds, { padding: [50, 50] });
+    }
   }, [tracking]);
 
   const statusSteps = [

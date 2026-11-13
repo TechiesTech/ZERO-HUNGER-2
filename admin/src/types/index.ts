@@ -58,3 +58,30 @@ export const MEAL_CATEGORIES = [
   'KIDS MEALS',
   'FAMILY MEALS',
 ] as const;
+
+/* ── Auth Types ── */
+export interface AdminUser {
+  _id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  role: 'admin' | 'kitchen' | 'customer' | 'rider';
+  kitchenId?: string | null;
+  status?: string;
+}
+
+export interface AuthResponse<T = unknown> {
+  success: boolean;
+  message?: string;
+  data?: T;
+}
+
+export interface LoginResponseData {
+  user?: AdminUser;
+  codeRequired?: boolean;
+}
+
+export interface GetMeResponseData {
+  user: AdminUser;
+}
+

@@ -73,7 +73,7 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const order = await placeOrder({
+      const { order, tokens } = await placeOrder({
         customerName,
         customerEmail,
         customerPhone,
@@ -81,7 +81,7 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
         paymentMethod,
       });
       setConfirmedOrder(order);
-      setConfirmedTokens(order.charityTokens || []);
+      setConfirmedTokens(tokens || []);
       setCheckoutStep('CONFIRMED');
     } catch (error: unknown) {
       console.error('Order failed:', error);
