@@ -1,156 +1,129 @@
+import bcrypt from 'bcryptjs';
 import AppError from '../utils/appError.js';
+import { uploadImage, deleteImage, getPhotoUrl } from '../config/cloudinary.js';
 import * as riderRepository from '../repositories/riderRepository.js';
-import { Delivery } from '../models/schemas/deliverySchema.js';
-import * as authService from './authService.js';
 
-const createRider = async (body) => {
-    const { name, vehicleType, deliveryZones, joiningDate, password } = body;
-    const phone = body.phone.replace(/\D/g, '').slice(-10);
-    const email = body.email?.trim().toLowerCase() || '';
-    const vehicleNumber = (body.vehicleNumber || '').replace(/[\s-]/g, '');
+const registerRider = async ({ name, email, phone, password, vehicleType, vehicleNumber }) => {
+    const passwordHash = await bcrypt.hash(password, 12);
 
-    const data = { name, phone, email, vehicleType, vehicleNumber };
-    if (deliveryZones) data.deliveryZones = deliveryZones;
-    if (joiningDate) data.joiningDate = joiningDate;
-
-    const user = await authService.createStaffAccount({
-        name,
-        email: email || undefined,
-        phone,
-        password,
-        role: 'rider',
-    });
-    try {
-        const { rider, isDuplicate } = await riderRepository.createRider({ ...data, _id: user._id });
-        if (isDuplicate) {
-            const field =
-                rider.phone === phone ? 'phone number' : email && rider.email === email ? 'email' : 'vehicle number';
-            throw new AppError(`A rider with this ${field} already exists`, 409);
-        }
-        return rider;
-    } catch (error) {
-        await authService.deleteUser(user._id);
-        if (error.code === 11000) {
-            throw new AppError('A rider with the same phone, email or vehicle number already exists', 409);
-        }
-        throw error;
-    }
+    return riderRepository
+        .registerRider({ name, email, phone, passwordHash, vehicleType, vehicleNumber })
+        .catch((error) => {
+            if (error.code === 11000) throw new AppError('Email, phone or vehicle number is already registered', 409);
+            throw error;
+        });
 };
 
-const updateRider = async (riderId, body) => {
-    const existing = await riderRepository.getRiderById(riderId);
-    if (!existing) throw new AppError('Rider not found', 404);
-
-    const updates = { ...body }; // safe: Joi rejects unknown fields
-    const isActive = updates.isActive;
-    delete updates.isActive;
-    if (updates.phone) updates.phone = updates.phone.replace(/\D/g, '').slice(-10);
-    if (updates.vehicleNumber) updates.vehicleNumber = updates.vehicleNumber.replace(/[\s-]/g, '');
-    if (updates.email !== undefined) updates.email = updates.email.trim().toLowerCase();
-    if (isActive === false) updates.isAvailable = false;
-
-    const identityUpdates = Object.fromEntries(
-        Object.entries(updates).filter(([field]) => ['name', 'email', 'phone'].includes(field))
-    );
-    const previousIdentity = Object.keys(identityUpdates).length
-        ? await authService.getUserProfile(riderId)
-        : null;
-
-    let updated;
-    try {
-        if (previousIdentity) await authService.updateUserProfile(riderId, identityUpdates);
-        updated = await riderRepository.updateRiderById(riderId, updates);
-        if (!updated) throw new AppError('Rider not found', 404);
-    } catch (error) {
-        if (previousIdentity) await authService.updateUserProfile(riderId, previousIdentity);
-        if (error.code === 11000) {
-            throw new AppError('Another rider already has this phone, email or vehicle number', 409);
-        }
-        throw error;
-    }
-
-    if (isActive !== undefined && (isActive || existing.approvalStatus === 'approved')) {
-        const status = isActive && existing.approvalStatus === 'approved' ? 'active' : 'suspended';
-        await authService.setAccountStatus(riderId, status);
-    }
-    return riderRepository.getRiderById(riderId);
-};
-
-const getAllRiders = async (query) => {
-    const { riders, total } = await riderRepository.getAllRiders(query);
-    const activeDeliveryRiderIds = await Delivery.distinct('riderId', {
-        isOpen: true,
-        riderId: { $in: riders.map(({ _id }) => _id) },
-    });
-    const busyRiderIds = new Set(activeDeliveryRiderIds.map(String));
-    return {
-        riders: riders.map((rider) => ({ ...rider, isBusy: busyRiderIds.has(String(rider._id)) })),
-        pagination: {
-            page: query.page,
-            limit: query.limit,
-            total,
-            totalPages: Math.ceil(total / query.limit),
-        },
-    };
-};
-
-const getRiderById = async (riderId) => {
-    const rider = await riderRepository.getRiderById(riderId);
-    if (!rider) throw new AppError('Rider not found', 404);
+const setAvailability = async (user, { isAvailable }) => {
+    const rider = await riderRepository.setAvailability(user._id, isAvailable);
+    if (!rider) throw new AppError('Rider profile not found', 404);
     return rider;
 };
 
-const deleteRider = async (riderId) => {
-    const rider = await riderRepository.deleteRider(riderId);
-    if (!rider) throw new AppError('Rider not found', 404);
-    await authService.setAccountStatus(riderId, 'suspended');
+const updateLocation = async (user, { latitude, longitude, heading }) => {
+    const rider = await riderRepository.updateLocation(user._id, latitude, longitude, heading ?? null);
+    if (!rider) throw new AppError('Rider profile not found', 404);
+    return rider;
 };
 
-const registerRider = async (body) => {
-    const { name, vehicleType, deliveryZones, password } = body;
-    const phone = body.phone.replace(/\D/g, '').slice(-10);
-    const email = body.email.trim().toLowerCase();
-    const vehicleNumber = (body.vehicleNumber || '').replace(/[\s-]/g, '');
-    const user = await authService.createPendingUser({ name, email, phone, password, role: 'rider' });
-    const data = { _id: user._id, name, phone, email, vehicleType, vehicleNumber, approvalStatus: 'pending', isAvailable: false };
-    if (deliveryZones) data.deliveryZones = deliveryZones;
+const getAvailableOrders = async () => {
+    const orders = await riderRepository.getAvailableOrders();
+    return { orders };
+};
 
-    try {
-        const { rider, isDuplicate } = await riderRepository.createRider(data);
-        if (isDuplicate) {
-            throw new AppError('A rider with this phone, email or vehicle number is already registered', 409);
-        }
-        return { id: rider._id, name: rider.name, phone: rider.phone, approvalStatus: rider.approvalStatus };
-    } catch (error) {
-        await authService.deleteUser(user._id);
-        if (error.code === 11000) {
-            throw new AppError('A rider with this phone, email or vehicle number is already registered', 409);
-        }
+const acceptOrder = async (user, orderNumber) => {
+    const rider = await riderRepository.getRider(user._id);
+    if (!rider) throw new AppError('Rider profile not found', 404);
+    if (!rider.isAvailable) throw new AppError('Go online to accept orders', 400);
+
+    const delivery = await riderRepository.acceptOrder(rider._id, orderNumber).catch((error) => {
+        if (error.code === 11000) throw new AppError('You already have a delivery in progress', 409);
         throw error;
-    }
-};
-const reviewRider = async (riderId, status, reason) => {
-    if (status === 'rejected' && (await Delivery.exists({ riderId, isOpen: true }))) {
-        throw new AppError('Rider has an open delivery. Release it first', 409);
-    }
-    const rider = await riderRepository.reviewRider(riderId, status, reason);
-    if (!rider) throw new AppError(`Rider not found or already ${status}`, 404);
-    await authService.reviewRiderAccount(riderId, status === 'approved', reason);
-    return riderRepository.getRiderById(riderId);
+    });
+    if (!delivery) throw new AppError('Order is no longer available', 409);
+
+    return delivery;
 };
 
-const updateRiderLocation = async (riderId, location) => {
-    const rider = await riderRepository.updateRiderLocation(riderId, location);
-    if (!rider) throw new AppError('Rider not found', 404);
+const updateStatus = async (user, orderNumber, { status }, file) => {
+    if (status === 'delivered' && !file) throw new AppError('Delivery photo is required', 400);
+
+    const rider = await riderRepository.getRider(user._id);
+    if (!rider) throw new AppError('Rider profile not found', 404);
+
+    const photoKey = status === 'delivered' ? await uploadImage(file.buffer) : null;
+    const order = await riderRepository.updateStatus(rider._id, orderNumber, status, photoKey);
+
+    if (!order) {
+        if (photoKey) await deleteImage(photoKey);
+        throw new AppError('Order not found or not in the correct status', 404);
+    }
+
+    return photoKey ? { ...order, photoUrl: getPhotoUrl(photoKey) } : order;
+};
+
+const currentDelivery = async (user) => {
+    const delivery = await riderRepository.currentDelivery(user._id);
+    if (!delivery) throw new AppError('No delivery in progress', 404);
+    return delivery;
+};
+
+const getMyDeliveries = async (user, { month, page, limit }) => {
+    const currentMonth = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 7);
+    const selectedMonth = month || currentMonth;
+    if (selectedMonth > currentMonth) throw new AppError('Month cannot be in the future', 400);
+
+    const [year, monthNumber] = selectedMonth.split('-').map(Number);
+    const nextYear = monthNumber === 12 ? year + 1 : year;
+    const nextMonthNumber = monthNumber === 12 ? 1 : monthNumber + 1;
+    const from = new Date(`${selectedMonth}-01T00:00:00+05:30`);
+    const to = new Date(`${nextYear}-${String(nextMonthNumber).padStart(2, '0')}-01T00:00:00+05:30`);
+
+    const report = await riderRepository.getMyDeliveries(user._id, from, to, (page - 1) * limit, limit);
+    if (!report) throw new AppError('Rider profile not found', 404);
+
+    const totalDeliveries = report.total[0]?.count || 0;
+    return {
+        month: selectedMonth,
+        totalDeliveries,
+        deliveries: report.deliveries.map((delivery) => ({
+            orderNumber: delivery.orderNumber,
+            deliveredAt: delivery.deliveredAt,
+            area: delivery.area,
+            photoUrl: getPhotoUrl(delivery.photoKey),
+        })),
+        pagination: { page, limit, total: totalDeliveries, totalPages: Math.ceil(totalDeliveries / limit) },
+    };
+};
+
+const getRiderStats = async () => {
+    const since = new Date(Date.now() - 2 * 60 * 1000);
+    const { totalRiders, pending, active, live, busy } = await riderRepository.getRiderStats(since);
+    return { totalRiders, pending, active, live, busy, free: live - busy };
+};
+
+const getAllRiders = async ({ status, page, limit }) => {
+    const since = new Date(Date.now() - 2 * 60 * 1000);
+    const { riders, total } = await riderRepository.getAllRiders(status, since, (page - 1) * limit, limit);
+    return { riders, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+};
+
+const reviewRider = async (userId, { status, reason }) => {
+    const rider = await riderRepository.reviewRider(userId, status, reason);
+    if (!rider) throw new AppError('Pending rider not found', 404);
+    return rider;
 };
 
 export {
-    createRider,
-    updateRider,
-    getAllRiders,
-    getRiderById,
-    deleteRider,
     registerRider,
-    reviewRider,
-    updateRiderLocation,
+    setAvailability,
+    updateLocation,
+    getAvailableOrders,
+    acceptOrder,
+    updateStatus,
+    currentDelivery,
+    getMyDeliveries,
+    getRiderStats,
+    getAllRiders,
+    reviewRider
 };

@@ -1,75 +1,68 @@
 import Joi from 'joi';
 
-const createRiderSchema = Joi.object({
-    name: Joi.string().trim().min(2).max(80).required(),
-    phone: Joi.string()
-        .trim()
-        .pattern(/^(?:\+91[\s-]?)?[6-9]\d{4}[\s-]?\d{5}$/)
-        .required()
-        .messages({ 'string.pattern.base': 'phone must be a valid Indian mobile number' }),
-    email: Joi.string().trim().lowercase().email({ tlds: { allow: false } }).allow(''),
-    vehicleType: Joi.string().trim().lowercase().valid('bike', 'bicycle', 'scooter').required(),
-    vehicleNumber: Joi.string().trim().uppercase().max(15).allow(''),
-    deliveryZones: Joi.array().items(Joi.string().trim().max(60)).max(20).unique(),
-    joiningDate: Joi.date().iso(),
+const setAvailabilitySchema = Joi.object({
+    isAvailable: Joi.boolean().required(),
 });
 
-const riderIdParamSchema = Joi.object({
-    riderId: Joi.string().hex().length(24).required(),
-});
-
-const updateRiderLocationSchema = Joi.object({
+const updateLocationSchema = Joi.object({
     latitude: Joi.number().min(-90).max(90).required(),
     longitude: Joi.number().min(-180).max(180).required(),
-    heading: Joi.number().min(0).max(360).allow(null).default(null),
+    heading: Joi.number().min(0).max(360),
 });
 
-const updateRiderSchema = Joi.object({
-    name: Joi.string().trim().min(2).max(80),
-    phone: Joi.string()
-        .trim()
-        .pattern(/^(?:\+91[\s-]?)?[6-9]\d{4}[\s-]?\d{5}$/)
-        .messages({ 'string.pattern.base': 'phone must be a valid Indian mobile number' }),
-    email: Joi.string().trim().lowercase().email({ tlds: { allow: false } }).allow(''),
-    vehicleType: Joi.string().trim().lowercase().valid('bike', 'bicycle', 'scooter'),
-    vehicleNumber: Joi.string().trim().uppercase().max(15).allow(''),
-    deliveryZones: Joi.array().items(Joi.string().trim().max(60)).max(20).unique(),
-    isAvailable: Joi.boolean(),
-    isActive: Joi.boolean(),
-}).min(1);
+const updateStatusSchema = Joi.object({
+    status: Joi.string().trim().lowercase().valid('pickedup', 'delivered').required(),
+});
+
+const getMyDeliveriesSchema = Joi.object({
+    month: Joi.string()
+        .pattern(/^\d{4}-(0[1-9]|1[0-2])$/)
+        .messages({ 'string.pattern.base': 'month must be in YYYY-MM format' }),
+    page: Joi.number().integer().min(1).default(1),
+    limit: Joi.number().integer().min(1).max(50).default(10),
+});
 
 const getAllRidersSchema = Joi.object({
-    approvalStatus: Joi.string().trim().lowercase().valid('pending', 'approved', 'rejected'),
+    status: Joi.string().trim().lowercase().valid('pending', 'active', 'live', 'busy', 'free'),
     page: Joi.number().integer().min(1).default(1),
-    limit: Joi.number().integer().min(1).max(100).default(20),
-    zone: Joi.string().trim().max(60),
-    isAvailable: Joi.boolean(),
-    isActive: Joi.boolean(),
+    limit: Joi.number().integer().min(1).max(50).default(10),
 });
 
-const registerRiderSchema = createRiderSchema.keys({
-    joiningDate: Joi.forbidden(),
-    email: Joi.string().trim().lowercase().email({ tlds: { allow: false } }).required(),
-    password: Joi.string().min(8).max(72).required(),
+const orderNumberParamSchema = Joi.object({
+    orderNumber: Joi.string().trim().uppercase().min(8).max(20).required(),
 });
 
-const createRiderAccountSchema = createRiderSchema.keys({
-    password: Joi.string().min(8).max(72).required(),
+const userIdParamSchema = Joi.object({
+    userId: Joi.string().trim().lowercase().hex().length(24).required(),
 });
 
-// One endpoint for approve and reject. A reason is allowed only when rejecting.
 const reviewRiderSchema = Joi.object({
-    status: Joi.string().trim().lowercase().valid('approved', 'rejected').required(),
-    reason: Joi.string().trim().max(200).allow('').when('status', { is: 'approved', then: Joi.forbidden() }),
+    status: Joi.string().trim().lowercase().valid('active', 'rejected').required(),
+    reason: Joi.string().trim().min(3).max(200).when('status', {
+        is: 'rejected',
+        then: Joi.required(),
+        otherwise: Joi.forbidden(),
+    }),
+});
+
+const registerRiderSchema = Joi.object({
+    name: Joi.string().trim().min(2).max(80).required(),
+    email: Joi.string().trim().lowercase().email().required(),
+    phone: Joi.string().trim().pattern(/^[6-9]\d{9}$/).required()
+        .messages({ 'string.pattern.base': 'phone must be a valid 10 digit Indian number' }),
+    password: Joi.string().min(8).max(64).required(),
+    vehicleType: Joi.string().trim().lowercase().valid('bike', 'scooty').required(),
+    vehicleNumber: Joi.string().trim().uppercase().min(4).max(15).required(),
 });
 
 export {
-    createRiderSchema,
-    riderIdParamSchema,
-    updateRiderSchema,
-    updateRiderLocationSchema,
+    setAvailabilitySchema,
+    updateLocationSchema,
+    updateStatusSchema,
+    getMyDeliveriesSchema,
     getAllRidersSchema,
-    registerRiderSchema,
-    createRiderAccountSchema,
+    orderNumberParamSchema,
+    userIdParamSchema,
     reviewRiderSchema,
+    registerRiderSchema
 };

@@ -1,54 +1,47 @@
 import { Router } from 'express';
 import {
-    createRider,
-    updateRider,
-    getAllRiders,
-    getRiderById,
-    deleteRider,
     registerRider,
-    reviewRider,
-    updateMyLocation,
+    setAvailability,
+    updateLocation,
+    getAvailableOrders,
+    acceptOrder,
+    updateStatus,
+    currentDelivery,
+    getMyDeliveries,
+    getRiderStats,
+    getAllRiders,
+    reviewRider
 } from '../controllers/riderController.js';
 import {
-    createRiderAccountSchema,
-    riderIdParamSchema,
-    updateRiderLocationSchema,
-    updateRiderSchema,
-    getAllRidersSchema,
     registerRiderSchema,
-    reviewRiderSchema,
+    setAvailabilitySchema,
+    updateLocationSchema,
+    updateStatusSchema,
+    getMyDeliveriesSchema,
+    getAllRidersSchema,
+    orderNumberParamSchema,
+    userIdParamSchema,
+    reviewRiderSchema
 } from '../validators/riderValidator.js';
-import { riderLocationLimiter, riderRegisterLimiter } from '../middleware/rateLimiter.js';
 import validate from '../middleware/validate.js';
 import authenticate from '../middleware/authenticate.js';
 import requireRoles from '../middleware/requireRoles.js';
 import uploadImage from '../middleware/uploadImage.js';
-import { orderIdParamSchema } from '../validators/orderValidator.js';
-import {
-    getMyActiveOrder,
-    acceptOrder,
-    rejectOrder,
-    markPickedUp,
-    uploadDeliveryPhoto,
-    markDelivered,
-} from '../controllers/deliveryController.js';
+import { riderLocationLimiter, riderRegisterLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
-// Admin only
-router.post('/createRider', authenticate, requireRoles('admin'), validate(createRiderAccountSchema), createRider);
-router.patch('/updateRider/:riderId', authenticate, requireRoles('admin'), validate(riderIdParamSchema, 'params'), validate(updateRiderSchema), updateRider);
-router.get('/getAllRiders', authenticate, requireRoles('admin'), validate(getAllRidersSchema, 'query'), getAllRiders);
-router.get('/getRiderById/:riderId', authenticate, requireRoles('admin'), validate(riderIdParamSchema, 'params'), getRiderById);
-router.delete('/deleteRider/:riderId', authenticate, requireRoles('admin'), validate(riderIdParamSchema, 'params'), deleteRider);
-router.post('/register', riderRegisterLimiter, validate(registerRiderSchema), registerRider);
-router.patch('/updateRiderLocation', authenticate, requireRoles('rider'), riderLocationLimiter, validate(updateRiderLocationSchema), updateMyLocation);
-router.get('/myActiveOrder', authenticate, requireRoles('rider'), getMyActiveOrder);
-router.patch('/acceptOrder/:orderId', authenticate, requireRoles('rider'), validate(orderIdParamSchema, 'params'), acceptOrder);
-router.patch('/rejectOrder/:orderId', authenticate, requireRoles('rider'), validate(orderIdParamSchema, 'params'), rejectOrder);
-router.patch('/markPickedUp/:orderId', authenticate, requireRoles('rider'), validate(orderIdParamSchema, 'params'), markPickedUp);
-router.post('/uploadDeliveryPhoto/:orderId', authenticate, requireRoles('rider'), validate(orderIdParamSchema, 'params'), uploadImage, uploadDeliveryPhoto);
-router.patch('/markDelivered/:orderId', authenticate, requireRoles('rider'), validate(orderIdParamSchema, 'params'), markDelivered);
+router.post('/registerRider', riderRegisterLimiter, validate(registerRiderSchema), registerRider);
+router.patch('/setAvailability', authenticate, requireRoles('rider'), validate(setAvailabilitySchema), setAvailability);
+router.patch('/updateLocation', authenticate, requireRoles('rider'), riderLocationLimiter, validate(updateLocationSchema), updateLocation);
+router.get('/getAvailableOrders', authenticate, requireRoles('rider'), getAvailableOrders);
+router.post('/acceptOrder/:orderNumber', authenticate, requireRoles('rider'), validate(orderNumberParamSchema, 'params'), acceptOrder);
+router.patch('/updateStatus/:orderNumber', authenticate, requireRoles('rider'), validate(orderNumberParamSchema, 'params'), uploadImage, validate(updateStatusSchema), updateStatus);
+router.get('/currentDelivery', authenticate, requireRoles('rider'), currentDelivery);
+router.get('/getMyDeliveries', authenticate, requireRoles('rider'), validate(getMyDeliveriesSchema, 'query'), getMyDeliveries);
 
-router.patch('/reviewRider/:riderId', authenticate, requireRoles('admin'), validate(riderIdParamSchema, 'params'), validate(reviewRiderSchema), reviewRider);
+router.get('/getRiderStats', authenticate, requireRoles('admin'), getRiderStats);
+router.get('/getAllRiders', authenticate, requireRoles('admin'), validate(getAllRidersSchema, 'query'), getAllRiders);
+router.patch('/reviewRider/:userId', authenticate, requireRoles('admin'), validate(userIdParamSchema, 'params'), validate(reviewRiderSchema), reviewRider);
+
 export default router;
