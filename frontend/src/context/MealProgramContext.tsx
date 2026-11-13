@@ -8,7 +8,7 @@ import {
   Order,
   Payment,
 } from '../data/mealProgram';
-import { createOrder, type DeliveryAddress, type DeliveryPoint } from '../services/orderService';
+import { createOrder, type DeliveryAddress } from '../services/orderService';
 
 export interface CartItem {
   product: MealProduct;
@@ -16,11 +16,11 @@ export interface CartItem {
 }
 
 interface PlaceOrderInput {
+  addressId: string;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
   deliveryAddress: DeliveryAddress;
-  deliveryLocation?: DeliveryPoint;
   paymentMethod: 'UPI' | 'CARD' | 'NET_BANKING';
 }
 
@@ -143,7 +143,6 @@ export const MealProgramProvider: React.FC<{ children: React.ReactNode }> = ({
       }
       return [...prev, { product, quantity: 1 }];
     });
-    setIsCartOpen(true);
   };
 
   const updateQuantity = (productId: string, quantity: number) => {
@@ -179,16 +178,12 @@ export const MealProgramProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     const response = await createOrder({
-      customerName: input.customerName,
-      customerEmail: input.customerEmail,
-      customerPhone: input.customerPhone,
-      deliveryAddress: input.deliveryAddress,
-      deliveryLocation: input.deliveryLocation ?? { latitude: 17.385044, longitude: 78.486671 },
+      addressId: input.addressId,
       paymentMethod: input.paymentMethod.toLowerCase() as 'upi' | 'card' | 'netbanking',
       items: cart.map((item) => ({ mealId: item.product.id, quantity: item.quantity })),
     });
     const backendOrder = response.data;
-    const address = backendOrder.deliveryAddress;
+    const address = input.deliveryAddress;
     const formattedAddress = [
       address.addressLine1,
       address.addressLine2,
@@ -207,9 +202,9 @@ export const MealProgramProvider: React.FC<{ children: React.ReactNode }> = ({
       id: backendOrder._id,
       orderNumber: backendOrder.orderNumber,
       userId: `USR-${Date.now()}`,
-      customerName: backendOrder.customerName,
-      customerEmail: backendOrder.customerEmail,
-      customerPhone: backendOrder.customerPhone,
+      customerName: input.customerName,
+      customerEmail: input.customerEmail,
+      customerPhone: input.customerPhone,
       deliveryAddress: formattedAddress,
       totalAmountInr: backendOrder.totalAmountInr,
       sponsoredMealsCount: backendOrder.sponsoredMealsCount,
