@@ -6,7 +6,7 @@
 import React, { lazy, Suspense, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { MealProgramProvider } from './context/MealProgramContext';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { PageTransition } from './components/PageTransition';
@@ -25,10 +25,12 @@ const LiveTracking = lazy(() => import('./pages/LiveTracking').then(({ LiveTrack
 const ZeptoTracking = lazy(() => import('./pages/ZeptoTracking').then(({ ZeptoTracking }) => ({ default: ZeptoTracking })));
 const CelebrateAndGive = lazy(() => import('./pages/CelebrateAndGive').then(({ CelebrateAndGive }) => ({ default: CelebrateAndGive })));
 const SupportModal = lazy(() => import('./components/SupportModal').then(({ SupportModal }) => ({ default: SupportModal })));
+const AuthModal = lazy(() => import('./components/AuthModal').then(({ AuthModal }) => ({ default: AuthModal })));
 const CartModal = lazy(() => import('./components/CartModal').then(({ CartModal }) => ({ default: CartModal })));
 const NotificationToast = lazy(() => import('./components/NotificationToast').then(({ NotificationToast }) => ({ default: NotificationToast })));
 
 function AppContent() {
+  const [authModalOpen, setAuthModalOpen] = useState(false);
   const [supportModalOpen, setSupportModalOpen] = useState(false);
   const [supportModalLoaded, setSupportModalLoaded] = useState(false);
   const [supportModalTab, setSupportModalTab] = useState<SupportTab>('donate');
@@ -37,6 +39,14 @@ function AppContent() {
   const [cartModalLoaded, setCartModalLoaded] = useState(false);
   const { pathname, search } = useLocation();
   const { activeToast } = useMealProgram();
+  const {
+    signIn,
+    signUp,
+    verifyEmail,
+    resendVerificationCode,
+    sendPasswordResetCode,
+    resetPassword,
+  } = useAuth();
 
   const handleOpenSupport = (
     tab: SupportTab = 'donate',
@@ -55,7 +65,10 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white text-[#080808] selection:bg-[#D7262F] selection:text-white">
-      <Navbar onOpenSupport={(tab) => handleOpenSupport(tab, 'all')} />
+      <Navbar
+        onOpenSupport={(tab) => handleOpenSupport(tab, 'all')}
+        onOpenSignIn={() => setAuthModalOpen(true)}
+      />
 
       <Suspense
         fallback={
@@ -126,11 +139,27 @@ function AppContent() {
           />
         </Suspense>
       )}
+      {authModalOpen && (
+        <Suspense fallback={null}>
+          <AuthModal
+            isOpen={authModalOpen}
+            onClose={() => setAuthModalOpen(false)}
+            onAuthenticated={() => undefined}
+            onSignIn={signIn}
+            onSignUp={signUp}
+            onVerifyEmail={verifyEmail}
+            onResendVerificationCode={resendVerificationCode}
+            onForgotPassword={sendPasswordResetCode}
+            onResetPassword={resetPassword}
+          />
+        </Suspense>
+      )}
       {cartModalLoaded && (
         <Suspense fallback={null}>
           <CartModal
             isOpen={cartModalOpen}
             onClose={() => setCartModalOpen(false)}
+            onRequestSignIn={() => setAuthModalOpen(true)}
           />
         </Suspense>
       )}

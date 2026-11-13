@@ -2,17 +2,40 @@ import React, { useState, useEffect } from 'react';
 import { X, ShoppingBag, Plus, Minus, Trash2, Heart, ArrowRight, Utensils, CheckCircle2, Copy } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useMealProgram } from '../context/MealProgramContext';
+import { useAuth } from '../context/AuthContext';
 import { useMeals } from '../hooks';
 import { getActiveKitchens, type Kitchen } from '../services/kitchenService';
+import {
+  createAddress,
+  deleteAddress,
+  getMyAddresses,
+  type SavedAddress,
+  updateAddress,
+} from '../services/addressService';
+import type { DeliveryAddress, DeliveryPoint } from '../services/orderService';
+import AddressSection from './AddressSection';
+import { SavedAddressPicker } from './SavedAddressPicker';
 import { useNavigate } from 'react-router-dom';
 
 interface CartModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onRequestSignIn: () => void;
 }
 
-export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
+const EMPTY_ADDRESS: DeliveryAddress = {
+  addressLine1: '',
+  addressLine2: '',
+  area: '',
+  landmark: '',
+  city: '',
+  state: '',
+  pincode: '',
+};
+
+export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose, onRequestSignIn }) => {
   const navigate = useNavigate();
+  const { user, loading: authLoading, refreshUser } = useAuth();
   const {
     cart,
     cartCount,
@@ -31,18 +54,18 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
   const { meals: backendMeals, loading: mealsLoading } = useMeals(selectedKitchenId || null);
   const [checkoutStep, setCheckoutStep] = useState<'CART' | 'CHECKOUT' | 'CONFIRMED'>('CART');
   const [submitting, setSubmitting] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [formError, setFormError] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [deliveryAddress, setDeliveryAddress] = useState({
-    addressLine1: '',
-    addressLine2: '',
-    area: '',
-    landmark: '',
-    city: '',
-    state: '',
-    pincode: '',
-  });
+  const [deliveryAddress, setDeliveryAddress] = useState<DeliveryAddress>(EMPTY_ADDRESS);
+  const [deliveryLocation, setDeliveryLocation] = useState<DeliveryPoint | null>(null);
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [isAddingNewAddress, setIsAddingNewAddress] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [addressActionLoading, setAddressActionLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'CARD' | 'NET_BANKING'>('UPI');
   const [confirmedOrder, setConfirmedOrder] = useState<any>(null);
   const [confirmedTokens, setConfirmedTokens] = useState<any[]>([]);
@@ -69,23 +92,224 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
     }
   }, [isOpen, kitchens.length, kitchensLoading]);
 
+  const selectSavedAddress = (address: SavedAddress) => {
+    setSelectedAddressId(address._id);
+    setIsAddingNewAddress(false);
+    setEditingAddressId(null);
+    setCustomerName(address.customerName);
+    setCustomerPhone(address.customerPhone || '');
+    setDeliveryAddress({
+      addressLine1: address.addressLine1,
+      addressLine2: address.addressLine2 || '',
+      area: address.area,
+      landmark: address.landmark || '',
+      city: address.city,
+      state: address.state,
+      pincode: address.pincode,
+    });
+    setDeliveryLocation(address.location);
+    setFormError('');
+  };
+
+  const beginAddingAddress = () => {
+    setSelectedAddressId(null);
+    setIsAddingNewAddress(true);
+    setEditingAddressId(null);
+    setCustomerName(user?.name || '');
+    setCustomerPhone(user?.phone || '');
+    setDeliveryAddress(EMPTY_ADDRESS);
+    setDeliveryLocation(null);
+    setFormError('');
+  };
+
+  const editSavedAddress = (address: SavedAddress) => {
+    setSelectedAddressId(address._id);
+    setIsAddingNewAddress(false);
+    setEditingAddressId(address._id);
+    setCustomerName(address.customerName);
+    setCustomerPhone(address.customerPhone || '');
+    setDeliveryAddress({
+      addressLine1: address.addressLine1,
+      addressLine2: address.addressLine2 || '',
+      area: address.area,
+      landmark: address.landmark || '',
+      city: address.city,
+      state: address.state,
+      pincode: address.pincode,
+    });
+    setDeliveryLocation(address.location);
+    setFormError('');
+  };
+
+  const saveEditedAddress = async () => {
+    if (!editingAddressId) return;
+    if (
+      !customerName.trim() ||
+      !deliveryAddress.addressLine1.trim() ||
+      !deliveryAddress.area.trim() ||
+      !deliveryAddress.city.trim() ||
+      !deliveryAddress.state.trim() ||
+      !deliveryAddress.pincode.trim() ||
+      !deliveryLocation
+    ) {
+      setFormError('Complete the required address fields and confirm its delivery pin.');
+      return;
+    }
+
+    setAddressActionLoading(true);
+    setFormError('');
+    try {
+      const currentAddress = savedAddresses.find((address) => address._id === editingAddressId);
+      if (!currentAddress) throw new Error('The address could not be found. Refresh and try again.');
+      const updatedAddress = await updateAddress(editingAddressId, {
+        ...deliveryAddress,
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim(),
+        label: currentAddress.label || 'home',
+        location: deliveryLocation,
+      });
+      setSavedAddresses((previous) => previous.map((address) =>
+        address._id === updatedAddress._id ? updatedAddress : address
+      ));
+      selectSavedAddress(updatedAddress);
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Could not update this address.');
+    } finally {
+      setAddressActionLoading(false);
+    }
+  };
+
+  const removeSavedAddress = async (address: SavedAddress) => {
+    if (!window.confirm('Delete this saved delivery address?')) return;
+    setAddressActionLoading(true);
+    setFormError('');
+    try {
+      await deleteAddress(address._id);
+      const remaining = savedAddresses.filter((saved) => saved._id !== address._id);
+      const nextAddress = remaining.find((saved) => saved.isDefault) || remaining[0];
+      const updatedAddresses = address.isDefault && nextAddress
+        ? remaining.map((saved) => ({ ...saved, isDefault: saved._id === nextAddress._id }))
+        : remaining;
+      setSavedAddresses(updatedAddresses);
+      if (selectedAddressId === address._id || editingAddressId === address._id) {
+        if (nextAddress) {
+          const nextSavedAddress = updatedAddresses.find((saved) => saved._id === nextAddress._id);
+          if (nextSavedAddress) selectSavedAddress(nextSavedAddress);
+        } else {
+          setSelectedAddressId(null);
+          setEditingAddressId(null);
+          setIsAddingNewAddress(true);
+          setCustomerName(user?.name || '');
+          setCustomerPhone(user?.phone || '');
+          setDeliveryAddress(EMPTY_ADDRESS);
+          setDeliveryLocation(null);
+        }
+      }
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Could not delete this address.');
+    } finally {
+      setAddressActionLoading(false);
+    }
+  };
+
+  const handleProceedToCheckout = async () => {
+    setFormError('');
+    setCheckoutLoading(true);
+    try {
+      const currentUser = user || await refreshUser();
+      if (!currentUser) {
+        onRequestSignIn();
+        return;
+      }
+      if (!currentUser.roles.includes('customer')) {
+        setFormError('A customer account is required to place a meal order.');
+        return;
+      }
+
+      const addresses = await getMyAddresses();
+      const defaultAddress = addresses.find((address) => address.isDefault) || addresses[0];
+      setSavedAddresses(addresses);
+      setCustomerName(defaultAddress?.customerName || currentUser.name);
+      setCustomerEmail(currentUser.email || '');
+      setCustomerPhone(defaultAddress?.customerPhone || currentUser.phone || '');
+      setSelectedAddressId(defaultAddress?._id || null);
+      setIsAddingNewAddress(!defaultAddress);
+      setDeliveryAddress(defaultAddress ? {
+        addressLine1: defaultAddress.addressLine1,
+        addressLine2: defaultAddress.addressLine2 || '',
+        area: defaultAddress.area,
+        landmark: defaultAddress.landmark || '',
+        city: defaultAddress.city,
+        state: defaultAddress.state,
+        pincode: defaultAddress.pincode,
+      } : EMPTY_ADDRESS);
+      setDeliveryLocation(defaultAddress?.location || null);
+      setCheckoutStep('CHECKOUT');
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Could not load your saved addresses.');
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
   const handleCompletePayment = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError('');
+    if (editingAddressId) {
+      setFormError('Save the address changes or choose another address before placing your order.');
+      return;
+    }
+    if (!user) {
+      onRequestSignIn();
+      return;
+    }
+    if (!deliveryLocation) {
+      setFormError('Choose and confirm the delivery pin before placing your order.');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const { order, tokens } = await placeOrder({
-        customerName,
-        customerEmail,
-        customerPhone,
+      let addressId = selectedAddressId;
+      const selectedAddress = savedAddresses.find((address) => address._id === selectedAddressId);
+      if (addressId && !selectedAddress) {
+        throw new Error('The selected delivery address is no longer available. Choose another address.');
+      }
+      if (!addressId) {
+        if (!isAddingNewAddress) {
+          throw new Error('Select a saved address or add a new one to continue.');
+        }
+        if (savedAddresses.length >= 3) {
+          throw new Error('You can save up to 3 addresses. Select one of your saved addresses to continue.');
+        }
+        const createdAddress = await createAddress({
+          ...deliveryAddress,
+          customerName: customerName.trim(),
+          customerPhone: customerPhone.trim(),
+          label: 'home',
+          isDefault: savedAddresses.length === 0,
+          location: deliveryLocation,
+        });
+        addressId = createdAddress._id;
+        setSavedAddresses((previous) => [...previous, createdAddress]);
+        setSelectedAddressId(createdAddress._id);
+        setIsAddingNewAddress(false);
+      }
+
+      if (!addressId) throw new Error('Could not save your delivery address. Please try again.');
+      const result = await placeOrder({
+        addressId,
+        customerName: customerName.trim(),
+        customerEmail: customerEmail.trim(),
+        customerPhone: customerPhone.trim(),
         deliveryAddress,
         paymentMethod,
       });
-      setConfirmedOrder(order);
-      setConfirmedTokens(tokens || []);
+      setConfirmedOrder(result.order);
+      setConfirmedTokens(result.tokens);
       setCheckoutStep('CONFIRMED');
     } catch (error: unknown) {
-      console.error('Order failed:', error);
-      alert('Failed to place order. Please try again.');
+      setFormError(error instanceof Error ? error.message : 'Failed to place order. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -342,14 +566,18 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
 
                   {/* Checkout Button or Form */}
                   {checkoutStep === 'CART' ? (
-                    <button
-                      type="button"
-                      onClick={() => setCheckoutStep('CHECKOUT')}
-                      className="mt-5 w-full py-4 px-5 rounded-[10px] bg-[#49E619] hover:bg-[#3cd110] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-widest inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                    >
-                      <span>PROCEED TO ₹{cartTotalInr} CHECKOUT</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
+                    <>
+                      {formError && <p role="alert" className="mt-3 text-xs font-semibold text-red-600">{formError}</p>}
+                      <button
+                        type="button"
+                        onClick={() => void handleProceedToCheckout()}
+                        disabled={authLoading || checkoutLoading}
+                        className="mt-5 w-full py-4 px-5 rounded-[10px] bg-[#49E619] hover:bg-[#3cd110] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-widest inline-flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:cursor-wait disabled:opacity-50"
+                      >
+                        <span>{checkoutLoading ? 'LOADING ADDRESSES…' : `PROCEED TO ₹${cartTotalInr} CHECKOUT`}</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </>
                   ) : (
                     <form onSubmit={handleCompletePayment} className="mt-5 pt-5 border-t border-[#122023]/15 space-y-3.5">
                       <div className="flex items-center justify-between">
@@ -404,33 +632,73 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
                         />
                       </div>
 
-                      <div>
-                        <label className="block text-[11px] font-mono-tabular uppercase text-[#122023]/70 mb-1">
-                          Delivery Address
-                        </label>
-                        <textarea
-                          value={Object.values(deliveryAddress).filter(Boolean).join(', ')}
-                          onChange={(e) => {
-                            const addr = e.target.value;
+                      <SavedAddressPicker
+                        addresses={savedAddresses}
+                        selectedAddressId={selectedAddressId}
+                        isAddingNewAddress={isAddingNewAddress}
+                        editingAddressId={editingAddressId}
+                        isBusy={addressActionLoading}
+                        onSelect={selectSavedAddress}
+                        onEdit={editSavedAddress}
+                        onDelete={(address) => void removeSavedAddress(address)}
+                        onAddNew={beginAddingAddress}
+                      />
+                      {(isAddingNewAddress || editingAddressId) && (
+                        <AddressSection
+                          value={{ address: deliveryAddress, location: deliveryLocation }}
+                          onChange={({ address, location }) => {
                             setDeliveryAddress({
-                              addressLine1: addr,
-                              addressLine2: '',
-                              area: '',
-                              landmark: '',
-                              city: '',
-                              state: '',
-                              pincode: '',
+                              ...address,
+                              addressLine2: address.addressLine2 || '',
+                              landmark: address.landmark || '',
                             });
+                            setDeliveryLocation(location);
                           }}
-                          className="w-full rounded-[8px] bg-white border border-[#122023]/20 px-3 py-2 text-xs text-[#122023] focus:outline-none focus:border-[#122023] resize-none"
-                          rows={2}
-                          required
                         />
+                      )}
+                      {editingAddressId && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => void saveEditedAddress()}
+                            disabled={addressActionLoading || submitting}
+                            className="w-full rounded-[8px] border border-[#122023]/20 bg-white px-4 py-3 text-xs font-bold text-[#122023] hover:border-[#188D44] disabled:opacity-50"
+                          >
+                            {addressActionLoading ? 'Saving address…' : 'Save address changes'}
+                          </button>
+                          <p className="text-xs text-[#122023]/65">
+                            Save the address changes or select another saved address before placing your order.
+                          </p>
+                        </>
+                      )}
+
+                      <div>
+                        <label className="mb-1 block text-[11px] font-mono-tabular uppercase text-[#122023]/70">
+                          Payment Method
+                        </label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {(['UPI', 'CARD', 'NET_BANKING'] as const).map((method) => (
+                            <button
+                              key={method}
+                              type="button"
+                              onClick={() => setPaymentMethod(method)}
+                              className={`rounded-[6px] border py-2 text-[11px] font-mono-tabular font-bold ${
+                                paymentMethod === method
+                                  ? 'border-[#122023] bg-[#122023] text-white'
+                                  : 'border-[#122023]/20 bg-white text-[#122023]/70'
+                              }`}
+                            >
+                              {method.replace('_', ' ')}
+                            </button>
+                          ))}
+                        </div>
                       </div>
+
+                      {formError && <p role="alert" className="text-xs font-semibold text-red-600">{formError}</p>}
 
                       <button
                         type="submit"
-                        disabled={submitting}
+                        disabled={submitting || addressActionLoading || Boolean(editingAddressId) || !deliveryLocation}
                         className="w-full py-4 px-5 rounded-[10px] bg-[#49E619] hover:bg-[#3cd110] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-widest inline-flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {submitting ? 'Processing...' : `PLACE ORDER ₹${cartTotalInr}`}

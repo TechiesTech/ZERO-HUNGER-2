@@ -47,10 +47,9 @@ const buildHtml = ({ title, message, code }) => `
                     </tr>
                     <tr>
                         <td align="center" style="padding:24px 28px 8px;">
-                            <div style="position:relative; background:${BRAND_LIGHT}; border:2px dashed ${BRAND}; border-radius:10px; padding:18px 12px 24px;">
+                            <div style="background:${BRAND_LIGHT}; border:2px dashed ${BRAND}; border-radius:10px; padding:18px 12px;">
                                 <div style="font-size:12px; color:${BRAND_DARK}; text-transform:uppercase; letter-spacing:1.5px; margin-bottom:8px;">Your code</div>
-                                <div id="otp-code" style="font-size:34px; font-weight:bold; letter-spacing:10px; color:${BRAND_DARK}; font-family:'Courier New', monospace;">${code}</div>
-                                <button onclick="navigator.clipboard.writeText('${code}'); this.innerText='Copied!'; setTimeout(() => this.innerText='Copy Code', 2000);" style="position:absolute; bottom:8px; right:12px; background:${BRAND}; color:#ffffff; border:none; border-radius:4px; padding:4px 10px; font-size:11px; font-weight:bold; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;">Copy Code</button>
+                                <div style="font-size:34px; font-weight:bold; letter-spacing:4px; color:${BRAND_DARK}; font-family:'Courier New', monospace;">${code}</div>
                             </div>
                         </td>
                     </tr>
