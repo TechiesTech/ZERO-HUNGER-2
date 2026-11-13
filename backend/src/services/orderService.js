@@ -112,8 +112,11 @@ const trackLiveOrder = async (user, orderNumber) => {
 
         const riderInfo = order.delivery?.rider;
         const riderLocation = riderInfo?.currentLocation || {};
-        const riderPoint = riderLocation.latitude != null ? riderLocation : null;
         const updatedAt = riderLocation.updatedAt ? new Date(riderLocation.updatedAt) : null;
+        const isLocationStale = !updatedAt || Date.now() - updatedAt.getTime() > 2 * 60 * 1000;
+
+        // An old position is never used for the route, the ETA or the marker
+        const riderPoint = riderLocation.latitude != null && !isLocationStale ? riderLocation : null;
 
         if (riderInfo) {
             rider = {
@@ -123,33 +126,32 @@ const trackLiveOrder = async (user, orderNumber) => {
                 acceptedAt: order.delivery.acceptedAt || null,
                 pickedUpAt: order.delivery.pickedUpAt || null,
                 currentLocation: {
-                    latitude: riderLocation.latitude ?? null,
-                    longitude: riderLocation.longitude ?? null,
-                    heading: riderLocation.heading ?? null,
+                    latitude: riderPoint ? riderLocation.latitude : null,
+                    longitude: riderPoint ? riderLocation.longitude : null,
+                    heading: riderPoint ? (riderLocation.heading ?? null) : null,
                     updatedAt,
                 },
-                isLocationStale: !updatedAt || Date.now() - updatedAt.getTime() > 2 * 60 * 1000,
+                isLocationStale,
             };
         }
 
-        // Routes and estimated delivery time
+        // Routes (a route is null when the routing server fails, so every use below is guarded)
         if (destination && status === 'outfordelivery' && riderPoint) {
             toCustomer = await getCachedRoute(order.orderNumber, 'rider-to-customer', riderPoint, destination);
-            estimatedDeliveryAt = new Date(Date.now() + toCustomer.durationSeconds * 1000);
         } else if (destination && status !== 'outfordelivery' && kitchenPoint) {
             if (riderPoint) {
                 toKitchen = await getCachedRoute(order.orderNumber, 'rider-to-kitchen', riderPoint, kitchenPoint);
             }
             toCustomer = await getCachedRoute(order.orderNumber, 'kitchen-to-customer', kitchenPoint, destination);
-
-            if (status === 'readyforpickup' && toKitchen) {
-                const seconds = toKitchen.durationSeconds + toCustomer.durationSeconds;
-                estimatedDeliveryAt = new Date(Date.now() + seconds * 1000);
-            }
         }
 
-        // No live route available, use the saved estimate
-        if (!estimatedDeliveryAt && status === 'outfordelivery') {
+        // Estimated delivery time
+        if (status === 'outfordelivery' && toCustomer) {
+            estimatedDeliveryAt = new Date(Date.now() + toCustomer.durationSeconds * 1000);
+        } else if (status === 'readyforpickup' && toKitchen && toCustomer) {
+            estimatedDeliveryAt = new Date(Date.now() + (toKitchen.durationSeconds + toCustomer.durationSeconds) * 1000);
+        } else if (status === 'outfordelivery') {
+            // No live route, use the saved estimate
             estimatedDeliveryAt = order.estimatedDeliveryAt || null;
         }
     }

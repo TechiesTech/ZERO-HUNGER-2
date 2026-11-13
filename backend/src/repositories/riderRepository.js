@@ -19,7 +19,7 @@ const statusFlow = {
 };
 
 const registerRider = async ({ name, email, phone, passwordHash, vehicleType, vehicleNumber }) => {
-    const user = await User.create({ name, email, phone, passwordHash, role: 'rider', status: 'pending' });
+    const user = await User.create({ name, email, phone, passwordHash, roles: ['rider'], status: 'pending' });
     try {
         await Rider.create({ userId: user._id, vehicleType, vehicleNumber });
     } catch (error) {
@@ -39,15 +39,18 @@ const setAvailability = async (userId, isAvailable) => {
         .lean();
 };
 
+// Only an online rider can save a location
 const updateLocation = async (userId, latitude, longitude, heading) => {
     return Rider.findOneAndUpdate(
-        { userId },
+        { userId, isAvailable: true },
         { $set: { currentLocation: { latitude, longitude, heading, updatedAt: new Date() } } },
         { new: true }
     )
         .select('currentLocation')
         .lean();
 };
+
+const hasOpenDelivery = async (riderId) => Boolean(await Delivery.exists({ riderId, isOpen: true }));
 
 const getAvailableOrders = async () => {
     return Order.aggregate([
@@ -461,6 +464,7 @@ export {
     getRider,
     setAvailability,
     updateLocation,
+    hasOpenDelivery,
     getAvailableOrders,
     acceptOrder,
     updateStatus,
