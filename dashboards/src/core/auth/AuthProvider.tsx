@@ -1,5 +1,5 @@
 import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { api } from '@core/api/apiClient';
+import { ApiError, api } from '@core/api/apiClient';
 import type { AuthContextValue, AuthResponse, PortalRole, PortalUser } from '@core/auth/types';
 
 interface BackendUser extends Omit<Partial<PortalUser>, 'role' | 'roles'> {
@@ -51,7 +51,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const handleUnauthorized = () => setUser(null);
     const handleFocus = () => {
       void checkAuth().catch((error: unknown) => {
-        console.error('Unable to refresh the authenticated session.', error);
+        if (!(error instanceof ApiError && error.status === 401)) {
+          console.error('Unable to refresh the authenticated session.', error);
+        }
       });
     };
 
@@ -88,15 +90,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
-    try {
-      const response = await api.post<AuthResponse<void>>('/api/auth/changePassword', {
-        currentPassword,
-        newPassword,
-      });
-      return response.message || 'Password changed successfully. Please log in again.';
-    } finally {
-      setUser(null);
-    }
+    const response = await api.post<AuthResponse<void>>('/api/auth/changePassword', {
+      currentPassword,
+      newPassword,
+    });
+    setUser(null);
+    return response.message || 'Password changed successfully. Please log in again.';
   }, []);
 
   const forgotPassword = useCallback(async (email: string) => {

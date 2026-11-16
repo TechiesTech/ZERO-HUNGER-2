@@ -1,15 +1,23 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AlertCircle, Eye, EyeOff, KeyRound, Lock, Mail } from 'lucide-react';
+import { ApiError } from '@core/api/apiClient';
 import { useAuth } from '@core/auth/useAuth';
 
 interface LoginState {
-  from?: { pathname?: string };
+  from?: { pathname?: string; search?: string; hash?: string };
   portalError?: string;
 }
 
 function isPortalRole(role: string): role is 'admin' | 'kitchen' {
   return role === 'admin' || role === 'kitchen';
+}
+
+function destinationFor(role: 'admin' | 'kitchen', from?: LoginState['from']) {
+  const home = role === 'admin' ? '/admin/dashboard' : '/kitchen/orders';
+  const requested = from?.pathname;
+  if (!requested?.startsWith(`/${role}/`)) return home;
+  return `${requested}${from?.search ?? ''}${from?.hash ?? ''}`;
 }
 
 export function Login() {
@@ -30,10 +38,7 @@ export function Login() {
       navigate('/change-password', { replace: true });
       return;
     }
-    const home = user.role === 'admin' ? '/admin/dashboard' : '/kitchen/orders';
-    const requested = locationState?.from?.pathname;
-    const returnTo = requested?.startsWith(`/${user.role}/`) ? requested : home;
-    navigate(returnTo, { replace: true });
+    navigate(destinationFor(user.role, locationState?.from), { replace: true });
   }, [user, isAuthLoading, locationState, navigate]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -57,11 +62,18 @@ export function Login() {
         return;
       }
 
-      const home = currentUser.role === 'admin' ? '/admin/dashboard' : '/kitchen/orders';
-      const requested = locationState?.from?.pathname;
-      const returnTo = requested?.startsWith(`/${currentUser.role}/`) ? requested : home;
+      const returnTo = destinationFor(currentUser.role, locationState?.from);
       navigate(returnTo, { replace: true });
     } catch (submitError) {
+      if (submitError instanceof ApiError && submitError.status === 403 && submitError.message === 'Account is disabled') {
+        try {
+          await logout();
+        } catch (logoutError) {
+          console.error('Unable to complete logout for a disabled account.', logoutError);
+        }
+        setError('This portal is for admin and kitchen accounts only');
+        return;
+      }
       setError(submitError instanceof Error ? submitError.message : 'Login failed');
     } finally {
       setIsLoading(false);
