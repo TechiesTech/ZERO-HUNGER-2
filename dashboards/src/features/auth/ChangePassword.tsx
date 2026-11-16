@@ -77,7 +77,12 @@ export function ChangePassword() {
         <div className="mb-6 text-center">
           <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-400"><KeyRound size={22} /></div>
           <h1 className="text-xl font-bold tracking-wide text-white">Update Temporary Password</h1>
-          <p className="mt-2 text-xs leading-relaxed text-white/60">Welcome, <strong className="text-white">{user?.name || 'Partner'}</strong>. You must replace your temporary password before accessing the dashboard.</p>
+          <p className="mt-2 text-xs leading-relaxed text-white/60">
+            Welcome, <strong className="text-white">{user?.name || 'Kitchen Partner'}</strong>.{' '}
+            {user?.role === 'kitchen'
+              ? 'For your security, you must replace your temporary password before accessing your kitchen operations.'
+              : 'For your security, you must replace your temporary password before accessing the admin dashboard.'}
+          </p>
         </div>
         {error && <div role="alert" className="mb-5 flex gap-2 rounded-xl border border-red-500/25 bg-red-500/10 p-3.5 text-xs text-red-400"><AlertCircle size={16} />{error}</div>}
         {success && <div role="status" className="mb-5 flex gap-2 rounded-xl border border-[#49E619]/25 bg-[#49E619]/10 p-3.5 text-xs text-[#49E619]"><CheckCircle2 size={16} />{success}</div>}
@@ -90,7 +95,7 @@ export function ChangePassword() {
           </button>
         </form>
         <div className="mt-6 flex items-center justify-between border-t border-white/10 pt-4 text-xs text-white/40">
-          <span>Zero Hunger Portal</span>
+          <span>{user?.role === 'kitchen' ? 'Zero Hunger Kitchen' : 'Zero Hunger Admin'}</span>
           <button onClick={handleLogout} className="inline-flex items-center gap-1.5 hover:text-white"><LogOut size={13} /> Sign out</button>
         </div>
       </div>

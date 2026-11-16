@@ -10,14 +10,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
-    method,
-    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-    credentials: 'include',
-  });
-
+async function readResponse<T>(response: Response, failureLabel: string): Promise<T> {
   const responseText = await response.text();
   let payload: { message?: string } | undefined;
   if (responseText) {
@@ -33,12 +26,22 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   }
   if (!response.ok) {
     throw new ApiError(
-      payload?.message || `Request failed (${response.status})`,
+      payload?.message || `${failureLabel} (${response.status})`,
       response.status
     );
   }
 
   return payload as T;
+}
+
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, {
+    method,
+    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+    credentials: 'include',
+  });
+  return readResponse<T>(response, 'Request failed');
 }
 
 export const api = {
@@ -53,27 +56,6 @@ export const api = {
       body: formData,
       credentials: 'include',
     });
-
-    const responseText = await response.text();
-    let payload: { message?: string } | undefined;
-    if (responseText) {
-      try {
-        payload = JSON.parse(responseText) as { message?: string };
-      } catch {
-        payload = undefined;
-      }
-    }
-
-    if (response.status === 401) {
-      window.dispatchEvent(new Event('auth:unauthorized'));
-    }
-    if (!response.ok) {
-      throw new ApiError(
-        payload?.message || `Upload failed (${response.status})`,
-        response.status
-      );
-    }
-
-    return payload as T;
+    return readResponse<T>(response, 'Upload failed');
   },
 };
