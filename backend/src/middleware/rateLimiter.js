@@ -14,7 +14,7 @@ const createLimiter = (max, options = {}) =>
 const createOrderLimiter = createLimiter(10);
 const reverseGeocodeLimiter = createLimiter(30);
 const trackOrderLimiter = createLimiter(30);
-const trackLiveOrderLimiter = createLimiter(150);
+const trackLiveOrderLimiter = createLimiter(300);
 const trackMyOrdersLimiter = createLimiter(20);
 const updateOrderLimiter = createLimiter(10);
 
@@ -30,7 +30,10 @@ const codeEmailLimiter = createLimiter(1, { windowMs: 60 * 1000, keyGenerator: (
 const verifyCodeLimiter = createLimiter(30);
 const changePasswordLimiter = createLimiter(5, { keyGenerator: (req) => String(req.user._id) });
 
-const riderLocationLimiter = createLimiter(12, { windowMs: 60 * 1000 });
+const riderLocationLimiter = createLimiter(20, {
+    windowMs: 60 * 1000,
+    keyGenerator: (req) => String(req.user._id),
+});
 const riderRegisterLimiter = createLimiter(5, { windowMs: 60 * 60 * 1000 });
 
 export {

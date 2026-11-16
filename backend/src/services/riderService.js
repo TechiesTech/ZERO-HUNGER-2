@@ -15,6 +15,13 @@ const registerRider = async ({ name, email, phone, password, vehicleType, vehicl
 };
 
 const setAvailability = async (user, { isAvailable }) => {
+    // Going offline in the middle of a delivery would freeze the customer's tracking
+    if (!isAvailable) {
+        const current = await riderRepository.getRider(user._id);
+        if (current && (await riderRepository.hasOpenDelivery(current._id))) {
+            throw new AppError('Finish your current delivery before going offline', 409);
+        }
+    }
     const rider = await riderRepository.setAvailability(user._id, isAvailable);
     if (!rider) throw new AppError('Rider profile not found', 404);
     return rider;
@@ -22,7 +29,7 @@ const setAvailability = async (user, { isAvailable }) => {
 
 const updateLocation = async (user, { latitude, longitude, heading }) => {
     const rider = await riderRepository.updateLocation(user._id, latitude, longitude, heading ?? null);
-    if (!rider) throw new AppError('Rider profile not found', 404);
+    if (!rider) throw new AppError('Go online to share your location', 400);
     return rider;
 };
 

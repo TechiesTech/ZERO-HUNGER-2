@@ -3,67 +3,79 @@ import { User } from '../models/schemas/userSchema.js';
 import { Order } from '../models/schemas/orderSchema.js';
 import { OrderItem } from '../models/schemas/orderItemSchema.js';
 
-const findKitchenById = (id) => Kitchen.findById(id).select('address location').lean();
+const getMyKitchen = (kitchenId) =>
+    Kitchen.findById(kitchenId).select('address location serviceRadiusKm isOpen').lean();
 
-// Add or update the kitchen's own details (address + lat/long)
 const saveMyKitchen = (kitchenId, data) =>
     Kitchen.findOneAndUpdate(
         { _id: kitchenId },
-        { $set: { ...data, user: kitchenId } },
+        { $set: data, $setOnInsert: { user: kitchenId } },
         { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
     ).lean();
 
-// Starts from users, so a kitchen account without details yet is also listed
-const getAllKitchens = async ({ isActive, $or }, skip, limit) => {
+const getAllKitchens = async ({ search, isActive, page, limit }) => {
     const match = { roles: 'kitchen' };
     if (isActive !== undefined) match.status = isActive ? 'active' : { $ne: 'active' };
-    if ($or) match.$or = $or;
+    if (search) {
+        const pattern = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+        match.$or = [{ name: pattern }, { email: pattern }, { phone: pattern }];
+    }
 
     const [result] = await User.aggregate([
         { $match: match },
         {
-            $lookup: {
-                from: 'kitchens',
-                localField: '_id',
-                foreignField: '_id',
-                pipeline: [{ $project: { address: 1, location: 1 } }],
-                as: 'details',
-            },
-        },
-        { $addFields: { details: { $arrayElemAt: ['$details', 0] } } },
-        {
-            $project: {
-                name: 1,
-                email: 1,
-                phone: 1,
-                status: 1,
-                mustChangePassword: 1,
-                createdAt: 1,
-                isActive: { $eq: ['$status', 'active'] },
-                address: '$details.address',
-                location: '$details.location',
-                detailsComplete: { $ne: [{ $type: '$details' }, 'missing'] },
-            },
-        },
-        {
             $facet: {
-                kitchens: [{ $sort: { createdAt: -1 } }, { $skip: skip }, { $limit: limit }],
+                kitchens: [
+                    { $sort: { createdAt: -1, _id: -1 } },
+                    { $skip: (page - 1) * limit },
+                    { $limit: limit },
+                    {
+                        $lookup: {
+                            from: 'kitchens',
+                            localField: '_id',
+                            foreignField: '_id',
+                            pipeline: [{ $project: { address: 1, location: 1, serviceRadiusKm: 1, isOpen: 1 } }],
+                            as: 'details',
+                        },
+                    },
+                    { $unwind: { path: '$details', preserveNullAndEmptyArrays: true } },
+                    {
+                        $project: {
+                            name: 1,
+                            email: 1,
+                            phone: 1,
+                            status: 1,
+                            mustChangePassword: 1,
+                            createdAt: 1,
+                            isActive: { $eq: ['$status', 'active'] },
+                            address: '$details.address',
+                            location: '$details.location',
+                            serviceRadiusKm: '$details.serviceRadiusKm',
+                            isOpen: '$details.isOpen',
+                            detailsComplete: { $ne: [{ $type: '$details' }, 'missing'] },
+                        },
+                    },
+                ],
                 metadata: [{ $count: 'total' }],
             },
         },
     ]);
+
     return { kitchens: result?.kitchens || [], total: result?.metadata[0]?.total || 0 };
 };
 
-// Public menu picker: expose every kitchen profile without account details.
 const getActiveKitchens = () =>
     Kitchen.aggregate([
+        { $match: { isOpen: { $ne: false } } },
         {
             $lookup: {
                 from: 'users',
                 localField: 'user',
                 foreignField: '_id',
-                pipeline: [{ $project: { name: 1 } }],
+                pipeline: [
+                    { $match: { status: 'active', roles: 'kitchen' } },
+                    { $project: { name: 1 } },
+                ],
                 as: 'account',
             },
         },
@@ -82,32 +94,26 @@ const getActiveKitchens = () =>
         { $sort: { name: 1 } },
     ]);
 
-const findOrdersForKitchen = async (kitchenId) => {
-    const orders = await Order.find({
-        kitchenId,
-        isDeleted: false,
-        paymentStatus: 'success',
-        customerMealStatus: { $in: ['confirmed', 'preparing', 'readyforpickup'] },
-    })
-        .sort({ createdAt: 1 })
-        .lean();
-
-    if (orders.length === 0) return [];
-
-    const items = await OrderItem.find({ orderId: { $in: orders.map(({ _id }) => _id) } }).lean();
-    const itemsByOrderId = new Map();
-    for (const item of items) {
-        const key = String(item.orderId);
-        const orderItems = itemsByOrderId.get(key) || [];
-        orderItems.push(item);
-        itemsByOrderId.set(key, orderItems);
-    }
-
-    return orders.map((order) => ({
-        ...order,
-        items: itemsByOrderId.get(String(order._id)) || [],
-    }));
-};
+const getPaidOrders = (kitchenId) =>
+    Order.aggregate([
+        {
+            $match: {
+                kitchenId,
+                isDeleted: false,
+                paymentStatus: 'success',
+                customerMealStatus: { $in: ['confirmed', 'preparing', 'readyforpickup'] },
+            },
+        },
+        { $sort: { createdAt: 1 } },
+        {
+            $lookup: {
+                from: OrderItem.collection.name,
+                localField: '_id',
+                foreignField: 'orderId',
+                as: 'items',
+            },
+        },
+    ]);
 
 const moveOrderStatus = (orderId, kitchenId, from, to, stampField) =>
     Order.findOneAndUpdate(
@@ -116,4 +122,4 @@ const moveOrderStatus = (orderId, kitchenId, from, to, stampField) =>
         { new: true, runValidators: true }
     ).lean();
 
-export { findKitchenById, saveMyKitchen, getAllKitchens, getActiveKitchens, findOrdersForKitchen, moveOrderStatus };
+export { getMyKitchen, saveMyKitchen, getAllKitchens, getActiveKitchens, getPaidOrders, moveOrderStatus };
