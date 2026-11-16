@@ -6,9 +6,6 @@ interface KitchenForm {
   name: string;
   email: string;
   phone: string;
-  address: string;
-  latitude: string;
-  longitude: string;
   password: string;
 }
 
@@ -16,11 +13,25 @@ const EMPTY_FORM: KitchenForm = {
   name: '',
   email: '',
   phone: '',
-  address: '',
-  latitude: '',
-  longitude: '',
   password: '',
 };
+
+function formatKitchenAddress(address: KitchenListItem['address']): string {
+  if (!address) return '—';
+  if (typeof address === 'string') return address;
+
+  return [
+    address.addressLine1,
+    address.addressLine2,
+    address.area,
+    address.landmark,
+    address.city,
+    address.state,
+    address.pincode,
+  ]
+    .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+    .join(', ') || '—';
+}
 
 export function Kitchens(): React.ReactElement {
   const [kitchens, setKitchens] = useState<KitchenListItem[]>([]);
@@ -33,6 +44,7 @@ export function Kitchens(): React.ReactElement {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState<KitchenForm>(EMPTY_FORM);
@@ -68,23 +80,7 @@ export function Kitchens(): React.ReactElement {
   const createKitchen = async (event: React.FormEvent) => {
     event.preventDefault();
     setError('');
-
-    if (Boolean(form.latitude) !== Boolean(form.longitude)) {
-      setError('Enter both latitude and longitude, or leave both blank.');
-      return;
-    }
-    if (form.latitude && form.longitude) {
-      const latitude = Number(form.latitude);
-      const longitude = Number(form.longitude);
-      if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
-        setError('Latitude must be between -90 and 90.');
-        return;
-      }
-      if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
-        setError('Longitude must be between -180 and 180.');
-        return;
-      }
-    }
+    setSuccess('');
 
     setSubmitting(true);
     try {
@@ -92,15 +88,12 @@ export function Kitchens(): React.ReactElement {
         name: form.name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim(),
-        address: form.address.trim(),
         password: form.password,
-        ...(form.latitude && form.longitude
-          ? { location: { latitude: Number(form.latitude), longitude: Number(form.longitude) } }
-          : {}),
       };
       await createKitchenAccount(payload);
       setModalOpen(false);
       setForm(EMPTY_FORM);
+      setSuccess('Kitchen account created. The kitchen partner must add their pickup address and coordinates after signing in.');
       await fetchKitchens(1);
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : 'Failed to create kitchen');
@@ -133,6 +126,11 @@ export function Kitchens(): React.ReactElement {
       {error && (
         <div role="alert" className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
           <AlertCircle size={16} />{error}
+        </div>
+      )}
+      {success && (
+        <div role="status" className="rounded-xl border border-[#49E619]/30 bg-[#49E619]/10 p-4 text-sm text-[#49E619]">
+          {success}
         </div>
       )}
 
@@ -183,7 +181,7 @@ export function Kitchens(): React.ReactElement {
                       {kitchen.email}<p className="mt-1 text-xs text-white/40">{kitchen.phone}</p>
                     </td>
                     <td className="px-5 py-4 text-white/60">
-                      {kitchen.address || '—'}
+                      {formatKitchenAddress(kitchen.address)}
                     </td>
                     <td className="px-5 py-4">
                       <span className={kitchen.isActive ? 'text-[#49E619]' : 'text-red-400'}>
@@ -232,6 +230,9 @@ export function Kitchens(): React.ReactElement {
               <div>
                 <p className="text-xs font-bold uppercase tracking-widest text-[#49E619]">New partner</p>
                 <h2 className="mt-1 text-xl font-bold text-white">Create kitchen account</h2>
+                <p className="mt-2 text-xs text-white/50">
+                  The kitchen partner will add their pickup address and coordinates in the Kitchen Portal after signing in.
+                </p>
               </div>
               <button
                 type="button"
@@ -247,19 +248,12 @@ export function Kitchens(): React.ReactElement {
                 ['name', 'Kitchen name', 'text', true],
                 ['email', 'Email', 'email', true],
                 ['phone', 'Phone (10 digits)', 'tel', true],
-                ['address', 'Address', 'text', false],
-                ['latitude', 'Latitude (optional)', 'number', false],
-                ['longitude', 'Longitude (optional)', 'number', false],
               ] as const).map(([key, label, type, required]) => (
-                <label
-                  key={key}
-                  className={`block text-sm text-white/70 ${key === 'address' ? 'sm:col-span-2' : ''}`}
-                >
+                <label key={key} className="block text-sm text-white/70">
                   {label}
                   <input
                     type={type}
                     required={required}
-                    step={type === 'number' ? 'any' : undefined}
                     value={form[key]}
                     onChange={(event) => updateForm(key, event.target.value)}
                     className="mt-1.5 w-full rounded-lg border border-white/10 bg-[#080808] px-3 py-2.5 text-white outline-none focus:border-[#49E619]/50"

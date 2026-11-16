@@ -292,7 +292,7 @@ export function useDeliveryAssignments() {
       const res = await api.get<{
         success: boolean;
         data: { riders: DeliveryRider[] };
-      }>('/api/riders/getAllRiders?isActive=true&limit=100');
+      }>('/api/riders/getAllRiders?status=active&limit=50');
       setRiders(res.data.riders);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load riders');

@@ -10,7 +10,15 @@ export interface KitchenSummary {
 export interface KitchenListItem extends KitchenSummary {
   email: string;
   phone: string;
-  address?: string;
+  address?: string | {
+    addressLine1?: string;
+    addressLine2?: string;
+    area?: string;
+    landmark?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+  };
   location?: { latitude: number; longitude: number };
   isActive: boolean;
   createdAt: string;
@@ -28,9 +36,7 @@ export interface CreateKitchenPayload {
   name: string;
   email: string;
   phone: string;
-  address: string;
   password: string;
-  location?: { latitude: number; longitude: number };
 }
 
 export function getActiveKitchens() {
@@ -42,5 +48,5 @@ export function getKitchens(query: URLSearchParams) {
 }
 
 export function createKitchen(payload: CreateKitchenPayload) {
-  return api.post('/api/kitchen/createKitchen', payload);
+  return api.post('/api/users/createUser', { ...payload, roles: ['kitchen'] });
 }
