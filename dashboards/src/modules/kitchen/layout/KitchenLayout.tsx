@@ -108,14 +108,14 @@ export function KitchenLayout(): React.ReactElement {
         {/* Brand header */}
         <div className="p-6 border-b border-white/8">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#4EDBE2]/10 border border-[#4EDBE2]/20 flex items-center justify-center text-[#4EDBE2]">
+            <div className="w-9 h-9 rounded-xl bg-[#49E619]/10 border border-[#49E619]/20 flex items-center justify-center text-[#49E619]">
               <ChefHat size={20} />
             </div>
             <div>
               <span className="font-bold text-base tracking-wider uppercase text-white block">
-                Zero<span className="text-[#4EDBE2]">Hunger</span>
+                Zero<span className="text-[#49E619]">Hunger</span>
               </span>
-              <span className="text-[10px] tracking-widest uppercase text-[#4EDBE2] font-semibold block">
+              <span className="text-[10px] tracking-widest uppercase text-[#49E619] font-semibold block">
                 Kitchen Portal
               </span>
             </div>
@@ -131,7 +131,7 @@ export function KitchenLayout(): React.ReactElement {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium transition-all ${
                   isActive
-                    ? 'bg-[#4EDBE2]/15 text-[#4EDBE2] border border-[#4EDBE2]/30 font-semibold shadow-sm shadow-[#4EDBE2]/5'
+                    ? 'bg-[#49E619]/15 text-[#49E619] border border-[#49E619]/30 font-semibold shadow-sm shadow-[#49E619]/5'
                     : 'text-white/60 hover:text-white hover:bg-white/5 border border-transparent'
                 }`
               }
@@ -146,7 +146,7 @@ export function KitchenLayout(): React.ReactElement {
         <div className="p-4 border-t border-white/8 bg-[#0D1719]/50 space-y-2">
           <div className="px-3 py-2 rounded-xl bg-[#122023] border border-white/5">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#4EDBE2] animate-pulse shrink-0" />
+              <span className="w-2 h-2 rounded-full bg-[#49E619] animate-pulse shrink-0" />
               <p className="text-xs font-medium text-white truncate">{user?.name || 'Kitchen'}</p>
             </div>
             <p className="text-[10px] text-white/40 truncate mt-0.5 pl-4">{user?.email}</p>
@@ -183,11 +183,11 @@ export function KitchenLayout(): React.ReactElement {
           <div className="relative w-64 max-w-[80vw] bg-[#0D1719] border-r border-white/10 flex flex-col z-10">
             <div className="p-5 border-b border-white/8 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#4EDBE2]/10 border border-[#4EDBE2]/20 flex items-center justify-center text-[#4EDBE2]">
+                <div className="w-8 h-8 rounded-lg bg-[#49E619]/10 border border-[#49E619]/20 flex items-center justify-center text-[#49E619]">
                   <ChefHat size={18} />
                 </div>
                 <span className="font-bold text-sm tracking-wider uppercase text-white">
-                  Zero<span className="text-[#4EDBE2]">Hunger</span>
+                  Zero<span className="text-[#49E619]">Hunger</span>
                 </span>
               </div>
               <button
@@ -207,7 +207,7 @@ export function KitchenLayout(): React.ReactElement {
                   className={({ isActive }) =>
                     `flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium transition-all ${
                       isActive
-                        ? 'bg-[#4EDBE2]/15 text-[#4EDBE2] border border-[#4EDBE2]/30 font-semibold'
+                        ? 'bg-[#49E619]/15 text-[#49E619] border border-[#49E619]/30 font-semibold'
                         : 'text-white/60 hover:text-white hover:bg-white/5 border border-transparent'
                     }`
                   }
@@ -258,7 +258,7 @@ export function KitchenLayout(): React.ReactElement {
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#4EDBE2]/10 border border-[#4EDBE2]/20 text-[11px] font-medium text-[#4EDBE2]">
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#49E619]/10 border border-[#49E619]/20 text-[11px] font-medium text-[#49E619]">
               <ChefHat size={12} />
               Kitchen Operational
             </span>
@@ -277,7 +277,7 @@ export function KitchenLayout(): React.ReactElement {
           <div className="relative w-full max-w-md bg-[#0D1719] border border-white/10 rounded-2xl p-6 shadow-2xl space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-white/8">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#4EDBE2]/10 border border-[#4EDBE2]/20 flex items-center justify-center text-[#4EDBE2]">
+                <div className="w-8 h-8 rounded-lg bg-[#49E619]/10 border border-[#49E619]/20 flex items-center justify-center text-[#49E619]">
                   <KeyRound size={16} />
                 </div>
                 <h3 className="text-base font-semibold text-white">Change Kitchen Password</h3>
@@ -317,7 +317,7 @@ export function KitchenLayout(): React.ReactElement {
                     required
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
-                    className="w-full pl-9 pr-11 py-2.5 bg-[#080808] border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-[#4EDBE2]/50 transition-colors"
+                    className="w-full pl-9 pr-11 py-2.5 bg-[#080808] border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-[#49E619]/50 transition-colors"
                     placeholder="Enter current password"
                   />
                   <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
@@ -325,9 +325,9 @@ export function KitchenLayout(): React.ReactElement {
                     type="button"
                     onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                     aria-label={showCurrentPassword ? 'Hide password' : 'Show password'}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-[#122023] hover:bg-[#1a2d32] border border-white/10 text-white/80 hover:text-[#4EDBE2] transition-all cursor-pointer z-10 flex items-center justify-center shadow-sm"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-[#122023] hover:bg-[#1a2d32] border border-white/10 text-white/80 hover:text-[#49E619] transition-all cursor-pointer z-10 flex items-center justify-center shadow-sm"
                   >
-                    {showCurrentPassword ? <EyeOff size={15} className="text-[#4EDBE2]" /> : <Eye size={15} />}
+                    {showCurrentPassword ? <EyeOff size={15} className="text-[#49E619]" /> : <Eye size={15} />}
                   </button>
                 </div>
               </div>
@@ -342,7 +342,7 @@ export function KitchenLayout(): React.ReactElement {
                     required
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full pl-9 pr-11 py-2.5 bg-[#080808] border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-[#4EDBE2]/50 transition-colors"
+                    className="w-full pl-9 pr-11 py-2.5 bg-[#080808] border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-[#49E619]/50 transition-colors"
                     placeholder="Enter new password"
                   />
                   <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
@@ -350,9 +350,9 @@ export function KitchenLayout(): React.ReactElement {
                     type="button"
                     onClick={() => setShowNewPassword(!showNewPassword)}
                     aria-label={showNewPassword ? 'Hide password' : 'Show password'}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-[#122023] hover:bg-[#1a2d32] border border-white/10 text-white/80 hover:text-[#4EDBE2] transition-all cursor-pointer z-10 flex items-center justify-center shadow-sm"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-[#122023] hover:bg-[#1a2d32] border border-white/10 text-white/80 hover:text-[#49E619] transition-all cursor-pointer z-10 flex items-center justify-center shadow-sm"
                   >
-                    {showNewPassword ? <EyeOff size={15} className="text-[#4EDBE2]" /> : <Eye size={15} />}
+                    {showNewPassword ? <EyeOff size={15} className="text-[#49E619]" /> : <Eye size={15} />}
                   </button>
                 </div>
               </div>
@@ -367,7 +367,7 @@ export function KitchenLayout(): React.ReactElement {
                     required
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full pl-9 pr-11 py-2.5 bg-[#080808] border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-[#4EDBE2]/50 transition-colors"
+                    className="w-full pl-9 pr-11 py-2.5 bg-[#080808] border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-[#49E619]/50 transition-colors"
                     placeholder="Re-enter new password"
                   />
                   <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
@@ -375,9 +375,9 @@ export function KitchenLayout(): React.ReactElement {
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-[#122023] hover:bg-[#1a2d32] border border-white/10 text-white/80 hover:text-[#4EDBE2] transition-all cursor-pointer z-10 flex items-center justify-center shadow-sm"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-[#122023] hover:bg-[#1a2d32] border border-white/10 text-white/80 hover:text-[#49E619] transition-all cursor-pointer z-10 flex items-center justify-center shadow-sm"
                   >
-                    {showConfirmPassword ? <EyeOff size={15} className="text-[#4EDBE2]" /> : <Eye size={15} />}
+                    {showConfirmPassword ? <EyeOff size={15} className="text-[#49E619]" /> : <Eye size={15} />}
                   </button>
                 </div>
               </div>
@@ -394,7 +394,7 @@ export function KitchenLayout(): React.ReactElement {
                 <button
                   type="submit"
                   disabled={isChangingPassword}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-[#4EDBE2] text-[#080808] hover:bg-[#3ec4cb] transition-colors cursor-pointer disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-[#49E619] text-[#080808] hover:bg-[#3dd111] transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {isChangingPassword ? (
                     <>

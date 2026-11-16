@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { kitchenApi } from '../services/kitchenApi';
 import type { KitchenOrder } from '../types';
+import { formatDeliveryAddress } from '../components/formatDeliveryAddress';
 import {
   PackageCheck,
   ChefHat,
@@ -66,15 +67,7 @@ export function Orders() {
     }
   };
 
-  const getOrderStatus = (o: KitchenOrder) => o.status || o.customerMealStatus || 'confirmed';
-
-  const formatAddress = (addr: KitchenOrder['deliveryAddress']): string => {
-    if (!addr) return '';
-    if (typeof addr === 'string') return addr;
-    return [addr.addressLine1, addr.addressLine2, addr.area, addr.city, addr.state, addr.pincode]
-      .filter(Boolean)
-      .join(', ');
-  };
+  const getOrderStatus = (o: KitchenOrder) => o.customerMealStatus;
 
   const filteredOrders = orders.filter((o) => {
     const status = getOrderStatus(o);
@@ -84,12 +77,11 @@ export function Orders() {
 
     if (search.trim()) {
       const q = search.toLowerCase();
-      const matchId = o._id.toLowerCase().includes(q);
-      const matchAddress = formatAddress(o.deliveryAddress).toLowerCase().includes(q);
+      const matchId = o.orderNumber.toLowerCase().includes(q) || o._id.toLowerCase().includes(q);
       const matchItems = o.items?.some((i) =>
-        (i.mealName || i.productName || '').toLowerCase().includes(q)
+        i.productName.toLowerCase().includes(q)
       );
-      return matchId || matchAddress || matchItems;
+      return matchId || matchItems;
     }
     return true;
   });
@@ -156,7 +148,7 @@ export function Orders() {
             onClick={() => setActiveTab('PREPARING')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
               activeTab === 'PREPARING'
-                ? 'bg-[#4EDBE2] text-black shadow-sm'
+                ? 'bg-[#49E619] text-black shadow-sm'
                 : 'text-white/60 hover:text-white'
             }`}
           >
@@ -181,7 +173,7 @@ export function Orders() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search order ID or items..."
+            placeholder="Search order number or items..."
             className="w-full pl-9 pr-4 py-2 bg-[#0D1719] border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:outline-none focus:border-[#49E619]/50 transition-colors"
           />
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
@@ -216,14 +208,14 @@ export function Orders() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/6">
                   <div className="flex items-center gap-3">
                     <span className="font-mono-tabular font-bold text-white text-base">
-                      #{order._id.slice(-6).toUpperCase()}
+                      #{order.orderNumber}
                     </span>
                     <span
                       className={`text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
                         isConfirmed
                           ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                           : isPreparing
-                          ? 'bg-[#4EDBE2]/10 text-[#4EDBE2] border border-[#4EDBE2]/20'
+                          ? 'bg-[#49E619]/10 text-[#49E619] border border-[#49E619]/20'
                           : 'bg-[#49E619]/10 text-[#49E619] border border-[#49E619]/20'
                       }`}
                     >
@@ -238,12 +230,12 @@ export function Orders() {
                       </span>
                     )}
                     <span className="font-bold text-white text-sm font-mono-tabular">
-                      ₹{order.totalAmount ?? order.totalAmountInr ?? 0}
+                      ₹{order.totalAmountInr}
                     </span>
                   </div>
                 </div>
 
-                {/* Items and Delivery Info */}
+                {/* Items and delivery information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Items list */}
                   <div className="space-y-2">
@@ -258,31 +250,25 @@ export function Orders() {
                         >
                           <span className="text-white font-medium">
                             <span className="text-[#49E619] font-bold mr-1.5">{it.quantity}x</span>
-                            {it.mealName || it.productName || 'Meal'}
+                            {it.productName}
                           </span>
                           <span className="text-white/60 font-mono-tabular">
-                            ₹{it.priceAtOrder || it.price || 0}
+                            ₹{it.totalPriceInr}
                           </span>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Customer / Delivery note */}
                   <div className="space-y-2">
                     <p className="text-[11px] font-medium uppercase tracking-wider text-white/40">
                       Delivery Destination
                     </p>
-                    <div className="p-3 rounded-lg bg-black/30 border border-white/5 text-xs text-white/70 space-y-1.5">
+                    <div className="p-3 rounded-lg bg-black/30 border border-white/5 text-xs text-white/70">
                       <p className="flex items-start gap-1.5">
                         <MapPin size={14} className="shrink-0 mt-0.5 text-white/40" />
-                        <span>{formatAddress(order.deliveryAddress) || 'Standard delivery address'}</span>
+                        <span>{formatDeliveryAddress(order.deliveryAddress) || 'Standard delivery address'}</span>
                       </p>
-                      {(order.customerName || order.user?.name) && (
-                        <p className="text-[11px] text-white/40 pl-5">
-                          Ordered by {order.customerName || order.user?.name}
-                        </p>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -293,7 +279,7 @@ export function Orders() {
                     <button
                       onClick={() => handleStartPreparing(order._id)}
                       disabled={actionLoading === order._id}
-                      className="px-5 py-2.5 rounded-xl bg-[#4EDBE2] hover:bg-[#3ec4cb] text-black font-bold text-xs uppercase tracking-wider transition-colors disabled:opacity-50 cursor-pointer shadow-md shadow-[#4EDBE2]/10"
+                      className="px-5 py-2.5 rounded-xl bg-[#49E619] hover:bg-[#3dd111] text-black font-bold text-xs uppercase tracking-wider transition-colors disabled:opacity-50 cursor-pointer shadow-md shadow-[#49E619]/10"
                     >
                       {actionLoading === order._id ? 'Updating...' : 'Start Preparing'}
                     </button>

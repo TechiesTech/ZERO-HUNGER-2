@@ -14,7 +14,10 @@ import {
   CheckCircle2,
   DollarSign,
   Flame,
-  Award
+  Award,
+  Image as ImageIcon,
+  Loader2,
+  Upload,
 } from 'lucide-react';
 
 const CATEGORIES = ['VEG', 'NON-VEG', 'PROTEIN', 'KIDS MEALS', 'FAMILY MEALS'];
@@ -29,6 +32,7 @@ interface MealFormData {
   caloriesKcal: number;
   proteinInGrams: number;
   imageUrl: string;
+  imagePublicId: string;
   isAvailable: boolean;
   displayOrder: number;
 }
@@ -43,6 +47,7 @@ const DEFAULT_FORM: MealFormData = {
   caloriesKcal: 500,
   proteinInGrams: 15,
   imageUrl: '',
+  imagePublicId: '',
   isAvailable: true,
   displayOrder: 1,
 };
@@ -61,6 +66,8 @@ export function Meals() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [formData, setFormData] = useState<MealFormData>(DEFAULT_FORM);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState('');
 
   const loadMeals = async () => {
     if (!user?._id) return;
@@ -68,11 +75,7 @@ export function Meals() {
     setError('');
     try {
       const res = await kitchenApi.getMeals(user._id);
-      if (Array.isArray(res.data)) {
-        setMeals(res.data);
-      } else if (res.data && 'meals' in res.data && Array.isArray(res.data.meals)) {
-        setMeals(res.data.meals);
-      }
+      setMeals(res.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch meals');
     } finally {
@@ -87,11 +90,13 @@ export function Meals() {
   const handleOpenCreate = () => {
     setFormData(DEFAULT_FORM);
     setEditMeal(null);
+    setImageUploadError('');
     setCreateModalOpen(true);
   };
 
   const handleOpenEdit = (meal: Meal) => {
     setEditMeal(meal);
+    setImageUploadError('');
     setFormData({
       mealName: meal.mealName,
       mealSlug: meal.mealSlug || '',
@@ -102,6 +107,7 @@ export function Meals() {
       caloriesKcal: meal.caloriesKcal || 0,
       proteinInGrams: meal.proteinInGrams || 0,
       imageUrl: meal.imageUrl || '',
+      imagePublicId: meal.imagePublicId || '',
       isAvailable: meal.isAvailable,
       displayOrder: meal.displayOrder || 1,
     });
@@ -116,6 +122,38 @@ export function Meals() {
       }
       return { ...prev, mealCategories: [...prev.mealCategories, cat] };
     });
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setImageUploadError('');
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setImageUploadError('Please choose a JPG, PNG or WebP image.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setImageUploadError('Image must be smaller than 5 MB.');
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const response = await kitchenApi.uploadImage(file);
+      setFormData((current) => ({
+        ...current,
+        imageUrl: response.data.imageUrl,
+        imagePublicId: response.data.imagePublicId,
+      }));
+    } catch (uploadError) {
+      setImageUploadError(
+        uploadError instanceof Error ? uploadError.message : 'Failed to upload image'
+      );
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const handleSaveMeal = async (e: React.FormEvent) => {
@@ -139,6 +177,7 @@ export function Meals() {
         caloriesKcal: Number(formData.caloriesKcal),
         proteinInGrams: Number(formData.proteinInGrams),
         imageUrl: formData.imageUrl,
+        imagePublicId: formData.imagePublicId,
         isAvailable: formData.isAvailable,
         displayOrder: Number(formData.displayOrder),
       };
@@ -359,7 +398,7 @@ export function Meals() {
                     )}
                     {meal.proteinInGrams > 0 && (
                       <span className="flex items-center gap-1">
-                        <Award size={12} className="text-[#4EDBE2]" /> {meal.proteinInGrams}g protein
+                        <Award size={12} className="text-[#49E619]" /> {meal.proteinInGrams}g protein
                       </span>
                     )}
                   </div>
@@ -539,16 +578,45 @@ export function Meals() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-white/70 uppercase tracking-wider mb-1.5">
-                  Image URL
-                </label>
-                <input
-                  type="url"
-                  value={formData.imageUrl}
-                  onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-[#080808] border border-white/10 rounded-xl text-white text-xs placeholder-white/30 focus:outline-none focus:border-[#49E619]/50"
-                  placeholder="https://images.unsplash.com/photo-..."
-                />
+                <span className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-white/70">
+                  Meal Image
+                </span>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  {formData.imageUrl ? (
+                    <img
+                      src={formData.imageUrl}
+                      alt="Meal preview"
+                      className="h-20 w-20 rounded-xl border border-white/10 object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-20 w-20 items-center justify-center rounded-xl border border-white/10 bg-black/40 text-white/30">
+                      <ImageIcon size={24} />
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-2">
+                    <label
+                      htmlFor="meal-image-upload"
+                      className={`inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-semibold text-white/80 transition-colors hover:bg-white/10 ${
+                        uploadingImage ? 'pointer-events-none opacity-50' : ''
+                      }`}
+                    >
+                      {uploadingImage ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+                      {uploadingImage ? 'Uploading image...' : formData.imageUrl ? 'Replace image' : 'Choose image'}
+                    </label>
+                    <input
+                      id="meal-image-upload"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleImageUpload}
+                      disabled={uploadingImage || submitting}
+                      className="sr-only"
+                    />
+                    <p className="text-[11px] text-white/40">JPG, PNG or WebP. Maximum 5 MB.</p>
+                  </div>
+                </div>
+                {imageUploadError && (
+                  <p role="alert" className="mt-2 text-xs text-red-400">{imageUploadError}</p>
+                )}
               </div>
 
               <div className="flex items-center gap-3 pt-2">
@@ -574,10 +642,10 @@ export function Meals() {
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || uploadingImage}
                   className="px-6 py-2.5 rounded-xl bg-[#49E619] hover:bg-[#3dd111] text-black text-xs font-bold uppercase tracking-wider transition-colors disabled:opacity-50 cursor-pointer shadow-md shadow-[#49E619]/10"
                 >
-                  {submitting ? 'Saving...' : editMeal ? 'Save Changes' : 'Create Dish'}
+                  {uploadingImage ? 'Uploading image...' : submitting ? 'Saving...' : editMeal ? 'Save Changes' : 'Create Dish'}
                 </button>
               </div>
             </form>

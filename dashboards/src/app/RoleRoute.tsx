@@ -16,7 +16,7 @@ function isPortalRole(role: string): role is 'admin' | 'kitchen' {
 }
 
 function homeForRole(role: PortalRole | string) {
-  return role === 'admin' ? '/admin/dashboard' : '/kitchen/orders';
+  return role === 'admin' ? '/admin/dashboard' : '/kitchen/dashboard';
 }
 
 function RejectPortalAccount() {

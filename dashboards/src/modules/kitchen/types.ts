@@ -33,51 +33,48 @@ export const MEAL_CATEGORIES = [
 
 /* ── Order Types (Step 11, 12, 13) ── */
 export interface KitchenOrderItem {
-  mealName?: string;
-  productName?: string;
+  productName: string;
   quantity: number;
-  priceAtOrder?: number;
-  price?: number;
+  unitPriceInr: number;
+  totalPriceInr: number;
+}
+
+export interface KitchenDeliveryAddress {
+  addressLine1?: string;
+  addressLine2?: string;
+  area?: string;
+  landmark?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
 }
 
 export interface KitchenOrder {
   _id: string;
-  orderNumber?: string;
-  customerName?: string;
-  customerPhone?: string;
-  customerMealStatus: 'confirmed' | 'preparing' | 'readyforpickup' | string;
-  status?: 'confirmed' | 'preparing' | 'readyforpickup' | string;
-  totalAmountInr?: number;
-  totalAmount?: number;
+  orderNumber: string;
+  customerId: string;
+  addressId: string;
+  kitchenId: string;
+  paymentStatus: 'pending' | 'success' | 'failed';
+  totalAmountInr: number;
+  sponsoredMealsCount: number;
+  customerMealStatus: 'confirmed' | 'preparing' | 'readyforpickup' | 'outfordelivery' | 'delivered' | 'cancelled';
   items: KitchenOrderItem[];
-  createdAt?: string;
-  deliveryAddress?: {
-    addressLine1?: string;
-    addressLine2?: string;
-    area?: string;
-    landmark?: string;
-    city?: string;
-    state?: string;
-    pincode?: string;
-  } | string;
-  user?: {
-    name?: string;
-    email?: string;
-  };
+  deliveryAddress?: string | KitchenDeliveryAddress;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /* ── Kitchen Profile Types (Step 5, 6) ── */
 export interface KitchenProfile {
-  _id: string;
-  name?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
+  _id?: string;
+  user?: string;
+  address?: string | KitchenDeliveryAddress;
   location?: {
     latitude: number;
     longitude: number;
   };
-  isActive?: boolean;
+  detailsComplete?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

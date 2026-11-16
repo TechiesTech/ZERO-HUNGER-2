@@ -14,7 +14,7 @@ function isPortalRole(role: string): role is 'admin' | 'kitchen' {
 }
 
 function destinationFor(role: 'admin' | 'kitchen', from?: LoginState['from']) {
-  const home = role === 'admin' ? '/admin/dashboard' : '/kitchen/orders';
+  const home = role === 'admin' ? '/admin/dashboard' : '/kitchen/dashboard';
   const requested = from?.pathname;
   if (!requested?.startsWith(`/${role}/`)) return home;
   return `${requested}${from?.search ?? ''}${from?.hash ?? ''}`;

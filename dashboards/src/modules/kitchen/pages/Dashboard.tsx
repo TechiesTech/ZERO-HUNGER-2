@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { kitchenApi } from '../services/kitchenApi';
 import type { KitchenOrder, KitchenProfile, Meal } from '../types';
 import { useAuth } from '@core/auth/useAuth';
+import { formatDeliveryAddress } from '../components/formatDeliveryAddress';
 import {
   ChefHat,
   Clock,
@@ -42,12 +43,8 @@ export function Dashboard() {
 
       // Fetch kitchen meals if user has id
       if (user?._id) {
-        const mealsRes = await kitchenApi.getMeals(user._id).catch(() => ({ success: false, data: [] }));
-        if (Array.isArray(mealsRes.data)) {
-          setMeals(mealsRes.data);
-        } else if (mealsRes.data && 'meals' in mealsRes.data && Array.isArray(mealsRes.data.meals)) {
-          setMeals(mealsRes.data.meals);
-        }
+        const mealsRes = await kitchenApi.getMeals(user._id);
+        setMeals(mealsRes.data);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
@@ -84,19 +81,11 @@ export function Dashboard() {
     }
   };
 
-  const getOrderStatus = (o: KitchenOrder) => o.status || o.customerMealStatus || 'confirmed';
+  const getOrderStatus = (o: KitchenOrder) => o.customerMealStatus;
 
   const confirmedOrders = orders.filter((o) => getOrderStatus(o) === 'confirmed');
   const preparingOrders = orders.filter((o) => getOrderStatus(o) === 'preparing');
   const readyOrders = orders.filter((o) => getOrderStatus(o) === 'readyforpickup');
-
-  const formatAddress = (addr: KitchenOrder['deliveryAddress']): string => {
-    if (!addr) return '';
-    if (typeof addr === 'string') return addr;
-    return [addr.addressLine1, addr.addressLine2, addr.area, addr.city, addr.state, addr.pincode]
-      .filter(Boolean)
-      .join(', ');
-  };
 
   const hasLocation = Boolean(profile?.location?.latitude && profile?.location?.longitude);
 
@@ -165,12 +154,12 @@ export function Dashboard() {
         <div className="p-5 rounded-2xl bg-[#0D1719] border border-white/8 flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-white/40 uppercase tracking-wider">Cooking Now</p>
-            <p className="text-3xl font-extrabold text-[#4EDBE2] mt-2 font-mono-tabular">
+            <p className="text-3xl font-extrabold text-[#49E619] mt-2 font-mono-tabular">
               {preparingOrders.length}
             </p>
-            <p className="text-xs text-[#4EDBE2]/80 mt-1">In Preparation</p>
+            <p className="text-xs text-[#49E619]/80 mt-1">In Preparation</p>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-[#4EDBE2]/10 border border-[#4EDBE2]/20 flex items-center justify-center text-[#4EDBE2]">
+          <div className="w-12 h-12 rounded-xl bg-[#49E619]/10 border border-[#49E619]/20 flex items-center justify-center text-[#49E619]">
             <ChefHat size={22} />
           </div>
         </div>
@@ -246,35 +235,34 @@ export function Dashboard() {
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2">
                         <span className="font-mono-tabular font-bold text-white text-sm">
-                          #{order._id.slice(-6).toUpperCase()}
+                          #{order.orderNumber}
                         </span>
                         <span
                           className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
                             isConfirmed
                               ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                               : isPreparing
-                              ? 'bg-[#4EDBE2]/10 text-[#4EDBE2] border border-[#4EDBE2]/20'
+                              ? 'bg-[#49E619]/10 text-[#49E619] border border-[#49E619]/20'
                               : 'bg-[#49E619]/10 text-[#49E619] border border-[#49E619]/20'
                           }`}
                         >
                           {status}
                         </span>
                         <span className="text-xs text-white/40 font-mono-tabular">
-                          ₹{order.totalAmount ?? order.totalAmountInr ?? 0}
+                          ₹{order.totalAmountInr}
                         </span>
                       </div>
 
                       <div className="text-xs text-white/80">
                         {order.items?.map((it, idx) => (
                           <span key={idx} className="mr-3">
-                            {it.quantity}x {it.mealName || it.productName || 'Meal'}
+                            {it.quantity}x {it.productName}
                           </span>
                         ))}
                       </div>
-
-                      {order.deliveryAddress && (
+                      {formatDeliveryAddress(order.deliveryAddress) && (
                         <p className="text-[11px] text-white/40 flex items-center gap-1">
-                          <MapPin size={11} /> {formatAddress(order.deliveryAddress)}
+                          <MapPin size={11} /> {formatDeliveryAddress(order.deliveryAddress)}
                         </p>
                       )}
                     </div>
@@ -284,7 +272,7 @@ export function Dashboard() {
                         <button
                           onClick={() => handleStartPreparing(order._id)}
                           disabled={actionLoading === order._id}
-                          className="px-3.5 py-1.5 rounded-lg bg-[#4EDBE2] text-black font-semibold text-xs hover:bg-[#3ec4cb] transition-colors disabled:opacity-50 cursor-pointer"
+                          className="px-3.5 py-1.5 rounded-lg bg-[#49E619] text-black font-semibold text-xs hover:bg-[#3dd111] transition-colors disabled:opacity-50 cursor-pointer"
                         >
                           {actionLoading === order._id ? 'Updating...' : 'Start Cooking'}
                         </button>
@@ -321,19 +309,19 @@ export function Dashboard() {
             <div className="space-y-3 text-xs">
               <div>
                 <p className="text-white/40 uppercase text-[10px]">Name</p>
-                <p className="text-white font-medium mt-0.5">{profile?.name || user?.name || 'Kitchen Partner'}</p>
+                <p className="text-white font-medium mt-0.5">{user?.name || 'Kitchen Partner'}</p>
               </div>
 
               <div>
                 <p className="text-white/40 uppercase text-[10px]">Email & Contact</p>
-                <p className="text-white font-medium mt-0.5">{profile?.email || user?.email}</p>
-                {profile?.phone && <p className="text-white/60">{profile.phone}</p>}
+                <p className="text-white font-medium mt-0.5">{user?.email}</p>
+                {user?.phone && <p className="text-white/60">{user.phone}</p>}
               </div>
 
               <div>
                 <p className="text-white/40 uppercase text-[10px]">Address</p>
                 <p className="text-white/80 mt-0.5 leading-relaxed">
-                  {profile?.address || 'No address set yet'}
+                  {formatDeliveryAddress(profile?.address) || 'No address set yet'}
                 </p>
               </div>
 
@@ -372,7 +360,7 @@ export function Dashboard() {
                 to="/kitchen/orders"
                 className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/8 text-white flex flex-col items-center justify-center gap-1.5 transition-colors text-center"
               >
-                <PackageCheck size={18} className="text-[#4EDBE2]" />
+                <PackageCheck size={18} className="text-[#49E619]" />
                 <span className="font-medium">All Orders</span>
               </Link>
             </div>

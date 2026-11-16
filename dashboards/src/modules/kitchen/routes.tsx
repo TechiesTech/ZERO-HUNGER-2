@@ -10,7 +10,7 @@ export function KitchenRoutes() {
   return (
     <Routes>
       <Route element={<KitchenLayout />}>
-        <Route index element={<Navigate to="orders" replace />} />
+        <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="orders" element={<Orders />} />
         <Route path="meals" element={<Meals />} />
