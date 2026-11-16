@@ -11,6 +11,9 @@ import { Unauthorized } from '@features/auth/Unauthorized';
 const AdminRoutes = lazy(() =>
   import('@modules/admin').then((module) => ({ default: module.AdminRoutes }))
 );
+const KitchenRoutes = lazy(() =>
+  import('@modules/kitchen').then((module) => ({ default: module.KitchenRoutes }))
+);
 
 function RootRedirect() {
   return <RoleRoute root />;
@@ -36,6 +39,16 @@ export function AppRoutes() {
           <RoleRoute role="admin">
             <Suspense fallback={<LoadingScreen />}>
               <AdminRoutes />
+            </Suspense>
+          </RoleRoute>
+        }
+      />
+      <Route
+        path="/kitchen/*"
+        element={
+          <RoleRoute role="kitchen">
+            <Suspense fallback={<LoadingScreen />}>
+              <KitchenRoutes />
             </Suspense>
           </RoleRoute>
         }
