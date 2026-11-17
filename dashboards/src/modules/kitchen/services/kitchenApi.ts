@@ -2,6 +2,12 @@ import { api } from '@core/api/apiClient';
 import type { KitchenOrder, KitchenProfile, Meal, MealFormData } from '../types';
 
 export const kitchenApi = {
+  updateAccountProfile: (payload: { name: string; email: string; phone: string }) =>
+    api.patch<{
+      success: boolean;
+      data: { user: { _id: string; name: string; email: string; phone?: string | null } };
+    }>('/api/users/updateProfile', payload),
+
   updateProfile: (payload: { address: string; location: { latitude: number; longitude: number } }) =>
     api.put<{ success: boolean; data: KitchenProfile }>('/api/kitchen/me', payload),
 

@@ -1,6 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, ChevronLeft, ChevronRight, Eye, EyeOff, Loader2, Plus, Search, X } from 'lucide-react';
-import { createKitchen as createKitchenAccount, getKitchens, type KitchenListItem } from '../services/adminApi';
+import { AlertCircle, ChevronLeft, ChevronRight, Eye, EyeOff, Loader2, Plus, Power, Search, Trash2, X } from 'lucide-react';
+import {
+  createKitchen as createKitchenAccount,
+  deleteKitchenUser,
+  getKitchenUser,
+  getKitchens,
+  updateKitchenUserStatus,
+  type KitchenListItem,
+  type KitchenUserDetails,
+  type KitchenUserStatus,
+} from '../services/adminApi';
 
 interface KitchenForm {
   name: string;
@@ -48,6 +57,12 @@ export function Kitchens(): React.ReactElement {
   const [modalOpen, setModalOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState<KitchenForm>(EMPTY_FORM);
+  const [updatingKitchenId, setUpdatingKitchenId] = useState<string | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState('');
+  const [selectedKitchen, setSelectedKitchen] = useState<KitchenUserDetails | null>(null);
+  const [deletingKitchenId, setDeletingKitchenId] = useState<string | null>(null);
 
   const fetchKitchens = useCallback(async (nextPage: number) => {
     setLoading(true);
@@ -104,6 +119,54 @@ export function Kitchens(): React.ReactElement {
 
   const updateForm = (key: keyof KitchenForm, value: string) => {
     setForm((current) => ({ ...current, [key]: value }));
+  };
+
+  const viewKitchen = async (kitchenId: string) => {
+    setDetailsOpen(true);
+    setDetailsLoading(true);
+    setDetailsError('');
+    setSelectedKitchen(null);
+    try {
+      const response = await getKitchenUser(kitchenId);
+      setSelectedKitchen(response.data.user);
+    } catch (detailsFetchError) {
+      setDetailsError(detailsFetchError instanceof Error ? detailsFetchError.message : 'Failed to load kitchen details');
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  const toggleKitchenStatus = async (kitchen: KitchenListItem) => {
+    const nextStatus: KitchenUserStatus = kitchen.isActive ? 'disabled' : 'active';
+    setUpdatingKitchenId(kitchen._id);
+    setError('');
+    setSuccess('');
+    try {
+      await updateKitchenUserStatus(kitchen._id, { status: nextStatus });
+      setSuccess(`${kitchen.name} ${nextStatus === 'active' ? 'activated' : 'disabled'}.`);
+      await fetchKitchens(page);
+    } catch (statusError) {
+      setError(statusError instanceof Error ? statusError.message : 'Failed to update kitchen status');
+    } finally {
+      setUpdatingKitchenId(null);
+    }
+  };
+
+  const removeKitchen = async (kitchen: KitchenListItem) => {
+    if (!window.confirm(`Delete the kitchen account for ${kitchen.name}? This cannot be undone.`)) return;
+
+    setDeletingKitchenId(kitchen._id);
+    setError('');
+    setSuccess('');
+    try {
+      await deleteKitchenUser(kitchen._id);
+      setSuccess(`${kitchen.name} was deleted.`);
+      await fetchKitchens(kitchens.length === 1 && page > 1 ? page - 1 : page);
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Failed to delete kitchen');
+    } finally {
+      setDeletingKitchenId(null);
+    }
   };
 
   return (
@@ -169,6 +232,7 @@ export function Kitchens(): React.ReactElement {
                   <th className="px-5 py-3">Contact</th>
                   <th className="px-5 py-3">Address</th>
                   <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -187,6 +251,39 @@ export function Kitchens(): React.ReactElement {
                       <span className={kitchen.isActive ? 'text-[#49E619]' : 'text-red-400'}>
                         {kitchen.isActive ? 'Active' : 'Inactive'}
                       </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void viewKitchen(kitchen._id)}
+                          title="View kitchen details"
+                          aria-label={`View ${kitchen.name}`}
+                          className="rounded-lg border border-white/10 p-2 text-white/60 hover:border-[#49E619]/40 hover:text-[#49E619]"
+                        >
+                          <Eye size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void toggleKitchenStatus(kitchen)}
+                          disabled={updatingKitchenId === kitchen._id || deletingKitchenId === kitchen._id}
+                          title={kitchen.isActive ? 'Disable kitchen' : 'Activate kitchen'}
+                          aria-label={`${kitchen.isActive ? 'Disable' : 'Activate'} ${kitchen.name}`}
+                          className="rounded-lg border border-white/10 p-2 text-white/60 hover:border-amber-400/40 hover:text-amber-300 disabled:opacity-40"
+                        >
+                          <Power size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void removeKitchen(kitchen)}
+                          disabled={deletingKitchenId === kitchen._id || updatingKitchenId === kitchen._id}
+                          title="Delete kitchen account"
+                          aria-label={`Delete ${kitchen.name}`}
+                          className="rounded-lg border border-white/10 p-2 text-white/60 hover:border-red-400/40 hover:text-red-400 disabled:opacity-40"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -304,6 +401,51 @@ export function Kitchens(): React.ReactElement {
           </div>
         </div>
       )}
+
+      {detailsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="kitchen-details-title"
+            className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#0D1719] p-6"
+          >
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-[#49E619]">Kitchen account</p>
+                <h2 id="kitchen-details-title" className="mt-1 text-xl font-bold text-white">
+                  {selectedKitchen?.name || 'Details'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDetailsOpen(false)}
+                aria-label="Close kitchen details"
+                className="text-white/50 hover:text-white"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            {detailsLoading ? (
+              <div className="flex justify-center py-8 text-white/50"><Loader2 className="animate-spin" /></div>
+            ) : detailsError ? (
+              <p role="alert" className="text-sm text-red-300">{detailsError}</p>
+            ) : selectedKitchen && (
+              <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+                <div><dt className="text-xs uppercase text-white/40">Email</dt><dd className="mt-1 text-white">{selectedKitchen.email}</dd></div>
+                <div><dt className="text-xs uppercase text-white/40">Phone</dt><dd className="mt-1 text-white">{selectedKitchen.phone || '—'}</dd></div>
+                <div><dt className="text-xs uppercase text-white/40">Status</dt><dd className="mt-1 capitalize text-white">{selectedKitchen.status}</dd></div>
+                <div><dt className="text-xs uppercase text-white/40">Role</dt><dd className="mt-1 text-white">{selectedKitchen.roles.join(', ')}</dd></div>
+                <div className="sm:col-span-2"><dt className="text-xs uppercase text-white/40">Password setup</dt><dd className="mt-1 text-white">{selectedKitchen.mustChangePassword ? 'Password change required at next login' : 'Password set'}</dd></div>
+                {selectedKitchen.rejectionReason && (
+                  <div className="sm:col-span-2"><dt className="text-xs uppercase text-white/40">Reason</dt><dd className="mt-1 text-white">{selectedKitchen.rejectionReason}</dd></div>
+                )}
+              </dl>
+            )}
+          </section>
+        </div>
+      )}
+
     </div>
   );
 }

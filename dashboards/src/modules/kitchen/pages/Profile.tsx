@@ -16,16 +16,21 @@ import {
 } from 'lucide-react';
 
 export function Profile() {
-  const { user } = useAuth();
+  const { user, checkAuth } = useAuth();
   const [profile, setProfile] = useState<KitchenProfile | null>(null);
   const [address, setAddress] = useState('');
   const [latitude, setLatitude] = useState<number | ''>('');
   const [longitude, setLongitude] = useState<number | ''>('');
+  const [accountName, setAccountName] = useState(user?.name ?? '');
+  const [accountEmail, setAccountEmail] = useState(user?.email ?? '');
+  const [accountPhone, setAccountPhone] = useState(user?.phone ?? '');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingAccount, setSavingAccount] = useState(false);
   const [detectingGps, setDetectingGps] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [accountFeedback, setAccountFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const loadProfile = async () => {
     setLoading(true);
@@ -51,6 +56,44 @@ export function Profile() {
   useEffect(() => {
     loadProfile();
   }, []);
+
+  useEffect(() => {
+    setAccountName(user?.name ?? '');
+    setAccountEmail(user?.email ?? '');
+    setAccountPhone(user?.phone ?? '');
+  }, [user?._id, user?.name, user?.email, user?.phone]);
+
+  const handleUpdateAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = accountName.trim();
+    const email = accountEmail.trim().toLowerCase();
+    const phone = accountPhone.trim();
+
+    if (name.length < 2) {
+      setAccountFeedback({ type: 'error', message: 'Name must be at least 2 characters long.' });
+      return;
+    }
+
+    if (phone && !/^(?:\+91[\s-]?)?[6-9]\d{4}[\s-]?\d{5}$/.test(phone)) {
+      setAccountFeedback({ type: 'error', message: 'Enter a valid Indian mobile number or leave the phone field blank.' });
+      return;
+    }
+
+    setSavingAccount(true);
+    setAccountFeedback(null);
+    try {
+      await kitchenApi.updateAccountProfile({ name, email, phone });
+      await checkAuth();
+      setAccountFeedback({ type: 'success', message: 'Account details updated successfully.' });
+    } catch (err) {
+      setAccountFeedback({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to update account details.',
+      });
+    } finally {
+      setSavingAccount(false);
+    }
+  };
 
   const handleAutoDetectLocation = () => {
     if (!navigator.geolocation) {
@@ -148,40 +191,74 @@ export function Profile() {
         </div>
       )}
 
-      {/* Account Info Readonly Card */}
-      <div className="p-6 rounded-2xl bg-[#0D1719] border border-white/8 space-y-4">
+      {/* Account Profile Form */}
+      <form onSubmit={handleUpdateAccount} className="p-6 rounded-2xl bg-[#0D1719] border border-white/8 space-y-4">
         <h2 className="text-sm font-bold uppercase tracking-wider text-white/70 flex items-center gap-2">
           <Building2 size={16} className="text-[#49E619]" />
-          <span>Account Credentials</span>
+          <span>Account Profile</span>
         </h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-          <div className="p-3 rounded-xl bg-black/40 border border-white/5">
-            <span className="text-white/40 uppercase text-[10px] block">Kitchen Name</span>
-            <span className="text-white font-semibold text-sm mt-0.5 block">
-              {user?.name || 'Kitchen Partner'}
-            </span>
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <label className="block text-xs font-medium text-white/70">
+            Kitchen name
+            <input
+              type="text"
+              required
+              minLength={2}
+              value={accountName}
+              onChange={(e) => setAccountName(e.target.value)}
+              className="mt-1.5 w-full rounded-lg border border-white/10 bg-[#080808] px-3 py-2.5 text-sm text-white outline-none focus:border-[#49E619]/50"
+            />
+          </label>
 
-          <div className="p-3 rounded-xl bg-black/40 border border-white/5">
-            <span className="text-white/40 uppercase text-[10px] block flex items-center gap-1">
-              <Mail size={11} /> Registered Email
-            </span>
-            <span className="text-white font-medium text-xs mt-0.5 block">
-              {user?.email}
-            </span>
-          </div>
+          <label className="block text-xs font-medium text-white/70">
+            <span className="flex items-center gap-1"><Mail size={11} /> Email</span>
+            <input
+              type="email"
+              required
+              value={accountEmail}
+              onChange={(e) => setAccountEmail(e.target.value)}
+              className="mt-1.5 w-full rounded-lg border border-white/10 bg-[#080808] px-3 py-2.5 text-sm text-white outline-none focus:border-[#49E619]/50"
+            />
+          </label>
 
-          <div className="p-3 rounded-xl bg-black/40 border border-white/5">
-            <span className="text-white/40 uppercase text-[10px] block flex items-center gap-1">
-              <Phone size={11} /> Contact Phone
-            </span>
-            <span className="text-white font-medium text-xs mt-0.5 block">
-              {user?.phone || 'Not registered'}
-            </span>
-          </div>
+          <label className="block text-xs font-medium text-white/70">
+            <span className="flex items-center gap-1"><Phone size={11} /> Phone</span>
+            <input
+              type="tel"
+              value={accountPhone}
+              onChange={(e) => setAccountPhone(e.target.value)}
+              placeholder="Optional"
+              className="mt-1.5 w-full rounded-lg border border-white/10 bg-[#080808] px-3 py-2.5 text-sm text-white outline-none focus:border-[#49E619]/50"
+            />
+          </label>
         </div>
-      </div>
+
+        {accountFeedback && (
+          <div
+            role={accountFeedback.type === 'error' ? 'alert' : 'status'}
+            className={`flex items-center gap-2 rounded-xl p-3 text-xs ${
+              accountFeedback.type === 'success'
+                ? 'border border-[#49E619]/25 bg-[#49E619]/10 text-[#49E619]'
+                : 'border border-red-500/25 bg-red-500/10 text-red-400'
+            }`}
+          >
+            {accountFeedback.type === 'success' ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}
+            <span>{accountFeedback.message}</span>
+          </div>
+        )}
+
+        <div className="flex justify-end border-t border-white/8 pt-4">
+          <button
+            type="submit"
+            disabled={savingAccount}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#49E619] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-black transition-colors hover:bg-[#3dd111] disabled:opacity-50"
+          >
+            <Save size={14} />
+            {savingAccount ? 'Saving...' : 'Save Account Profile'}
+          </button>
+        </div>
+      </form>
 
       {/* Address & GPS Form */}
       <form onSubmit={handleSaveProfile} className="p-6 rounded-2xl bg-[#0D1719] border border-white/8 space-y-6">

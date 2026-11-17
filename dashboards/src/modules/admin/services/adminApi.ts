@@ -20,8 +20,22 @@ export interface KitchenListItem extends KitchenSummary {
     pincode?: string;
   };
   location?: { latitude: number; longitude: number };
+  status?: KitchenUserStatus;
   isActive: boolean;
   createdAt: string;
+}
+
+export type KitchenUserStatus = 'pending' | 'active' | 'rejected' | 'disabled';
+
+export interface KitchenUserDetails {
+  _id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  roles: string[];
+  status: KitchenUserStatus;
+  rejectionReason?: string;
+  mustChangePassword: boolean;
 }
 
 export interface KitchenListResponse {
@@ -49,4 +63,24 @@ export function getKitchens(query: URLSearchParams) {
 
 export function createKitchen(payload: CreateKitchenPayload) {
   return api.post('/api/users/createUser', { ...payload, roles: ['kitchen'] });
+}
+
+export function getKitchenUser(id: string) {
+  return api.get<{ success: boolean; data: { user: KitchenUserDetails } }>(
+    `/api/users/getUserById/${id}`
+  );
+}
+
+export function updateKitchenUserStatus(
+  id: string,
+  payload: { status: KitchenUserStatus; rejectionReason?: string }
+) {
+  return api.patch<{ success: boolean; data: { user: KitchenUserDetails } }>(
+    `/api/users/status/${id}`,
+    payload
+  );
+}
+
+export function deleteKitchenUser(id: string) {
+  return api.delete<{ success: boolean; message: string }>(`/api/users/deleteUserById/${id}`);
 }
