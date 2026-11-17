@@ -7,8 +7,8 @@ export interface Order {
   _id: string;
   orderNumber: string;
   customerName: string;
-  customerEmail: string;
-  customerPhone: string;
+  customerEmail?: string;
+  customerPhone?: string;
   deliveryAddress: string;
   items: any[];
   subtotal: number;
@@ -24,6 +24,13 @@ export interface Order {
   updatedAt: string;
 }
 
+export interface OrdersPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 export interface OrderStats {
   totalOrders: number;
   ordersToday: number;
@@ -32,24 +39,94 @@ export interface OrderStats {
   outForDelivery: number;
   deliveredOrders: number;
   cancelledOrders: number;
+  readyForPickupOrders: number;
+  pendingPayments: number;
+  successfulPayments: number;
+  failedPayments: number;
 }
 
 interface BackendOrderStats {
   totalOrders?: number;
   ordersToday?: number;
-  byMealStatus?: Partial<Record<'confirmed' | 'preparing' | 'outfordelivery' | 'delivered' | 'cancelled', number>>;
+  byMealStatus?: Partial<Record<
+    'confirmed' | 'preparing' | 'readyforpickup' | 'outfordelivery' | 'delivered' | 'cancelled',
+    number
+  >>;
+  byPaymentStatus?: Partial<Record<'pending' | 'success' | 'failed', number>>;
 }
 
 function mapOrderStats(backendStats: BackendOrderStats): OrderStats {
   return {
-    totalOrders: backendStats.totalOrders || 0,
-    ordersToday: backendStats.ordersToday || 0,
-    pendingOrders: backendStats.byMealStatus?.confirmed || 0,
-    preparingOrders: backendStats.byMealStatus?.preparing || 0,
-    outForDelivery: backendStats.byMealStatus?.outfordelivery || 0,
-    deliveredOrders: backendStats.byMealStatus?.delivered || 0,
-    cancelledOrders: backendStats.byMealStatus?.cancelled || 0,
+    totalOrders: backendStats.totalOrders ?? 0,
+    ordersToday: backendStats.ordersToday ?? 0,
+    pendingOrders: backendStats.byMealStatus?.confirmed ?? 0,
+    preparingOrders: backendStats.byMealStatus?.preparing ?? 0,
+    readyForPickupOrders: backendStats.byMealStatus?.readyforpickup ?? 0,
+    outForDelivery: backendStats.byMealStatus?.outfordelivery ?? 0,
+    deliveredOrders: backendStats.byMealStatus?.delivered ?? 0,
+    cancelledOrders: backendStats.byMealStatus?.cancelled ?? 0,
+    pendingPayments: backendStats.byPaymentStatus?.pending ?? 0,
+    successfulPayments: backendStats.byPaymentStatus?.success ?? 0,
+    failedPayments: backendStats.byPaymentStatus?.failed ?? 0,
   };
+}
+
+interface BackendOrder {
+  _id: string;
+  orderNumber: string;
+  customer?: { name?: string; phone?: string };
+  deliveryAddress?: string | {
+    addressLine1?: string;
+    addressLine2?: string;
+    area?: string;
+    landmark?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+  };
+  totalAmountInr: number;
+  paymentStatus: string;
+  paymentMethod: string;
+  customerMealStatus: string;
+  assignedRiderId?: string | null;
+  sponsoredMealsCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface OrderQuery {
+  status?: string;
+  paymentStatus?: string;
+  search?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
+}
+
+interface BackendOrdersResponse {
+  success: boolean;
+  data: {
+    orders: BackendOrder[];
+    pagination: { page: number; limit: number; total: number; totalPages: number };
+  };
+}
+
+function formatOrderAddress(address: BackendOrder['deliveryAddress']): string {
+  if (!address) return '';
+  if (typeof address === 'string') return address;
+
+  return [
+    address.addressLine1,
+    address.addressLine2,
+    address.area,
+    address.landmark,
+    address.city,
+    address.state,
+    address.pincode,
+  ]
+    .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+    .join(', ');
 }
 
 export function useOrderStats() {
@@ -167,13 +244,15 @@ export function useMeals(kitchenId?: string | null) {
 export function useOrders() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [pagination, setPagination] = useState<OrdersPagination>({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [stats, setStats] = useState<OrderStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchOrders = useCallback(async (query?: any) => {
+  const fetchOrders = useCallback(async (query: OrderQuery = {}) => {
     if (user?.role !== 'admin') {
       setOrders([]);
+      setPagination({ page: 1, limit: 10, total: 0, totalPages: 0 });
       setLoading(false);
       setError(null);
       return;
@@ -183,38 +262,40 @@ export function useOrders() {
     setError(null);
     try {
       const params = new URLSearchParams();
-      if (query?.status) params.append('customerMealStatus', query.status);
-      if (query?.paymentStatus) params.append('paymentStatus', query.paymentStatus);
-      if (query?.customerEmail) params.append('customerEmail', query.customerEmail);
-      if (query?.page) params.append('page', query.page.toString());
-      if (query?.limit) params.append('limit', query.limit.toString());
+      if (query.status) params.set('customerMealStatus', query.status);
+      if (query.paymentStatus) params.set('paymentStatus', query.paymentStatus);
+      if (query.search) params.set('search', query.search);
+      if (query.from) params.set('from', query.from);
+      if (query.to) params.set('to', query.to);
+      if (query.page) params.set('page', String(query.page));
+      if (query.limit) params.set('limit', String(query.limit));
 
       const path = params.toString() ? `/api/orders/getAllOrders?${params.toString()}` : '/api/orders/getAllOrders';
-      const res = await api.get<{ success: boolean; data: any }>(path);
+      const res = await api.get<BackendOrdersResponse>(path);
 
-      const ordersData = res.data?.orders || res.data || [];
-      const transformedOrders = ordersData.map((order: any) => ({
+      const transformedOrders = res.data.orders.map((order) => ({
         _id: order._id,
         orderNumber: order.orderNumber,
-        customerName: order.customerName,
-        customerEmail: order.customerEmail,
-        customerPhone: order.customerPhone,
-        deliveryAddress: typeof order.deliveryAddress === 'string' ? order.deliveryAddress : JSON.stringify(order.deliveryAddress),
-        items: order.items || [],
-        subtotal: order.subtotal || 0,
-        tax: order.tax || 0,
-        total: order.totalAmountInr || order.total || 0,
-        paymentStatus: order.paymentStatus || 'pending',
-        paymentMethod: order.paymentMethod || 'UPI',
-        orderStatus: order.customerMealStatus || order.orderStatus || 'confirmed',
+        customerName: order.customer?.name || 'Unknown customer',
+        customerEmail: '',
+        customerPhone: order.customer?.phone || '',
+        deliveryAddress: formatOrderAddress(order.deliveryAddress),
+        items: [],
+        subtotal: order.totalAmountInr,
+        tax: 0,
+        total: order.totalAmountInr,
+        paymentStatus: order.paymentStatus,
+        paymentMethod: order.paymentMethod,
+        orderStatus: order.customerMealStatus,
         assignedRiderId: order.assignedRiderId ? String(order.assignedRiderId) : null,
-        sponsoredMealsCount: order.sponsoredMealsCount || 0,
-        deliveryDetails: order.deliveryDetails || {},
+        sponsoredMealsCount: order.sponsoredMealsCount,
+        deliveryDetails: {},
         createdAt: order.createdAt,
         updatedAt: order.updatedAt,
       }));
 
-      setOrders(Array.isArray(transformedOrders) ? transformedOrders : []);
+      setOrders(transformedOrders);
+      setPagination(res.data.pagination);
     } catch (err: any) {
       setError(err.message);
       setOrders([]);
@@ -257,6 +338,7 @@ export function useOrders() {
 
   return {
     orders,
+    pagination,
     stats,
     loading,
     error,

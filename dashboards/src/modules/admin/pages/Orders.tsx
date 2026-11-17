@@ -2,15 +2,19 @@ import React, { useState, useEffect } from 'react';
 import {
   ShoppingBag,
   Clock,
-  CheckCircle2,
-  Truck,
   AlertCircle,
+  CalendarDays,
+  ChefHat,
+  CreditCard,
+  XCircle,
   Search,
   Trash2,
   Loader2,
   RefreshCw,
   History,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '@core/auth/useAuth';
 import {
@@ -152,6 +156,7 @@ function DeliveryHistoryModal({
 function AdminOrders(): React.ReactElement {
   const {
     orders,
+    pagination,
     stats,
     loading,
     error,
@@ -162,6 +167,7 @@ function AdminOrders(): React.ReactElement {
   const { riders, error: riderError, assignRider, unassignRider } = useDeliveryAssignments();
 
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [selectedRiders, setSelectedRiders] = useState<Record<string, string>>({});
@@ -182,8 +188,8 @@ function AdminOrders(): React.ReactElement {
       'cancelled': 'cancelled',
     };
     const query = filterStatus === 'ALL' ? {} : { status: statusMap[filterStatus] };
-    fetchOrders(query);
-  }, [filterStatus, fetchOrders]);
+    fetchOrders({ ...query, page, limit: 10 });
+  }, [filterStatus, page, fetchOrders]);
 
   const filteredOrders = Array.isArray(orders) ? orders.filter((order) => {
     const q = search.toLowerCase();
@@ -191,7 +197,8 @@ function AdminOrders(): React.ReactElement {
       !q ||
       order.orderNumber.toLowerCase().includes(q) ||
       order.customerName.toLowerCase().includes(q) ||
-      order.customerEmail.toLowerCase().includes(q);
+      order.customerPhone?.toLowerCase().includes(q) ||
+      order.customerEmail?.toLowerCase().includes(q);
     const statusMap: Record<string, string> = {
       'confirmed': 'confirmed',
       'preparing': 'preparing',
@@ -207,7 +214,7 @@ function AdminOrders(): React.ReactElement {
 
   const refreshCurrentOrders = async () => {
     const status = filterStatus === 'out_for_delivery' ? 'outfordelivery' : filterStatus;
-    await fetchOrders(filterStatus === 'ALL' ? {} : { status });
+    await fetchOrders({ ...(filterStatus === 'ALL' ? {} : { status }), page, limit: 10 });
   };
 
   const handleViewDeliveryHistory = async (orderId: string, orderNumber: string) => {
@@ -277,9 +284,13 @@ function AdminOrders(): React.ReactElement {
       {stats && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <OrderStat label="Total Orders" value={stats.totalOrders} icon={<ShoppingBag size={16} className="text-[#080808]" />} accent="bg-[#4EDBE2]" />
-          <OrderStat label="Pending" value={stats.pendingOrders} icon={<Clock size={16} className="text-[#080808]" />} accent="bg-[#B9FF2C]" />
-          <OrderStat label="Delivered" value={stats.deliveredOrders} icon={<CheckCircle2 size={16} className="text-[#080808]" />} accent="bg-[#49E619]" />
-          <OrderStat label="In Transit" value={stats.outForDelivery} icon={<Truck size={16} className="text-[#080808]" />} accent="bg-[#4EDBE2]" />
+          <OrderStat label="Orders Today" value={stats.ordersToday} icon={<CalendarDays size={16} className="text-[#080808]" />} accent="bg-[#B9FF2C]" />
+          <OrderStat label="Confirmed" value={stats.pendingOrders} icon={<Clock size={16} className="text-[#080808]" />} accent="bg-[#B9FF2C]" />
+          <OrderStat label="Preparing" value={stats.preparingOrders} icon={<ChefHat size={16} className="text-[#080808]" />} accent="bg-[#4EDBE2]" />
+          <OrderStat label="Cancelled" value={stats.cancelledOrders} icon={<XCircle size={16} className="text-white" />} accent="bg-red-500" />
+          <OrderStat label="Pending Payments" value={stats.pendingPayments} icon={<CreditCard size={16} className="text-[#080808]" />} accent="bg-amber-400" />
+          <OrderStat label="Successful Payments" value={stats.successfulPayments} icon={<CreditCard size={16} className="text-[#080808]" />} accent="bg-[#49E619]" />
+          <OrderStat label="Failed Payments" value={stats.failedPayments} icon={<AlertCircle size={16} className="text-white" />} accent="bg-red-500" />
         </div>
       )}
 
@@ -313,7 +324,10 @@ function AdminOrders(): React.ReactElement {
           {['ALL', 'confirmed', 'preparing', 'readyforpickup', 'out_for_delivery', 'delivered', 'cancelled'].map((status) => (
             <button
               key={status}
-              onClick={() => setFilterStatus(status)}
+              onClick={() => {
+                setFilterStatus(status);
+                setPage(1);
+              }}
               className={`px-3 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
                 filterStatus === status
                   ? 'bg-[#4EDBE2] text-[#080808]'
@@ -359,7 +373,7 @@ function AdminOrders(): React.ReactElement {
                     </td>
                     <td className="px-5 py-3">
                       <p className="font-medium text-white">{order.customerName}</p>
-                      <p className="text-[11px] text-white/30 mt-0.5">{order.customerEmail}</p>
+                      <p className="text-[11px] text-white/30 mt-0.5">{order.customerPhone || order.customerEmail || '—'}</p>
                     </td>
                     <td className="px-5 py-3 text-right font-mono-tabular font-bold text-[#49E619]">
                       ₹{order.total}
@@ -469,6 +483,34 @@ function AdminOrders(): React.ReactElement {
           </div>
         )}
       </div>
+      {pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between text-sm text-white/55">
+          <span>
+            Showing {(pagination.page - 1) * pagination.limit + 1}–{Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
+          </span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              disabled={pagination.page <= 1 || loading}
+              onClick={() => setPage((current) => current - 1)}
+              className="rounded-lg border border-white/10 p-2 disabled:opacity-30"
+              aria-label="Previous orders page"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span>Page {pagination.page} of {pagination.totalPages}</span>
+            <button
+              type="button"
+              disabled={pagination.page >= pagination.totalPages || loading}
+              onClick={() => setPage((current) => current + 1)}
+              className="rounded-lg border border-white/10 p-2 disabled:opacity-30"
+              aria-label="Next orders page"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
       {(deliveryHistoryLoading || deliveryHistory || deliveryHistoryError) && (
         <DeliveryHistoryModal
           orderNumber={deliveryHistoryOrderNumber}
