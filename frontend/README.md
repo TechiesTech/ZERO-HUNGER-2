@@ -36,9 +36,13 @@ as the build command and `npm start` as the start command.
 | `npm start` | Build and serve the production bundle |
 | `npm run lint` | TypeScript type-check (no emit) |
 
+Run `npm run build` before `npm run preview` when checking production
+performance. Lighthouse results from `npm run dev` measure Vite's unminified
+development modules, not the optimized production bundles.
+
 ## Path Alias
 
-`@/` maps to `src/` — e.g. `import { Navbar } from '@/components/Navbar'`.
+`@/` maps to `src/` — e.g. `import { Navbar } from '@/components/layout/Navbar'`.
 
 ## Environment Variables
 
@@ -50,7 +54,8 @@ Copy `.env.example` to `.env` and fill in real values before running.
 frontend/
 ├── public/            Static assets (images, favicon)
 └── src/
-    ├── components/    Shared UI components
+    ├── components/    Shared UI and section components
+    │   └── layout/   Site-wide navigation, footer, and route transitions
     ├── context/       React context providers
     ├── data/          Static data / mock data
     ├── features/      Feature-scoped modules (meals, cart, checkout, tracking)

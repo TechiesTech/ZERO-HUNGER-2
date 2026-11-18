@@ -36,12 +36,13 @@ export interface OrderStats {
   ordersToday: number;
   pendingOrders: number;
   preparingOrders: number;
+  readyForPickup: number;
   outForDelivery: number;
   deliveredOrders: number;
   cancelledOrders: number;
-  readyForPickupOrders: number;
-  pendingPayments: number;
   successfulPayments: number;
+  pendingPayments: number;
+  readyForPickupOrders: number;
   failedPayments: number;
 }
 
@@ -61,6 +62,7 @@ function mapOrderStats(backendStats: BackendOrderStats): OrderStats {
     ordersToday: backendStats.ordersToday ?? 0,
     pendingOrders: backendStats.byMealStatus?.confirmed ?? 0,
     preparingOrders: backendStats.byMealStatus?.preparing ?? 0,
+    readyForPickup: backendStats.byMealStatus?.readyforpickup ?? 0,
     readyForPickupOrders: backendStats.byMealStatus?.readyforpickup ?? 0,
     outForDelivery: backendStats.byMealStatus?.outfordelivery ?? 0,
     deliveredOrders: backendStats.byMealStatus?.delivered ?? 0,
@@ -74,7 +76,10 @@ function mapOrderStats(backendStats: BackendOrderStats): OrderStats {
 interface BackendOrder {
   _id: string;
   orderNumber: string;
-  customer?: { name?: string; phone?: string };
+  customer?: { name?: string; email?: string; phone?: string };
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
   deliveryAddress?: string | {
     addressLine1?: string;
     addressLine2?: string;
@@ -85,6 +90,10 @@ interface BackendOrder {
     pincode?: string;
   };
   totalAmountInr: number;
+  subtotal?: number;
+  tax?: number;
+  total?: number;
+  items?: Order['items'];
   paymentStatus: string;
   paymentMethod: string;
   customerMealStatus: string;
@@ -92,16 +101,6 @@ interface BackendOrder {
   sponsoredMealsCount: number;
   createdAt: string;
   updatedAt: string;
-}
-
-interface OrderQuery {
-  status?: string;
-  paymentStatus?: string;
-  search?: string;
-  from?: string;
-  to?: string;
-  page?: number;
-  limit?: number;
 }
 
 interface BackendOrdersResponse {
@@ -174,6 +173,38 @@ export interface DeliveryHistory {
 export interface OrderDetails {
   orderNumber: string;
   deliveries: DeliveryHistory[];
+}
+
+export interface OrdersQuery {
+  status?: string;
+  paymentStatus?: string;
+  search?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface KitchenOrder {
+  _id: string;
+  orderNumber: string;
+  customerName: string;
+  deliveryAddress: {
+    addressLine1: string;
+    addressLine2?: string;
+    area: string;
+    landmark?: string;
+    city: string;
+    state: string;
+    pincode: string;
+  };
+  items: Array<{
+    productName: string;
+    quantity: number;
+  }>;
+  totalAmountInr: number;
+  customerMealStatus: 'confirmed' | 'preparing' | 'readyforpickup';
+  createdAt: string;
 }
 
 export function useMeals(kitchenId?: string | null) {
@@ -249,7 +280,7 @@ export function useOrders() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchOrders = useCallback(async (query: OrderQuery = {}) => {
+  const fetchOrders = useCallback(async (query: OrdersQuery = {}) => {
     if (user?.role !== 'admin') {
       setOrders([]);
       setPagination({ page: 1, limit: 10, total: 0, totalPages: 0 });
@@ -267,26 +298,26 @@ export function useOrders() {
       if (query.search) params.set('search', query.search);
       if (query.from) params.set('from', query.from);
       if (query.to) params.set('to', query.to);
-      if (query.page) params.set('page', String(query.page));
-      if (query.limit) params.set('limit', String(query.limit));
+      params.set('page', String(query.page || 1));
+      params.set('limit', String(query.limit || 10));
 
-      const path = params.toString() ? `/api/orders/getAllOrders?${params.toString()}` : '/api/orders/getAllOrders';
+      const path = `/api/orders/getAllOrders?${params.toString()}`;
       const res = await api.get<BackendOrdersResponse>(path);
 
       const transformedOrders = res.data.orders.map((order) => ({
         _id: order._id,
         orderNumber: order.orderNumber,
-        customerName: order.customer?.name || 'Unknown customer',
-        customerEmail: '',
-        customerPhone: order.customer?.phone || '',
+        customerName: order.customer?.name || order.customerName || 'Unknown customer',
+        customerEmail: order.customer?.email || order.customerEmail || '',
+        customerPhone: order.customer?.phone || order.customerPhone || '',
         deliveryAddress: formatOrderAddress(order.deliveryAddress),
-        items: [],
-        subtotal: order.totalAmountInr,
-        tax: 0,
-        total: order.totalAmountInr,
-        paymentStatus: order.paymentStatus,
-        paymentMethod: order.paymentMethod,
-        orderStatus: order.customerMealStatus,
+        items: order.items || [],
+        subtotal: order.subtotal ?? order.totalAmountInr,
+        tax: order.tax ?? 0,
+        total: order.totalAmountInr ?? order.total ?? 0,
+        paymentStatus: order.paymentStatus || 'pending',
+        paymentMethod: order.paymentMethod || 'UPI',
+        orderStatus: order.customerMealStatus || 'confirmed',
         assignedRiderId: order.assignedRiderId ? String(order.assignedRiderId) : null,
         sponsoredMealsCount: order.sponsoredMealsCount,
         deliveryDetails: {},
@@ -296,9 +327,10 @@ export function useOrders() {
 
       setOrders(transformedOrders);
       setPagination(res.data.pagination);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load orders');
       setOrders([]);
+      setPagination({ page: query.page || 1, limit: query.limit || 10, total: 0, totalPages: 0 });
     } finally {
       setLoading(false);
     }
@@ -325,7 +357,6 @@ export function useOrders() {
   };
 
   useEffect(() => {
-    fetchOrders();
     fetchStats();
   }, [fetchOrders, fetchStats]);
 
@@ -345,15 +376,16 @@ export function useOrders() {
     fetchOrders,
     fetchStats,
     fetchOrderDetails,
-    deleteOrder: deleteOrderById,
+    deleteOrderById,
   };
 }
 
 export interface DeliveryRider {
-  _id: string;
+  userId: string;
   name: string;
   phone: string;
-  isAvailable: boolean;
+  status: string;
+  isLive: boolean;
   isBusy: boolean;
 }
 

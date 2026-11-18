@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { Heart, X, ArrowRight, CheckCircle2 } from 'lucide-react';
-import { useMealProgram } from '../context/MealProgramContext';
+import { useMealProgram } from '../../context/MealProgramContext';
 
 export const NotificationToast: React.FC = () => {
   const { activeToast, dismissToast } = useMealProgram();

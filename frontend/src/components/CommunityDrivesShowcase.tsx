@@ -24,6 +24,8 @@ interface CommunityDriveItem {
   linkText: string;
   linkTo: string;
   cartoonImage?: string;
+  cartoonWidth?: number;
+  cartoonHeight?: number;
   cartoonAlt?: string;
   cartoonPosition?: 'left' | 'right';
   isHighlighted?: boolean; // Controls permanent default styling for featured cards

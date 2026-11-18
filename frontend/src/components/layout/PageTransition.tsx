@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useLocation } from 'react-router-dom';
 
@@ -9,12 +9,21 @@ interface PageTransitionProps {
 export const PageTransition: React.FC<PageTransitionProps> = ({ children }) => {
   const { pathname } = useLocation();
   const prefersReducedMotion = useReducedMotion();
+  const hasMounted = useRef(false);
+  const previousPathname = useRef(pathname);
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    hasMounted.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (previousPathname.current !== pathname) {
+      window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+      previousPathname.current = pathname;
+    }
   }, [pathname]);
 
-  if (prefersReducedMotion) {
+  if (prefersReducedMotion || !hasMounted.current) {
     return <main>{children}</main>;
   }
 

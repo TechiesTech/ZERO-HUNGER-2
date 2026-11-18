@@ -26,11 +26,10 @@ import {
 import { useMealProgram } from '../context/MealProgramContext';
 import { useAuth } from '../context/AuthContext';
 import { useMeals } from '../hooks';
-import { getActiveKitchens, type Kitchen } from '../services/kitchenService';
+import { formatKitchenAddress, getActiveKitchens, type Kitchen } from '../services/kitchenService';
 import {
   createAddress,
   deleteAddress,
-  getMyAddresses,
   type SavedAddress,
   updateAddress,
 } from '../services/addressService';
@@ -40,7 +39,8 @@ import { EditorialImage } from '../components/EditorialImage';
 import { ScrollReveal } from '../components/ScrollReveal';
 import { PlateToHandsSteps } from '../components/PlateToHandsSteps';
 import AddressSection from '../components/AddressSection';
-import type { DeliveryAddress, DeliveryPoint } from '../services/orderService';
+import LocationPicker from '../components/LocationPicker';
+import { getCheckoutDetails, type DeliveryAddress, type DeliveryPoint } from '../services/orderService';
 
 const CATEGORIES: MealCategory[] = [
   'ALL',
@@ -181,10 +181,30 @@ export const MealBox: React.FC = () => {
     if (!authenticatedUser.roles.includes('customer')) {
       throw new Error('A customer account is required to place a meal order.');
     }
-    setCustomerEmail(authenticatedUser.email || '');
-    const addresses = await getMyAddresses();
+    const checkout = await getCheckoutDetails();
+    const addresses: SavedAddress[] = (checkout.addresses ?? [])
+      .filter((address) => Boolean(address._id))
+      .map((address) => ({
+        _id: address._id!,
+        addressLine1: address.addressLine1 || '',
+        addressLine2: address.addressLine2 || '',
+        area: address.area || '',
+        landmark: address.landmark || '',
+        city: address.city || '',
+        state: address.state || '',
+        pincode: address.pincode || '',
+        customerName: address.customerName || checkout.customer.name || authenticatedUser.name,
+        customerPhone: address.customerPhone || checkout.customer.phone || authenticatedUser.phone || '',
+        label: 'home',
+        location: address.location || null,
+        isDefault: Boolean(address.isDefault),
+      }));
     setSavedAddresses(addresses);
-    const defaultAddress = addresses.find((address) => address.isDefault) || addresses[0];
+    const defaultAddressId = checkout.defaultAddress?._id;
+    const defaultAddress = addresses.find((address) => address._id === defaultAddressId)
+      || addresses.find((address) => address.isDefault)
+      || addresses[0];
+    setCustomerEmail(checkout.customer.email || authenticatedUser.email || '');
     setSelectedAddressId(defaultAddress?._id || null);
     setIsAddingNewAddress(!defaultAddress);
     if (defaultAddress) {
@@ -199,10 +219,10 @@ export const MealBox: React.FC = () => {
         state: defaultAddress.state,
         pincode: defaultAddress.pincode,
       });
-      setDeliveryLocation(defaultAddress.location);
+      setDeliveryLocation(defaultAddress.location || null);
     } else {
-      setCustomerName(authenticatedUser.name);
-      setCustomerPhone(authenticatedUser.phone || '');
+      setCustomerName(checkout.customer.name || authenticatedUser.name);
+      setCustomerPhone(checkout.customer.phone || authenticatedUser.phone || '');
       setDeliveryAddress(EMPTY_ADDRESS);
       setDeliveryLocation(null);
     }
@@ -226,7 +246,7 @@ export const MealBox: React.FC = () => {
       state: address.state,
       pincode: address.pincode,
     });
-    setDeliveryLocation(address.location);
+    setDeliveryLocation(address.location || null);
     setFormError('');
   };
 
@@ -256,7 +276,7 @@ export const MealBox: React.FC = () => {
       state: address.state,
       pincode: address.pincode,
     });
-    setDeliveryLocation(address.location);
+    setDeliveryLocation(address.location || null);
     setFormError('');
   };
 
@@ -582,7 +602,9 @@ export const MealBox: React.FC = () => {
               <p className="mt-2 text-sm text-white/60">There are no active kitchens available right now.</p>
             ) : selectedKitchenId ? (
               <p className="mt-2 text-xs text-white/50">
-                {kitchens.find((kitchen) => kitchen._id === selectedKitchenId)?.address}
+                {formatKitchenAddress(
+                  kitchens.find((kitchen) => kitchen._id === selectedKitchenId)?.address
+                )}
               </p>
             ) : null}
           </div>
@@ -823,7 +845,7 @@ export const MealBox: React.FC = () => {
                       Order <strong>{confirmedOrder.orderNumber}</strong> is awaiting payment. No payment has been processed.
                     </p>
                     <Link
-                      to={`/track-meal?orderNumber=${encodeURIComponent(confirmedOrder.orderNumber || '')}&email=${encodeURIComponent(confirmedOrder.customerEmail)}`}
+                      to={`/track-order?orderNumber=${encodeURIComponent(confirmedOrder.orderNumber || '')}`}
                       className="mt-3 inline-flex text-sm font-bold text-[#188D44] underline"
                     >
                       View your order status
@@ -1216,6 +1238,13 @@ export const MealBox: React.FC = () => {
                   onDelete={(address) => void removeSavedAddress(address)}
                   onAddNew={addNewAddress}
                 />
+                {!isAddingNewAddress && !editingAddressId && (
+                  <LocationPicker
+                    value={deliveryLocation}
+                    onChange={() => {}}
+                    interactive={false}
+                  />
+                )}
                 {(isAddingNewAddress || editingAddressId) && (
                   <AddressSection
                     value={{ address: deliveryAddress, location: deliveryLocation }}

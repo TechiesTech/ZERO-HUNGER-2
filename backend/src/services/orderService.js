@@ -4,6 +4,7 @@ import * as orderRepository from '../repositories/orderRepository.js';
 import * as addressRepository from '../repositories/addressRepository.js';
 import * as geocoder from '../utils/geocoder.js';
 import { getCachedRoute } from '../utils/roadRoute.js';
+import { getPhotoUrl } from '../config/cloudinary.js';
 
 const createOrder = async (user, body) => {
     // 1. The address must belong to this customer and not be deleted
@@ -121,7 +122,9 @@ const trackLiveOrder = async (user, orderNumber) => {
         if (riderInfo) {
             rider = {
                 name: riderInfo.name,
+                phone: riderInfo.phone,
                 vehicleType: riderInfo.vehicleType,
+                vehicleNumber: riderInfo.vehicleNumber,
                 status: order.delivery.status,
                 acceptedAt: order.delivery.acceptedAt || null,
                 pickedUpAt: order.delivery.pickedUpAt || null,
@@ -207,7 +210,16 @@ const getAllOrders = async ({ customerMealStatus, paymentStatus, search, from, t
 const getOrderById = async (orderId) => {
     const order = await orderRepository.getOrderById(orderId);
     if (!order) throw new AppError('Order not found', 404);
-    return order;
+    return {
+        ...order,
+        deliveries: order.deliveries.map((delivery) => {
+            const { photoPublicId, ...deliveryDetails } = delivery;
+            return {
+                ...deliveryDetails,
+                photoUrl: delivery.photoUrl || getPhotoUrl(photoPublicId) || '',
+            };
+        }),
+    };
 };
 
 const getOrderStats = async () => {

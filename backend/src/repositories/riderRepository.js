@@ -33,6 +33,12 @@ const getRider = async (userId) => {
     return Rider.findOne({ userId }).select('isAvailable').lean();
 };
 
+const getRiderProfile = async (userId) => {
+    return Rider.findOne({ userId })
+        .select('isAvailable vehicleType vehicleNumber currentLocation')
+        .lean();
+};
+
 const setAvailability = async (userId, isAvailable) => {
     return Rider.findOneAndUpdate({ userId }, { $set: { isAvailable } }, { new: true })
         .select('isAvailable')
@@ -96,11 +102,19 @@ const getAvailableOrders = async () => {
                             from: 'users',
                             localField: 'user',
                             foreignField: '_id',
-                            pipeline: [{ $project: { _id: 0, name: 1 } }],
+                            pipeline: [{ $project: { _id: 0, name: 1, phone: 1 } }],
                             as: 'account',
                         },
                     },
-                    { $project: { _id: 0, name: { $arrayElemAt: ['$account.name', 0] }, address: 1, location: 1 } },
+                    {
+                        $project: {
+                            _id: 0,
+                            name: { $arrayElemAt: ['$account.name', 0] },
+                            phone: { $arrayElemAt: ['$account.phone', 0] },
+                            address: 1,
+                            location: 1,
+                        },
+                    },
                 ],
                 as: 'kitchen',
             },
@@ -140,7 +154,7 @@ const acceptOrder = async (riderId, orderNumber) => {
     return { orderNumber: order.orderNumber, status: 'accepted' };
 };
 
-const updateStatus = async (riderId, orderNumber, status, photoKey) => {
+const updateStatus = async (riderId, orderNumber, status, photoPublicId) => {
     const flow = statusFlow[status];
     const updatedAt = new Date();
 
@@ -165,7 +179,7 @@ const updateStatus = async (riderId, orderNumber, status, photoKey) => {
     await Promise.all([
         Delivery.updateOne(
             { orderId: order._id, riderId, isOpen: true },
-            { $set: { status, isOpen: false, [flow.deliveryTimeField]: updatedAt, photoKey } }
+            { $set: { status, isOpen: false, [flow.deliveryTimeField]: updatedAt, photoPublicId } }
         ),
         Rider.updateOne({ _id: riderId }, { $inc: { totalDeliveries: 1 } }),
     ]);
@@ -229,11 +243,19 @@ const currentDelivery = async (userId) => {
                             from: 'users',
                             localField: 'user',
                             foreignField: '_id',
-                            pipeline: [{ $project: { _id: 0, name: 1 } }],
+                            pipeline: [{ $project: { _id: 0, name: 1, phone: 1 } }],
                             as: 'account',
                         },
                     },
-                    { $project: { _id: 0, name: { $arrayElemAt: ['$account.name', 0] }, address: 1, location: 1 } },
+                    {
+                        $project: {
+                            _id: 0,
+                            name: { $arrayElemAt: ['$account.name', 0] },
+                            phone: { $arrayElemAt: ['$account.phone', 0] },
+                            address: 1,
+                            location: 1,
+                        },
+                    },
                 ],
                 as: 'kitchen',
             },
@@ -319,7 +341,7 @@ const getMyDeliveries = async (userId, from, to, skip, limit) => {
                                         orderNumber: '$order.orderNumber',
                                         deliveredAt: 1,
                                         area: { $arrayElemAt: ['$savedAddress.address.area', 0] },
-                                        photoKey: 1,
+                                        photoPublicId: 1,
                                     },
                                 },
                             ],
@@ -337,7 +359,7 @@ const getMyDeliveries = async (userId, from, to, skip, limit) => {
 
 const getRiderStats = async (since) => {
     const [stats] = await User.aggregate([
-        { $match: { role: 'rider' } },
+        { $match: { roles: 'rider' } },
         { $lookup: { from: 'riders', localField: '_id', foreignField: 'userId', as: 'rider' } },
         { $set: { rider: { $arrayElemAt: ['$rider', 0] } } },
         {
@@ -387,7 +409,7 @@ const getAllRiders = async (status, since, skip, limit) => {
     };
 
     const [result] = await User.aggregate([
-        { $match: { role: 'rider' } },
+        { $match: { roles: 'rider' } },
         { $lookup: { from: 'riders', localField: '_id', foreignField: 'userId', as: 'rider' } },
         { $set: { rider: { $arrayElemAt: ['$rider', 0] } } },
         {
@@ -451,7 +473,7 @@ const getAllRiders = async (status, since, skip, limit) => {
 
 const reviewRider = async (userId, status, reason) => {
     return User.findOneAndUpdate(
-        { _id: userId, role: 'rider', status: 'pending' },
+        { _id: userId, roles: 'rider', status: 'pending' },
         { $set: { status, rejectionReason: reason ?? '' } },
         { new: true }
     )
@@ -462,6 +484,7 @@ const reviewRider = async (userId, status, reason) => {
 export {
     registerRider,
     getRider,
+    getRiderProfile,
     setAvailability,
     updateLocation,
     hasOpenDelivery,

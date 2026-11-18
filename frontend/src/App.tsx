@@ -4,12 +4,12 @@
  */
 
 import React, { lazy, Suspense, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { MealProgramProvider } from './context/MealProgramContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { Navbar } from './components/Navbar';
-import { Footer } from './components/Footer';
-import { PageTransition } from './components/PageTransition';
+import { Navbar } from './components/layout/Navbar';
+import { Footer } from './components/layout/Footer';
+import { PageTransition } from './components/layout/PageTransition';
 import type { SupportTab } from './components/SupportModal';
 import { useMealProgram } from './context/MealProgramContext';
 
@@ -21,13 +21,15 @@ const ProjectDetail = lazy(() => import('./pages/ProjectDetail').then(({ Project
 const Contact = lazy(() => import('./pages/Contact').then(({ Contact }) => ({ default: Contact })));
 const MealBox = lazy(() => import('./pages/MealBox').then(({ MealBox }) => ({ default: MealBox })));
 const TrackMeal = lazy(() => import('./pages/TrackMeal').then(({ TrackMeal }) => ({ default: TrackMeal })));
+const OrderLookup = lazy(() => import('./pages/OrderLookup').then(({ OrderLookup }) => ({ default: OrderLookup })));
 const LiveTracking = lazy(() => import('./pages/LiveTracking').then(({ LiveTracking }) => ({ default: LiveTracking })));
+const RiderDashboard = lazy(() => import('./pages/RiderDashboard').then(({ RiderDashboard }) => ({ default: RiderDashboard })));
 const ZeptoTracking = lazy(() => import('./pages/ZeptoTracking').then(({ ZeptoTracking }) => ({ default: ZeptoTracking })));
 const CelebrateAndGive = lazy(() => import('./pages/CelebrateAndGive').then(({ CelebrateAndGive }) => ({ default: CelebrateAndGive })));
 const SupportModal = lazy(() => import('./components/SupportModal').then(({ SupportModal }) => ({ default: SupportModal })));
 const AuthModal = lazy(() => import('./components/AuthModal').then(({ AuthModal }) => ({ default: AuthModal })));
 const CartModal = lazy(() => import('./components/CartModal').then(({ CartModal }) => ({ default: CartModal })));
-const NotificationToast = lazy(() => import('./components/NotificationToast').then(({ NotificationToast }) => ({ default: NotificationToast })));
+const NotificationToast = lazy(() => import('./components/layout/NotificationToast').then(({ NotificationToast }) => ({ default: NotificationToast })));
 
 function AppContent() {
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -37,7 +39,6 @@ function AppContent() {
   const [preselectedProject, setPreselectedProject] = useState<string>('all');
   const [cartModalOpen, setCartModalOpen] = useState(false);
   const [cartModalLoaded, setCartModalLoaded] = useState(false);
-  const { pathname, search } = useLocation();
   const { activeToast } = useMealProgram();
   const {
     signIn,
@@ -90,12 +91,13 @@ function AppContent() {
                   element={<Home onOpenSupport={handleOpenSupport} />}
                 />
                 <Route path="/meal-box" element={<MealBox />} />
-                <Route path="/track-order" element={<Navigate to={`/track-meal${search}`} replace />} />
+                <Route path="/track-order" element={<OrderLookup />} />
                 <Route path="/track-meal" element={<TrackMeal />} />
                 <Route
                   path="/live-tracking/:orderNumber"
                   element={<LiveTracking />}
                 />
+                <Route path="/rider" element={<RiderDashboard />} />
                 <Route
                   path="/zepto-tracking/:orderId"
                   element={<ZeptoTracking />}
