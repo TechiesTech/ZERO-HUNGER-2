@@ -8,6 +8,7 @@
     "dev:admin": "npm run dev --prefix admin",
     "dev:kitchen": "npm run dev --prefix kitchen",
     "dev:frontend": "npm run dev --prefix frontend",
+    "dev:rider": "npm run dev --prefix rider",
     "dev:backend": "npm run dev --prefix backend",
     "dev": "concurrently --names \"frontend,admin,kitchen,backend\" --prefix-colors \"cyan,magenta,green,yellow\" \"npm run dev --prefix frontend\" \"npm run dev --prefix admin\" \"npm run dev --prefix kitchen\" \"npm run dev --prefix backend\""
   },
