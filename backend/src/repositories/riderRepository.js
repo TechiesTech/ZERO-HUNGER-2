@@ -337,7 +337,7 @@ const getMyDeliveries = async (userId, from, to, skip, limit) => {
 
 const getRiderStats = async (since) => {
     const [stats] = await User.aggregate([
-        { $match: { role: 'rider' } },
+        { $match: { roles: 'rider' } },
         { $lookup: { from: 'riders', localField: '_id', foreignField: 'userId', as: 'rider' } },
         { $set: { rider: { $arrayElemAt: ['$rider', 0] } } },
         {
@@ -387,7 +387,7 @@ const getAllRiders = async (status, since, skip, limit) => {
     };
 
     const [result] = await User.aggregate([
-        { $match: { role: 'rider' } },
+        { $match: { roles: 'rider' } },
         { $lookup: { from: 'riders', localField: '_id', foreignField: 'userId', as: 'rider' } },
         { $set: { rider: { $arrayElemAt: ['$rider', 0] } } },
         {
@@ -451,7 +451,7 @@ const getAllRiders = async (status, since, skip, limit) => {
 
 const reviewRider = async (userId, status, reason) => {
     return User.findOneAndUpdate(
-        { _id: userId, role: 'rider', status: 'pending' },
+        { _id: userId, roles: 'rider', status: 'pending' },
         { $set: { status, rejectionReason: reason ?? '' } },
         { new: true }
     )
