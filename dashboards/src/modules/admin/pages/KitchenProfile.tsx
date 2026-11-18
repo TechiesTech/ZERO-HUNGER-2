@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { maplibregl } from '@/services/mapLibre';
+import { maplibregl } from '@core/styles/services/mapLibre';
 import type { Map as MapLibreMap, Marker as MapLibreMarker, MapMouseEvent } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { AlertCircle, Loader2, MapPin, Save } from 'lucide-react';
-import { api } from '@/services/adminApi';
+import { api } from '@modules/admin/services/adminApi';
 
 interface KitchenAddress {
   addressLine1: string;

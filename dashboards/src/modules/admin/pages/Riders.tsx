@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, Bike, Check, Loader2, RefreshCw, X } from 'lucide-react';
-import { api } from '@/services/adminApi';
+import { api } from '@modules/admin/services/adminApi';
 
 interface Rider {
   userId: string;
