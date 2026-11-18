@@ -2,16 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronDown, ClipboardList, LogOut, Menu, ShoppingBag, UserRound, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-<<<<<<< Updated upstream:frontend/src/components/Navbar.tsx
-import { SupportTab } from './SupportModal';
-import { MyOrdersModal } from './MyOrdersModal';
-import { ProfileModal } from './ProfileModal';
-import { useMealProgram } from '../context/MealProgramContext';
-import { useAuth } from '../context/AuthContext';
-=======
 import { SupportTab } from '../SupportModal';
+import { MyOrdersModal } from '../MyOrdersModal';
+import { ProfileModal } from '../ProfileModal';
 import { useMealProgram } from '../../context/MealProgramContext';
->>>>>>> Stashed changes:frontend/src/components/layout/Navbar.tsx
+import { useAuth } from '../../context/AuthContext';
 
 interface NavbarProps {
   onOpenSupport: (tab?: SupportTab) => void;
@@ -26,12 +21,8 @@ const NAV_ITEMS = [
   { label: 'Contact', path: '/contact', hideOnCompact: true },
 ];
 
-<<<<<<< Updated upstream:frontend/src/components/Navbar.tsx
 export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport, onOpenSignIn }) => {
   const [isScrolled, setIsScrolled] = useState(false);
-=======
-export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
->>>>>>> Stashed changes:frontend/src/components/layout/Navbar.tsx
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [aboutDropdownOpen, setAboutDropdownOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -94,14 +85,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSupport }) => {
 
   return (
     <header
-<<<<<<< Updated upstream:frontend/src/components/Navbar.tsx
       className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${isScrolled || mobileMenuOpen
         ? 'bg-[#080808]/95 backdrop-blur-md border-b border-white/10 py-3.5 shadow-lg'
         : 'bg-[#080808]/85 backdrop-blur-xs border-b border-white/10 py-4'
         }`}
-=======
-      className="fixed top-0 left-0 right-0 z-40 bg-[#080808]/95 backdrop-blur-md border-b border-white/10 py-3.5 shadow-lg"
->>>>>>> Stashed changes:frontend/src/components/layout/Navbar.tsx
     >
       <div className="relative max-w-[1360px] mx-auto px-5 sm:px-8 lg:px-12 flex items-center justify-between">
         {/* Zone 1: Brand Wordmark */}

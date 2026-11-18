@@ -49,11 +49,6 @@ const COMMUNITY_DRIVES: CommunityDriveItem[] = [
     linkText: 'Design Placard & Sponsor',
     linkTo: '/celebrate-and-give',
     cartoonImage: '/assets/images/girl_divcard.webp',
-<<<<<<< Updated upstream
-=======
-    cartoonWidth: 1632,
-    cartoonHeight: 1666,
->>>>>>> Stashed changes
     cartoonAlt: 'Celebrate and give illustration',
     cartoonPosition: 'left',
     isHighlighted: true,
@@ -108,11 +103,6 @@ const COMMUNITY_DRIVES: CommunityDriveItem[] = [
     linkText: 'Download Document Kit',
     linkTo: '/csr-tax-benefits',
     cartoonImage: '/assets/images/boy_divcard.webp',
-<<<<<<< Updated upstream
-=======
-    cartoonWidth: 1568,
-    cartoonHeight: 1620,
->>>>>>> Stashed changes
     cartoonAlt: 'CSR tax benefits illustration',
     cartoonPosition: 'right',
     isHighlighted: true,
@@ -163,13 +153,8 @@ export const CommunityDrivesShowcase: React.FC = () => {
                     <img
                       src={item.cartoonImage}
                       alt={item.cartoonAlt}
-<<<<<<< Updated upstream
                       width={176}
                       height={176}
-=======
-                      width={item.cartoonWidth}
-                      height={item.cartoonHeight}
->>>>>>> Stashed changes
                       loading="lazy"
                       decoding="async"
                       className="w-full h-full object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.5)]"

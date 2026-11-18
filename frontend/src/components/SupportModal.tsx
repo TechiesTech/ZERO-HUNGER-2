@@ -1,10 +1,6 @@
 import React, { useEffect, useState } from 'react';
-<<<<<<< Updated upstream
-import { X, ArrowRight, CheckCircle2, HeartHandshake, Users, ShieldCheck, ShoppingBag, Plus, Minus, Trash2, Heart, Utensils } from 'lucide-react';
-=======
 import { Link } from 'react-router-dom';
-import { X, ArrowRight, CheckCircle2, HeartHandshake, Users, ShieldCheck } from 'lucide-react';
->>>>>>> Stashed changes
+import { X, ArrowRight, CheckCircle2, HeartHandshake, Users, ShieldCheck, ShoppingBag, Plus, Minus, Trash2, Heart, Utensils } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PROJECTS } from '../data/projects';
 import { useMealProgram } from '../context/MealProgramContext';
