@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { User } from '../models/schemas/userSchema.js';
 import { Rider } from '../models/schemas/riderSchema.js';
 import { Order } from '../models/schemas/orderSchema.js';
@@ -175,7 +176,8 @@ const updateStatus = async (riderId, orderNumber, status, photoKey) => {
 
 const currentDelivery = async (userId) => {
     const [delivery] = await Rider.aggregate([
-        { $match: { userId } },
+        // aggregate does not cast ids, so convert to ObjectId
+        { $match: { userId: new mongoose.Types.ObjectId(userId) } },
         {
             $lookup: {
                 from: 'deliveries',
@@ -268,7 +270,7 @@ const currentDelivery = async (userId) => {
 
 const getMyDeliveries = async (userId, from, to, skip, limit) => {
     const [rider] = await Rider.aggregate([
-        { $match: { userId } },
+        { $match: { userId: new mongoose.Types.ObjectId(userId) } },
         {
             $lookup: {
                 from: 'deliveries',
@@ -337,7 +339,7 @@ const getMyDeliveries = async (userId, from, to, skip, limit) => {
 
 const getRiderStats = async (since) => {
     const [stats] = await User.aggregate([
-        { $match: { role: 'rider' } },
+        { $match: { roles: 'rider' } },
         { $lookup: { from: 'riders', localField: '_id', foreignField: 'userId', as: 'rider' } },
         { $set: { rider: { $arrayElemAt: ['$rider', 0] } } },
         {
@@ -387,7 +389,7 @@ const getAllRiders = async (status, since, skip, limit) => {
     };
 
     const [result] = await User.aggregate([
-        { $match: { role: 'rider' } },
+        { $match: { roles: 'rider' } },
         { $lookup: { from: 'riders', localField: '_id', foreignField: 'userId', as: 'rider' } },
         { $set: { rider: { $arrayElemAt: ['$rider', 0] } } },
         {

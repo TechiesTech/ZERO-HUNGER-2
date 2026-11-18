@@ -70,9 +70,7 @@ const updateStatus = async (user, orderNumber, { status }, file) => {
 };
 
 const currentDelivery = async (user) => {
-    const delivery = await riderRepository.currentDelivery(user._id);
-    if (!delivery) throw new AppError('No delivery in progress', 404);
-    return delivery;
+    return riderRepository.currentDelivery(user._id);
 };
 
 const getMyDeliveries = async (user, { month, page, limit }) => {
