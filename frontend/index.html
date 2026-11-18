@@ -43,6 +43,7 @@
       name="twitter:description"
       content="Creating a world where no one sleeps hungry. Zero Hunger delivers nutritious meals, school lunch programs, and emergency food relief to communities in India."
     />
+<<<<<<< Updated upstream
     <meta
       name="twitter:image"
       content="https://zerohunger.org/images/hero_community_meals_1790672974684.webp"
@@ -51,10 +52,27 @@
     <!-- Favicon & PWA links -->
     <link rel="icon" type="image/svg+xml" href="" />
 
+=======
+    <script>
+      if (window.location.pathname === '/') {
+        const heroImage = document.createElement('link');
+        heroImage.rel = 'preload';
+        heroImage.as = 'image';
+        heroImage.href = '/images/hero_community_meals_1790672974684-768.webp';
+        heroImage.imageSrcset =
+          '/images/hero_community_meals_1790672974684-480.webp 480w, /images/hero_community_meals_1790672974684-768.webp 768w, /images/hero_community_meals_1790672974684.webp 1200w';
+        heroImage.imageSizes =
+          '(max-width: 767px) calc(100vw - 2rem), (max-width: 1199px) 48vw, 530px';
+        heroImage.fetchPriority = 'high';
+        document.head.append(heroImage);
+      }
+    </script>
+>>>>>>> Stashed changes
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="preload"
+<<<<<<< Updated upstream
       as="image"
       href="/images/hero_community_meals_1790672974684.webp"
       fetchpriority="high"
@@ -69,6 +87,16 @@
       <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400;1,500;1,600&display=swap"
         rel="stylesheet"
+=======
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400;1,500;1,600&display=optional"
+      onload="this.onload=null;this.rel='stylesheet'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400;1,500;1,600&display=optional"
+>>>>>>> Stashed changes
       />
     </noscript>
     <script type="application/ld+json">

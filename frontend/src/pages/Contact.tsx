@@ -77,7 +77,11 @@ export const Contact: React.FC = () => {
               alt="Zero Hunger Hero"
               width={2009}
               height={699}
+<<<<<<< Updated upstream
               loading="lazy"
+=======
+              fetchPriority="high"
+>>>>>>> Stashed changes
               decoding="async"
               className="w-full h-auto max-h-[600px] object-contain object-left-top opacity-85"
             />

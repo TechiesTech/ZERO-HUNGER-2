@@ -6,6 +6,7 @@
 import React, { lazy, Suspense, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { MealProgramProvider } from './context/MealProgramContext';
+<<<<<<< Updated upstream
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
@@ -30,6 +31,63 @@ const SupportModal = lazy(() => import('./components/SupportModal').then(({ Supp
 const AuthModal = lazy(() => import('./components/AuthModal').then(({ AuthModal }) => ({ default: AuthModal })));
 const CartModal = lazy(() => import('./components/CartModal').then(({ CartModal }) => ({ default: CartModal })));
 const NotificationToast = lazy(() => import('./components/NotificationToast').then(({ NotificationToast }) => ({ default: NotificationToast })));
+=======
+import { Navbar } from './components/layout/Navbar';
+import { Footer } from './components/layout/Footer';
+import { PageTransition } from './components/layout/PageTransition';
+import { NotificationToast } from './components/layout/NotificationToast';
+import type { SupportTab } from './components/SupportModal';
+import { Home } from './pages/Home';
+
+const SupportModal = lazy(() =>
+  import('./components/SupportModal').then((module) => ({
+    default: module.SupportModal,
+  }))
+);
+const About = lazy(() =>
+  import('./pages/About').then((module) => ({ default: module.About }))
+);
+const Projects = lazy(() =>
+  import('./pages/Projects').then((module) => ({ default: module.Projects }))
+);
+const ProjectDetail = lazy(() =>
+  import('./pages/ProjectDetail').then((module) => ({
+    default: module.ProjectDetail,
+  }))
+);
+const Impact = lazy(() =>
+  import('./pages/Impact').then((module) => ({ default: module.Impact }))
+);
+const Contact = lazy(() =>
+  import('./pages/Contact').then((module) => ({ default: module.Contact }))
+);
+const MealBox = lazy(() =>
+  import('./pages/MealBox').then((module) => ({ default: module.MealBox }))
+);
+const TrackMeal = lazy(() =>
+  import('./pages/TrackMeal').then((module) => ({ default: module.TrackMeal }))
+);
+const LiveTracking = lazy(() =>
+  import('./pages/LiveTracking').then((module) => ({
+    default: module.LiveTracking,
+  }))
+);
+const ZeptoTracking = lazy(() =>
+  import('./pages/ZeptoTracking').then((module) => ({
+    default: module.ZeptoTracking,
+  }))
+);
+const CelebrateAndGive = lazy(() =>
+  import('./pages/CelebrateAndGive').then((module) => ({
+    default: module.CelebrateAndGive,
+  }))
+);
+const CSRTaxBenefits = lazy(() =>
+  import('./pages/CSRTaxBenefits').then((module) => ({
+    default: module.CSRTaxBenefits,
+  }))
+);
+>>>>>>> Stashed changes
 
 function AppContent() {
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -37,6 +95,7 @@ function AppContent() {
   const [supportModalLoaded, setSupportModalLoaded] = useState(false);
   const [supportModalTab, setSupportModalTab] = useState<SupportTab>('donate');
   const [preselectedProject, setPreselectedProject] = useState<string>('all');
+<<<<<<< Updated upstream
   const [cartModalOpen, setCartModalOpen] = useState(false);
   const [cartModalLoaded, setCartModalLoaded] = useState(false);
   const { activeToast } = useMealProgram();
@@ -49,6 +108,8 @@ function AppContent() {
     resetPassword,
   } = useAuth();
 
+=======
+>>>>>>> Stashed changes
   const handleOpenSupport = (
     tab: SupportTab = 'donate',
     projectSlug: string = 'all'
@@ -66,10 +127,70 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white text-[#080808] selection:bg-[#D7262F] selection:text-white">
+<<<<<<< Updated upstream
       <Navbar
         onOpenSupport={(tab) => handleOpenSupport(tab, 'all')}
         onOpenSignIn={() => setAuthModalOpen(true)}
       />
+=======
+      <Navbar onOpenSupport={(tab) => handleOpenSupport(tab, 'all')} />
+
+      <div className="flex-1">
+        <Suspense fallback={<main className="min-h-[60vh]" aria-busy="true" />}>
+          <PageTransition>
+            <Routes>
+              <Route
+                path="/"
+                element={<Home onOpenSupport={handleOpenSupport} />}
+              />
+              <Route path="/meal-box" element={<MealBox />} />
+              <Route path="/track-meal" element={<TrackMeal />} />
+              <Route
+                path="/live-tracking/:orderNumber"
+                element={<LiveTracking />}
+              />
+              <Route
+                path="/zepto-tracking/:orderId"
+                element={<ZeptoTracking />}
+              />
+              <Route path="/celebrate-and-give" element={<CelebrateAndGive />} />
+              <Route path="/csr-tax-benefits" element={<CSRTaxBenefits />} />
+              <Route
+                path="/about"
+                element={<About onOpenSupport={handleOpenSupport} />}
+              />
+              <Route
+                path="/projects"
+                element={<Projects onOpenSupport={handleOpenSupport} />}
+              />
+              <Route
+                path="/projects/:slug"
+                element={<ProjectDetail onOpenSupport={handleOpenSupport} />}
+              />
+              <Route
+                path="/impact"
+                element={<Impact onOpenSupport={handleOpenSupport} />}
+              />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </PageTransition>
+        </Suspense>
+      </div>
+
+      <Footer />
+
+      {supportModalOpen && (
+        <Suspense fallback={null}>
+          <SupportModal
+            isOpen={supportModalOpen}
+            onClose={() => setSupportModalOpen(false)}
+            initialTab={supportModalTab}
+            preselectedProjectSlug={preselectedProject}
+          />
+        </Suspense>
+      )}
+>>>>>>> Stashed changes
 
       <Suspense
         fallback={

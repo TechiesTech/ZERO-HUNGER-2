@@ -1,5 +1,10 @@
 import React, { useEffect, useState } from 'react';
+<<<<<<< Updated upstream
 import { X, ArrowRight, CheckCircle2, HeartHandshake, Users, ShieldCheck, ShoppingBag, Plus, Minus, Trash2, Heart, Utensils } from 'lucide-react';
+=======
+import { Link } from 'react-router-dom';
+import { X, ArrowRight, CheckCircle2, HeartHandshake, Users, ShieldCheck } from 'lucide-react';
+>>>>>>> Stashed changes
 import { motion, AnimatePresence } from 'motion/react';
 import { PROJECTS } from '../data/projects';
 import { useMealProgram } from '../context/MealProgramContext';
@@ -404,13 +409,13 @@ export const SupportModal: React.FC<SupportModalProps> = ({
                       <span className="font-bold text-[#080808] block">Celebrating a Birthday, Anniversary or Memorial?</span>
                       <span className="text-[#6F6F6F]">Have beneficiaries hold a personalized placard with your message.</span>
                     </div>
-                    <a
-                      href="/celebrate-and-give"
+                    <Link
+                      to="/celebrate-and-give"
                       onClick={() => handleResetAndClose()}
                       className="px-3.5 py-1.5 rounded-[6px] bg-[#122023] text-white font-bold text-[11px] whitespace-nowrap hover:bg-[#080808] text-center"
                     >
                       Personalize Placard →
-                    </a>
+                    </Link>
                   </div>
 
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">

@@ -1,0 +1,413 @@
+import React, { useState, useEffect } from 'react';
+import {
+  ShoppingBag,
+  Clock,
+  AlertCircle,
+  CheckCircle2,
+  Truck,
+  Search,
+  Loader2,
+  History,
+  X,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
+import {
+  useOrders,
+  type OrderDetails,
+  type OrdersQuery,
+} from '../services/hooks';
+
+/* ── Stat card for Orders ── */
+function OrderStat({ label, value, icon, accent }: {
+  label: string; value: number; icon: React.ReactNode; accent: string;
+}) {
+  return (
+    <div className="rounded-2xl bg-[#0D1719] border border-white/8 p-5 flex items-center gap-4">
+      <div className={`w-10 h-10 rounded-xl ${accent} flex items-center justify-center`}>{icon}</div>
+      <div>
+        <p className="text-[11px] uppercase tracking-widest text-white/40 font-medium">{label}</p>
+        <p className="text-xl font-bold text-white mt-0.5 font-display-sans">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+/* ── Status badge ── */
+function StatusBadge({ status }: { status: string }) {
+  const config: Record<string, { color: string; label: string }> = {
+    confirmed: { color: 'bg-[#B9FF2C] text-[#122023]', label: 'Confirmed' },
+    preparing: { color: 'bg-[#4EDBE2] text-[#080808]', label: 'Preparing' },
+    readyforpickup: { color: 'bg-[#B9FF2C] text-[#122023]', label: 'Ready for Pickup' },
+    outfordelivery: { color: 'bg-[#FFB347] text-[#080808]', label: 'Out for Delivery' },
+    out_for_delivery: { color: 'bg-[#FFB347] text-[#080808]', label: 'Out for Delivery' },
+    delivered: { color: 'bg-[#49E619] text-[#080808]', label: 'Delivered' },
+    cancelled: { color: 'bg-red-500 text-white', label: 'Cancelled' },
+  };
+
+  const { color, label } = config[status] || { color: 'bg-white/10 text-white/50', label: status };
+
+  return (
+    <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${color}`}>
+      {label}
+    </span>
+  );
+}
+
+function DeliveryHistoryModal({
+  orderNumber,
+  details,
+  loading,
+  error,
+  onClose,
+}: {
+  orderNumber: string;
+  details: OrderDetails | null;
+  loading: boolean;
+  error: string | null;
+  onClose: () => void;
+}): React.ReactElement {
+  const formatDate = (value: string | null) => value ? new Date(value).toLocaleString() : '—';
+
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 p-4" onMouseDown={onClose}>
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delivery-history-title"
+        className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl border border-white/10 bg-[#0D1719] p-6 shadow-2xl"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-[#4EDBE2] font-bold">Order delivery</p>
+            <h2 id="delivery-history-title" className="mt-1 text-xl font-bold text-white">{orderNumber}</h2>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-2 text-white/50 hover:bg-white/10 hover:text-white" aria-label="Close delivery history">
+            <X size={18} />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 py-12 text-sm text-white/40">
+            <Loader2 size={16} className="animate-spin" /> Loading delivery history…
+          </div>
+        ) : error ? (
+          <div className="mt-5 flex items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-400">
+            <AlertCircle size={16} />
+            {error}
+          </div>
+        ) : !details?.deliveries.length ? (
+          <p className="py-12 text-center text-sm text-white/40">No rider assignments have been recorded for this order.</p>
+        ) : (
+          <ol className="mt-6 space-y-4">
+            {details.deliveries.map((delivery, index) => (
+              <li key={delivery._id} className="rounded-xl border border-white/8 bg-black/20 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-white">
+                      Delivery attempt {index + 1}
+                      <span className="ml-2 text-xs font-medium uppercase tracking-wide text-[#4EDBE2]">
+                        {delivery.status}
+                      </span>
+                    </p>
+                    <p className="mt-1 text-xs text-white/50">
+                      Rider: {delivery.rider?.name || 'Unknown rider'}
+                      {delivery.rider?.phone ? ` · ${delivery.rider.phone}` : ''}
+                    </p>
+                  </div>
+                  {delivery.photoUrl && (
+                    <a
+                      href={delivery.photoUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-semibold text-[#4EDBE2] hover:underline"
+                    >
+                      View proof photo
+                    </a>
+                  )}
+                </div>
+                <dl className="mt-4 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+                  <div><dt className="text-white/35">Assigned</dt><dd className="mt-0.5 text-white/70">{formatDate(delivery.assignedAt)}</dd></div>
+                  <div><dt className="text-white/35">Accepted</dt><dd className="mt-0.5 text-white/70">{formatDate(delivery.acceptedAt)}</dd></div>
+                  <div><dt className="text-white/35">Picked up</dt><dd className="mt-0.5 text-white/70">{formatDate(delivery.pickedUpAt)}</dd></div>
+                  <div><dt className="text-white/35">Delivered</dt><dd className="mt-0.5 text-white/70">{formatDate(delivery.deliveredAt)}</dd></div>
+                  {delivery.releasedAt && (
+                    <div className="sm:col-span-2">
+                      <dt className="text-white/35">Released by {delivery.releasedBy || '—'}</dt>
+                      <dd className="mt-0.5 text-white/70">{formatDate(delivery.releasedAt)}</dd>
+                    </div>
+                  )}
+                </dl>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function AdminOrders(): React.ReactElement {
+  const {
+    orders,
+    pagination,
+    stats,
+    loading,
+    error,
+    fetchOrders,
+    fetchOrderDetails,
+  } = useOrders();
+
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>('ALL');
+  const [filterPayment, setFilterPayment] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [page, setPage] = useState(1);
+  const [deliveryHistory, setDeliveryHistory] = useState<OrderDetails | null>(null);
+  const [deliveryHistoryOrderNumber, setDeliveryHistoryOrderNumber] = useState('');
+  const [deliveryHistoryLoading, setDeliveryHistoryLoading] = useState(false);
+  const [deliveryHistoryError, setDeliveryHistoryError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    const statusMap: Record<string, string> = {
+      confirmed: 'confirmed',
+      preparing: 'preparing',
+      readyforpickup: 'readyforpickup',
+      out_for_delivery: 'outfordelivery',
+      delivered: 'delivered',
+      cancelled: 'cancelled',
+    };
+    const query: OrdersQuery = {
+      ...(filterStatus !== 'ALL' ? { status: statusMap[filterStatus] } : {}),
+      ...(filterPayment ? { paymentStatus: filterPayment } : {}),
+      ...(debouncedSearch ? { search: debouncedSearch } : {}),
+      ...(fromDate ? { from: new Date(`${fromDate}T00:00:00`).toISOString() } : {}),
+      ...(toDate ? { to: new Date(`${toDate}T23:59:59.999`).toISOString() } : {}),
+      page,
+      limit: 10,
+    };
+    void fetchOrders(query);
+  }, [filterStatus, filterPayment, debouncedSearch, fromDate, toDate, page, fetchOrders]);
+
+  const handleViewDeliveryHistory = async (orderId: string, orderNumber: string) => {
+    setDeliveryHistoryOrderNumber(orderNumber);
+    setDeliveryHistory(null);
+    setDeliveryHistoryError(null);
+    setDeliveryHistoryLoading(true);
+    try {
+      setDeliveryHistory(await fetchOrderDetails(orderId));
+    } catch (err: unknown) {
+      setDeliveryHistoryError(err instanceof Error ? err.message : 'Failed to load delivery history');
+    } finally {
+      setDeliveryHistoryLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      {/* Header */}
+      <div>
+        <p className="text-xs uppercase tracking-widest text-[#4EDBE2] font-bold font-mono-tabular">
+          Order Management
+        </p>
+        <h1 className="text-2xl font-bold text-white mt-1 font-display-sans">Orders</h1>
+        <p className="text-sm text-white/40 mt-1">
+          View and manage customer and sponsorship orders.
+        </p>
+      </div>
+
+      {/* Stats */}
+      {stats && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-6 gap-3">
+          <OrderStat label="Total Orders" value={stats.totalOrders} icon={<ShoppingBag size={16} className="text-[#080808]" />} accent="bg-[#4EDBE2]" />
+          <OrderStat label="Today" value={stats.ordersToday} icon={<Clock size={16} className="text-[#080808]" />} accent="bg-[#B9FF2C]" />
+          <OrderStat label="Confirmed" value={stats.pendingOrders} icon={<Clock size={16} className="text-[#080808]" />} accent="bg-[#B9FF2C]" />
+          <OrderStat label="Preparing" value={stats.preparingOrders} icon={<Clock size={16} className="text-[#080808]" />} accent="bg-[#4EDBE2]" />
+          <OrderStat label="Ready" value={stats.readyForPickup} icon={<CheckCircle2 size={16} className="text-[#080808]" />} accent="bg-[#B9FF2C]" />
+          <OrderStat label="In Transit" value={stats.outForDelivery} icon={<Truck size={16} className="text-[#080808]" />} accent="bg-[#4EDBE2]" />
+          <OrderStat label="Delivered" value={stats.deliveredOrders} icon={<CheckCircle2 size={16} className="text-[#080808]" />} accent="bg-[#49E619]" />
+          <OrderStat label="Cancelled" value={stats.cancelledOrders} icon={<AlertCircle size={16} className="text-white" />} accent="bg-red-500" />
+          <OrderStat label="Paid" value={stats.successfulPayments} icon={<CheckCircle2 size={16} className="text-[#080808]" />} accent="bg-[#49E619]" />
+          <OrderStat label="Pay Pending" value={stats.pendingPayments} icon={<Clock size={16} className="text-[#080808]" />} accent="bg-[#FFB347]" />
+          <OrderStat label="Pay Failed" value={stats.failedPayments} icon={<AlertCircle size={16} className="text-white" />} accent="bg-red-500" />
+        </div>
+      )}
+
+      {/* Error */}
+      {error && (
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+          <AlertCircle size={16} />
+          <span>{error}</span>
+        </div>
+      )}
+      {/* Filters */}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+          <input
+            type="text"
+            placeholder="Search order number…"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-[#0D1719] border border-white/10 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#4EDBE2]/50"
+          />
+        </div>
+        <select value={filterPayment} onChange={(event) => { setFilterPayment(event.target.value); setPage(1); }} className="rounded-xl bg-[#0D1719] border border-white/10 px-3 py-2.5 text-sm text-white">
+          <option value="">All payment statuses</option>
+          <option value="pending">Pending</option>
+          <option value="success">Success</option>
+          <option value="failed">Failed</option>
+        </select>
+        <label className="flex items-center gap-2 rounded-xl bg-[#0D1719] border border-white/10 px-3 py-2 text-xs text-white/50">
+          From <input aria-label="From date" type="date" value={fromDate} onChange={(event) => { setFromDate(event.target.value); setPage(1); }} className="min-w-0 flex-1 bg-transparent text-white" />
+        </label>
+        <label className="flex items-center gap-2 rounded-xl bg-[#0D1719] border border-white/10 px-3 py-2 text-xs text-white/50">
+          To <input aria-label="To date" type="date" value={toDate} onChange={(event) => { setToDate(event.target.value); setPage(1); }} className="min-w-0 flex-1 bg-transparent text-white" />
+        </label>
+        <div className="flex gap-1.5 flex-wrap">
+          {['ALL', 'confirmed', 'preparing', 'readyforpickup', 'out_for_delivery', 'delivered', 'cancelled'].map((status) => (
+            <button
+              key={status}
+              onClick={() => {
+                setFilterStatus(status);
+                setPage(1);
+              }}
+              className={`px-3 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
+                filterStatus === status
+                  ? 'bg-[#4EDBE2] text-[#080808]'
+                  : 'bg-[#0D1719] text-white/50 border border-white/8 hover:border-[#4EDBE2] hover:text-white'
+              }`}
+            >
+              {status === 'readyforpickup' ? 'READY FOR PICKUP' : status.replace('_', ' ')}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Orders Table */}
+      <div className="rounded-2xl bg-[#0D1719] border border-white/8 overflow-hidden">
+        {loading ? (
+          <div className="py-16 text-center text-white/30 text-sm flex items-center justify-center gap-2">
+            <Loader2 size={16} className="animate-spin" /> Loading orders…
+          </div>
+        ) : orders.length === 0 ? (
+          <div className="py-16 text-center text-white/30 text-sm">
+            {search || filterStatus !== 'ALL' ? 'No orders match your filters.' : 'No orders yet.'}
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/8">
+                  <th className="text-left px-5 py-3 text-[11px] text-white/40 uppercase tracking-wider font-medium">Order #</th>
+                  <th className="text-left px-5 py-3 text-[11px] text-white/40 uppercase tracking-wider font-medium">Customer</th>
+                  <th className="text-left px-5 py-3 text-[11px] text-white/40 uppercase tracking-wider font-medium">Total</th>
+                  <th className="text-left px-5 py-3 text-[11px] text-white/40 uppercase tracking-wider font-medium">Status</th>
+                  <th className="text-left px-5 py-3 text-[11px] text-white/40 uppercase tracking-wider font-medium">Sponsored</th>
+                  <th className="text-left px-5 py-3 text-[11px] text-white/40 uppercase tracking-wider font-medium">Date</th>
+                  <th className="text-left px-5 py-3 text-[11px] text-white/40 uppercase tracking-wider font-medium">Delivery</th>
+                  <th className="text-right px-5 py-3 text-[11px] text-white/40 uppercase tracking-wider font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((order) => (
+                  <tr key={order._id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                    <td className="px-5 py-3">
+                      <p className="font-mono-tabular text-[#4EDBE2] font-bold">{order.orderNumber}</p>
+                    </td>
+                    <td className="px-5 py-3">
+                      <p className="font-medium text-white">{order.customerName}</p>
+                      <p className="text-[11px] text-white/30 mt-0.5">{order.customerPhone || order.customerEmail || '—'}</p>
+                    </td>
+                    <td className="px-5 py-3 text-right font-mono-tabular font-bold text-[#49E619]">
+                      ₹{order.total}
+                    </td>
+                    <td className="px-5 py-3">
+                      <StatusBadge status={order.orderStatus} />
+                    </td>
+                    <td className="px-5 py-3 font-mono-tabular text-white/50">
+                      {order.sponsoredMealsCount}
+                    </td>
+                    <td className="px-5 py-3 text-white/40 text-xs">
+                      {new Date(order.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className="text-xs text-white/50">
+                        {order.assignedRiderId ? 'Rider accepted' : order.orderStatus === 'readyforpickup' ? 'Awaiting rider' : '—'}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <button
+                        onClick={() => handleViewDeliveryHistory(order._id, order.orderNumber)}
+                        className="inline-flex items-center justify-end gap-1 rounded-lg px-2 py-1.5 text-xs text-white/60 hover:bg-white/10 hover:text-white"
+                        title="View delivery history"
+                      >
+                        <History size={14} />
+                        History
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
+      {pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between text-sm text-white/55">
+          <span>
+            Showing {(pagination.page - 1) * pagination.limit + 1}–{Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
+          </span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              disabled={pagination.page <= 1 || loading}
+              onClick={() => setPage((current) => current - 1)}
+              className="rounded-lg border border-white/10 p-2 disabled:opacity-30"
+              aria-label="Previous orders page"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span>Page {pagination.page} of {pagination.totalPages}</span>
+            <button
+              type="button"
+              disabled={pagination.page >= pagination.totalPages || loading}
+              onClick={() => setPage((current) => current + 1)}
+              className="rounded-lg border border-white/10 p-2 disabled:opacity-30"
+              aria-label="Next orders page"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+      {(deliveryHistoryLoading || deliveryHistory || deliveryHistoryError) && (
+        <DeliveryHistoryModal
+          orderNumber={deliveryHistoryOrderNumber}
+          details={deliveryHistory}
+          loading={deliveryHistoryLoading}
+          error={deliveryHistoryError}
+          onClose={() => {
+            setDeliveryHistory(null);
+            setDeliveryHistoryError(null);
+            setDeliveryHistoryLoading(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+export function Orders(): React.ReactElement {
+  return <AdminOrders />;
+}

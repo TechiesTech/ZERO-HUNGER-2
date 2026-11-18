@@ -1,4 +1,10 @@
+<<<<<<< Updated upstream
 import React, { useEffect, useMemo, useState } from 'react';
+=======
+import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import 'leaflet/dist/leaflet.css';
+>>>>>>> Stashed changes
 import {
   Camera,
   Check,

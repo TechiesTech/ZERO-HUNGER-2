@@ -6,8 +6,12 @@
   "scripts": {
     "dev": "vite --port 5173 --host 0.0.0.0",
     "build": "vite build",
+<<<<<<< Updated upstream
     "preview": "vite preview --host 0.0.0.0 --port 4173",
     "start": "npm run build && npm run preview",
+=======
+    "preview": "vite preview --port 4173 --host 0.0.0.0 --strictPort",
+>>>>>>> Stashed changes
     "lint": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
@@ -35,6 +39,7 @@
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.28.2",
     "tailwindcss": "^4.3.3",
+    "terser": "^5.51.2",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.5"

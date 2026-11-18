@@ -1,5 +1,18 @@
+<<<<<<< Updated upstream
 import React, { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+=======
+/**
+ * frontend/src/pages/LiveTracking.tsx
+ * Live order tracking page with Leaflet maps
+ */
+
+import React, { useEffect, useRef, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import 'leaflet/dist/leaflet.css';
+import { useLiveTracking } from '../hooks/useLiveTracking';
+import L from 'leaflet';
+>>>>>>> Stashed changes
 import { Clock, MapPin, Navigation, Phone, Star, Truck, X, Loader2 } from 'lucide-react';
 import { OrderTrackingMap } from '../components/OrderTrackingMap';
 import { useLiveTracking } from '../hooks/useLiveTracking';

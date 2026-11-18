@@ -1,10 +1,9 @@
 /**
- * frontend/src/hooks/useTracking.ts
- * Compatibility hook for the new backend tracking endpoint.
+ * Compatibility hook for the live tracking endpoint.
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { getTrackingData, type TrackingData, type LocationUpdate } from '../services/trackingService';
+import { trackLiveOrder, type TrackingData, type LocationUpdate } from '../services/trackingService';
 
 export function useTracking(orderId: string) {
   const [tracking, setTracking] = useState<TrackingData | null>(null);
@@ -13,8 +12,14 @@ export function useTracking(orderId: string) {
   const [currentLocation, setCurrentLocation] = useState<LocationUpdate | null>(null);
 
   const fetchTrackingData = useCallback(async () => {
+    if (!orderId) {
+      setLoading(false);
+      setError('An order number is required to load tracking information.');
+      return;
+    }
+
     try {
-      const response = await getTrackingData(orderId);
+      const response = await trackLiveOrder(orderId);
       setTracking(response.data);
       const riderLocation = response.data.rider?.currentLocation;
       setCurrentLocation(
@@ -29,8 +34,8 @@ export function useTracking(orderId: string) {
           : null,
       );
       setError(null);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Tracking failed');
     } finally {
       setLoading(false);
     }
@@ -41,7 +46,6 @@ export function useTracking(orderId: string) {
     const interval = window.setInterval(() => {
       void fetchTrackingData();
     }, 5000);
-
     return () => window.clearInterval(interval);
   }, [fetchTrackingData]);
 
@@ -53,5 +57,6 @@ export function useTracking(orderId: string) {
     startLocationTracking: () => undefined,
     stopLocationTracking: () => undefined,
     refetch: fetchTrackingData,
+    refresh: fetchTrackingData,
   };
 }
