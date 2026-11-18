@@ -5,14 +5,14 @@ import { OrderItem } from '../models/schemas/orderItemSchema.js';
 
 const toId = (id) => new mongoose.Types.ObjectId(String(id));
 
-// Adds customer name and phone from users
+// Adds customer details from users
 const customerStages = [
     {
         $lookup: {
             from: 'users',
             localField: 'customerId',
             foreignField: '_id',
-            pipeline: [{ $project: { _id: 0, name: 1, phone: 1 } }],
+            pipeline: [{ $project: { _id: 0, name: 1, email: 1, phone: 1 } }],
             as: 'customer',
         },
     },
@@ -152,7 +152,27 @@ const trackLiveOrder = async (orderNumber, customerId) => {
                             from: 'riders',
                             localField: 'riderId',
                             foreignField: '_id',
-                            pipeline: [{ $project: { _id: 0, name: 1, vehicleType: 1, currentLocation: 1 } }],
+                            pipeline: [
+                                {
+                                    $lookup: {
+                                        from: 'users',
+                                        localField: 'userId',
+                                        foreignField: '_id',
+                                        pipeline: [{ $project: { _id: 0, name: 1, phone: 1 } }],
+                                        as: 'account',
+                                    },
+                                },
+                                {
+                                    $project: {
+                                        _id: 0,
+                                        name: { $arrayElemAt: ['$account.name', 0] },
+                                        phone: { $arrayElemAt: ['$account.phone', 0] },
+                                        vehicleType: 1,
+                                        vehicleNumber: 1,
+                                        currentLocation: 1,
+                                    },
+                                },
+                            ],
                             as: 'rider',
                         },
                     },
@@ -269,12 +289,28 @@ const getOrderById = async (orderId) => {
                             from: 'riders',
                             localField: 'riderId',
                             foreignField: '_id',
-                            pipeline: [{ $project: { name: 1, phone: 1 } }],
+                            pipeline: [
+                                {
+                                    $lookup: {
+                                        from: 'users',
+                                        localField: 'userId',
+                                        foreignField: '_id',
+                                        pipeline: [{ $project: { _id: 0, name: 1, phone: 1 } }],
+                                        as: 'account',
+                                    },
+                                },
+                                {
+                                    $project: {
+                                        _id: 0,
+                                        name: { $arrayElemAt: ['$account.name', 0] },
+                                        phone: { $arrayElemAt: ['$account.phone', 0] },
+                                    },
+                                },
+                            ],
                             as: 'rider',
                         },
                     },
                     { $set: { rider: { $arrayElemAt: ['$rider', 0] } } },
-                    { $project: { photoPublicId: 0 } },
                 ],
                 as: 'deliveries',
             },

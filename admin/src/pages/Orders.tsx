@@ -6,7 +6,6 @@ import {
   Truck,
   AlertCircle,
   Search,
-  Trash2,
   Loader2,
   RefreshCw,
   History,
@@ -14,11 +13,11 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  useDeliveryAssignments,
   useKitchenOrders,
   useOrders,
   type KitchenOrder,
   type OrderDetails,
+  type OrdersQuery,
 } from '@/hooks';
 
 /* ── Stat card for Orders ── */
@@ -266,62 +265,50 @@ function AdminOrders(): React.ReactElement {
   const {
     orders,
     stats,
+    pagination,
     loading,
     error,
     fetchOrders,
     fetchOrderDetails,
-    deleteOrder: deleteOrderById,
   } = useOrders();
-  const { riders, error: riderError, assignRider, unassignRider } = useDeliveryAssignments();
 
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [selectedRiders, setSelectedRiders] = useState<Record<string, string>>({});
-  const [updatingAssignment, setUpdatingAssignment] = useState<string | null>(null);
+  const [filterPayment, setFilterPayment] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [page, setPage] = useState(1);
   const [deliveryHistory, setDeliveryHistory] = useState<OrderDetails | null>(null);
   const [deliveryHistoryOrderNumber, setDeliveryHistoryOrderNumber] = useState('');
   const [deliveryHistoryLoading, setDeliveryHistoryLoading] = useState(false);
   const [deliveryHistoryError, setDeliveryHistoryError] = useState<string | null>(null);
 
   useEffect(() => {
-    const statusMap: Record<string, string> = {
-      'ALL': '',
-      'confirmed': 'confirmed',
-      'preparing': 'preparing',
-      'readyforpickup': 'readyforpickup',
-      'out_for_delivery': 'outfordelivery',
-      'delivered': 'delivered',
-      'cancelled': 'cancelled',
-    };
-    const query = filterStatus === 'ALL' ? {} : { status: statusMap[filterStatus] };
-    fetchOrders(query);
-  }, [filterStatus, fetchOrders]);
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
 
-  const filteredOrders = Array.isArray(orders) ? orders.filter((order) => {
-    const q = search.toLowerCase();
-    const matchSearch =
-      !q ||
-      order.orderNumber.toLowerCase().includes(q) ||
-      order.customerName.toLowerCase().includes(q) ||
-      order.customerEmail.toLowerCase().includes(q);
+  useEffect(() => {
     const statusMap: Record<string, string> = {
-      'confirmed': 'confirmed',
-      'preparing': 'preparing',
-      'readyforpickup': 'readyforpickup',
-      'out_for_delivery': 'outfordelivery',
-      'delivered': 'delivered',
-      'cancelled': 'cancelled',
+      confirmed: 'confirmed',
+      preparing: 'preparing',
+      readyforpickup: 'readyforpickup',
+      out_for_delivery: 'outfordelivery',
+      delivered: 'delivered',
+      cancelled: 'cancelled',
     };
-    const backendStatus = statusMap[filterStatus] || filterStatus;
-    const matchStatus = filterStatus === 'ALL' || order.orderStatus === backendStatus;
-    return matchSearch && matchStatus;
-  }) : [];
-
-  const refreshCurrentOrders = async () => {
-    const status = filterStatus === 'out_for_delivery' ? 'outfordelivery' : filterStatus;
-    await fetchOrders(filterStatus === 'ALL' ? {} : { status });
-  };
+    const query: OrdersQuery = {
+      ...(filterStatus !== 'ALL' ? { status: statusMap[filterStatus] } : {}),
+      ...(filterPayment ? { paymentStatus: filterPayment } : {}),
+      ...(debouncedSearch ? { search: debouncedSearch } : {}),
+      ...(fromDate ? { from: new Date(`${fromDate}T00:00:00`).toISOString() } : {}),
+      ...(toDate ? { to: new Date(`${toDate}T23:59:59.999`).toISOString() } : {}),
+      page,
+      limit: 10,
+    };
+    void fetchOrders(query);
+  }, [filterStatus, filterPayment, debouncedSearch, fromDate, toDate, page, fetchOrders]);
 
   const handleViewDeliveryHistory = async (orderId: string, orderNumber: string) => {
     setDeliveryHistoryOrderNumber(orderNumber);
@@ -334,42 +321,6 @@ function AdminOrders(): React.ReactElement {
       setDeliveryHistoryError(err instanceof Error ? err.message : 'Failed to load delivery history');
     } finally {
       setDeliveryHistoryLoading(false);
-    }
-  };
-
-  const handleAssignRider = async (orderId: string) => {
-    const riderId = selectedRiders[orderId];
-    if (!riderId) return;
-    setUpdatingAssignment(orderId);
-    try {
-      await assignRider(orderId, riderId);
-      setSelectedRiders((current) => ({ ...current, [orderId]: '' }));
-      await refreshCurrentOrders();
-    } catch (err: any) {
-      alert(`Failed to assign rider: ${err.message}`);
-    } finally {
-      setUpdatingAssignment(null);
-    }
-  };
-
-  const handleUnassignRider = async (orderId: string) => {
-    setUpdatingAssignment(orderId);
-    try {
-      await unassignRider(orderId);
-      await refreshCurrentOrders();
-    } catch (err: any) {
-      alert(`Failed to unassign rider: ${err.message}`);
-    } finally {
-      setUpdatingAssignment(null);
-    }
-  };
-
-  const handleDelete = async (orderId: string) => {
-    try {
-      await deleteOrderById(orderId);
-      setDeleteConfirm(null);
-    } catch (err: any) {
-      alert(`Failed to delete order: ${err.message}`);
     }
   };
 
@@ -388,11 +339,18 @@ function AdminOrders(): React.ReactElement {
 
       {/* Stats */}
       {stats && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-6 gap-3">
           <OrderStat label="Total Orders" value={stats.totalOrders} icon={<ShoppingBag size={16} className="text-[#080808]" />} accent="bg-[#4EDBE2]" />
-          <OrderStat label="Pending" value={stats.pendingOrders} icon={<Clock size={16} className="text-[#080808]" />} accent="bg-[#B9FF2C]" />
-          <OrderStat label="Delivered" value={stats.deliveredOrders} icon={<CheckCircle2 size={16} className="text-[#080808]" />} accent="bg-[#49E619]" />
+          <OrderStat label="Today" value={stats.ordersToday} icon={<Clock size={16} className="text-[#080808]" />} accent="bg-[#B9FF2C]" />
+          <OrderStat label="Confirmed" value={stats.pendingOrders} icon={<Clock size={16} className="text-[#080808]" />} accent="bg-[#B9FF2C]" />
+          <OrderStat label="Preparing" value={stats.preparingOrders} icon={<Clock size={16} className="text-[#080808]" />} accent="bg-[#4EDBE2]" />
+          <OrderStat label="Ready" value={stats.readyForPickup} icon={<CheckCircle2 size={16} className="text-[#080808]" />} accent="bg-[#B9FF2C]" />
           <OrderStat label="In Transit" value={stats.outForDelivery} icon={<Truck size={16} className="text-[#080808]" />} accent="bg-[#4EDBE2]" />
+          <OrderStat label="Delivered" value={stats.deliveredOrders} icon={<CheckCircle2 size={16} className="text-[#080808]" />} accent="bg-[#49E619]" />
+          <OrderStat label="Cancelled" value={stats.cancelledOrders} icon={<AlertCircle size={16} className="text-white" />} accent="bg-red-500" />
+          <OrderStat label="Paid" value={stats.successfulPayments} icon={<CheckCircle2 size={16} className="text-[#080808]" />} accent="bg-[#49E619]" />
+          <OrderStat label="Pay Pending" value={stats.pendingPayments} icon={<Clock size={16} className="text-[#080808]" />} accent="bg-[#FFB347]" />
+          <OrderStat label="Pay Failed" value={stats.failedPayments} icon={<AlertCircle size={16} className="text-white" />} accent="bg-red-500" />
         </div>
       )}
 
@@ -403,30 +361,35 @@ function AdminOrders(): React.ReactElement {
           <span>{error}</span>
         </div>
       )}
-      {riderError && (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-          <AlertCircle size={16} />
-          <span>Rider list unavailable: {riderError}</span>
-        </div>
-      )}
-
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
           <input
             type="text"
-            placeholder="Search orders…"
+            placeholder="Search order number…"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-[#0D1719] border border-white/10 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#4EDBE2]/50"
           />
         </div>
+        <select value={filterPayment} onChange={(event) => { setFilterPayment(event.target.value); setPage(1); }} className="rounded-xl bg-[#0D1719] border border-white/10 px-3 py-2.5 text-sm text-white">
+          <option value="">All payment statuses</option>
+          <option value="pending">Pending</option>
+          <option value="success">Success</option>
+          <option value="failed">Failed</option>
+        </select>
+        <label className="flex items-center gap-2 rounded-xl bg-[#0D1719] border border-white/10 px-3 py-2 text-xs text-white/50">
+          From <input aria-label="From date" type="date" value={fromDate} onChange={(event) => { setFromDate(event.target.value); setPage(1); }} className="min-w-0 flex-1 bg-transparent text-white" />
+        </label>
+        <label className="flex items-center gap-2 rounded-xl bg-[#0D1719] border border-white/10 px-3 py-2 text-xs text-white/50">
+          To <input aria-label="To date" type="date" value={toDate} onChange={(event) => { setToDate(event.target.value); setPage(1); }} className="min-w-0 flex-1 bg-transparent text-white" />
+        </label>
         <div className="flex gap-1.5 flex-wrap">
           {['ALL', 'confirmed', 'preparing', 'readyforpickup', 'out_for_delivery', 'delivered', 'cancelled'].map((status) => (
             <button
               key={status}
-              onClick={() => setFilterStatus(status)}
+              onClick={() => { setFilterStatus(status); setPage(1); }}
               className={`px-3 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
                 filterStatus === status
                   ? 'bg-[#4EDBE2] text-[#080808]'
@@ -445,13 +408,14 @@ function AdminOrders(): React.ReactElement {
           <div className="py-16 text-center text-white/30 text-sm flex items-center justify-center gap-2">
             <Loader2 size={16} className="animate-spin" /> Loading orders…
           </div>
-        ) : filteredOrders.length === 0 ? (
+        ) : orders.length === 0 ? (
           <div className="py-16 text-center text-white/30 text-sm">
             {search || filterStatus !== 'ALL' ? 'No orders match your filters.' : 'No orders yet.'}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/8">
                   <th className="text-left px-5 py-3 text-[11px] text-white/40 uppercase tracking-wider font-medium">Order #</th>
@@ -465,7 +429,7 @@ function AdminOrders(): React.ReactElement {
                 </tr>
               </thead>
               <tbody>
-                {filteredOrders.map((order) => (
+                {orders.map((order) => (
                   <tr key={order._id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
                     <td className="px-5 py-3">
                       <p className="font-mono-tabular text-[#4EDBE2] font-bold">{order.orderNumber}</p>
@@ -487,99 +451,33 @@ function AdminOrders(): React.ReactElement {
                       {new Date(order.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-5 py-3">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {order.paymentStatus === 'success' &&
-                        ['confirmed', 'preparing', 'readyforpickup'].includes(order.orderStatus) ? (
-                          order.assignedRiderId ? (
-                            <>
-                              <span className="text-xs text-white/60">
-                                {riders.find((rider) => rider._id === order.assignedRiderId)?.name || 'Rider assigned'}
-                              </span>
-                              <button
-                                onClick={() => handleUnassignRider(order._id)}
-                                disabled={updatingAssignment === order._id}
-                                className="px-2 py-1 rounded text-[10px] font-bold bg-white/10 text-white/70 hover:bg-white/20 disabled:opacity-50"
-                              >
-                                {updatingAssignment === order._id ? 'Updating…' : 'Unassign'}
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <select
-                                value={selectedRiders[order._id] || ''}
-                                onChange={(event) => setSelectedRiders((current) => ({
-                                  ...current,
-                                  [order._id]: event.target.value,
-                                }))}
-                                disabled={updatingAssignment === order._id}
-                                className="max-w-40 px-2 py-1 rounded bg-[#080808] border border-white/20 text-white/70 text-xs focus:outline-none focus:border-[#4EDBE2]"
-                              >
-                                <option value="">Choose rider</option>
-                                {riders.filter((rider) => rider.isAvailable && !rider.isBusy).map((rider) => (
-                                  <option key={rider._id} value={rider._id}>
-                                    {rider.name} · {rider.phone}
-                                  </option>
-                                ))}
-                              </select>
-                              <button
-                                onClick={() => handleAssignRider(order._id)}
-                                disabled={!selectedRiders[order._id] || updatingAssignment === order._id}
-                                className="px-2 py-1 rounded text-[10px] font-bold bg-[#4EDBE2] text-[#080808] disabled:opacity-40"
-                              >
-                                {updatingAssignment === order._id ? 'Assigning…' : 'Assign'}
-                              </button>
-                            </>
-                          )
-                        ) : order.assignedRiderId ? (
-                          <span className="text-xs text-white/60">
-                            {riders.find((rider) => rider._id === order.assignedRiderId)?.name || 'Rider assigned'}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-white/30">—</span>
-                        )}
-                      </div>
+                      <span className="text-xs text-white/50">
+                        {order.assignedRiderId ? 'Rider accepted' : order.orderStatus === 'readyforpickup' ? 'Awaiting rider' : '—'}
+                      </span>
                     </td>
                     <td className="px-5 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => handleViewDeliveryHistory(order._id, order.orderNumber)}
-                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs text-white/60 hover:bg-white/10 hover:text-white"
-                          title="View delivery history"
-                        >
-                          <History size={14} />
-                          History
-                        </button>
-                        {deleteConfirm === order._id ? (
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => handleDelete(order._id)}
-                              className="px-2 py-1 rounded text-[10px] font-bold bg-red-500 text-white cursor-pointer"
-                            >
-                              Confirm
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirm(null)}
-                              className="px-2 py-1 rounded text-[10px] font-bold bg-white/10 text-white/60 cursor-pointer"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => setDeleteConfirm(order._id)}
-                            className="p-2 rounded-lg hover:bg-red-500/10 text-white/40 hover:text-red-400 transition-colors cursor-pointer"
-                            title="Delete"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        )}
-                      </div>
+                      <button
+                        onClick={() => handleViewDeliveryHistory(order._id, order.orderNumber)}
+                        className="inline-flex items-center justify-end gap-1 rounded-lg px-2 py-1.5 text-xs text-white/60 hover:bg-white/10 hover:text-white"
+                        title="View delivery history"
+                      >
+                        <History size={14} />
+                        History
+                      </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+              </table>
+            </div>
+            <div className="flex items-center justify-between px-5 py-3 text-sm text-white/50">
+              <span>{pagination.total} orders · Page {pagination.page} of {Math.max(1, pagination.totalPages)}</span>
+              <div className="flex gap-2">
+                <button onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page <= 1 || loading} className="rounded-lg border border-white/10 px-3 py-1.5 disabled:opacity-30">Previous</button>
+                <button onClick={() => setPage((current) => current + 1)} disabled={page >= pagination.totalPages || loading} className="rounded-lg border border-white/10 px-3 py-1.5 disabled:opacity-30">Next</button>
+              </div>
+            </div>
+          </>
         )}
       </div>
       {(deliveryHistoryLoading || deliveryHistory || deliveryHistoryError) && (

@@ -20,6 +20,7 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
 const KITCHEN_NAV_ITEMS: NavItem[] = [
   { to: '/orders', label: 'Orders', icon: <ShoppingBag size={18} /> },
   { to: '/meals', label: 'Meals', icon: <UtensilsCrossed size={18} /> },
+  { to: '/kitchen-profile', label: 'Kitchen Profile', icon: <ChefHat size={18} /> },
 ];
 
 export function AdminLayout(): React.ReactElement {

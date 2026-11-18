@@ -70,9 +70,30 @@ export default function AddressSection({
     return address;
   };
 
+  const confirmGeocodedLocation = (found: Partial<DeliveryAddress>) => {
+    const enteredCity = value.address.city.trim();
+    const resolvedCity = found.city?.trim() || '';
+    const enteredPincode = value.address.pincode.trim();
+    const resolvedPincode = found.pincode?.trim() || '';
+    const cityMismatch = Boolean(enteredCity && resolvedCity && enteredCity.toLowerCase() !== resolvedCity.toLowerCase());
+    const pincodeMismatch = Boolean(enteredPincode && resolvedPincode && enteredPincode !== resolvedPincode);
+
+    if (!cityMismatch && !pincodeMismatch) return true;
+
+    const resolvedPlace = [resolvedCity, resolvedPincode].filter(Boolean).join(' ');
+    const enteredPlace = [enteredCity, enteredPincode].filter(Boolean).join(' ');
+    return window.confirm(
+      `The map pin resolves to ${resolvedPlace || 'a different area'}, but the typed address says ${enteredPlace || 'something else'}. Is this location correct?`,
+    );
+  };
+
   const useCurrentLocation = () => {
     if (!navigator.geolocation) {
       setMessage('GPS is not supported. Enter the address and choose the pin on the map.');
+      return;
+    }
+    if (!window.isSecureContext && window.location.hostname !== 'localhost') {
+      setMessage('Current location requires HTTPS. You can still choose the pin on the map.');
       return;
     }
 
@@ -94,6 +115,11 @@ export default function AddressSection({
           const response = await reverseGeocode(point);
           if (requestId !== locationRequestId.current) return;
           if (response.data.address) {
+            if (!confirmGeocodedLocation(response.data.address)) {
+              onChange({ ...value, location: null });
+              setMessage('Pin not confirmed. Choose a location that matches the typed city or PIN code.');
+              return;
+            }
             onChange({
               address: applyAddress(response.data.address, true),
               location: point,
@@ -126,13 +152,18 @@ export default function AddressSection({
 
   const movePin = async (location: DeliveryPoint) => {
     const requestId = ++locationRequestId.current;
-    setBusy(false);
+    setBusy(true);
     onChange({ ...value, location });
     setMessage('');
     try {
       const response = await reverseGeocode(location);
       if (requestId !== locationRequestId.current) return;
       if (response.data.address) {
+        if (!confirmGeocodedLocation(response.data.address)) {
+          onChange({ ...value, location: null });
+          setMessage('Pin not confirmed. Choose a location that matches the typed city or PIN code.');
+          return;
+        }
         onChange({
           address: applyAddress(response.data.address, true),
           location,
@@ -144,6 +175,8 @@ export default function AddressSection({
           ? `Pin saved, but address lookup failed: ${error.message}`
           : 'Pin saved, but address lookup failed.');
       }
+    } finally {
+      if (requestId === locationRequestId.current) setBusy(false);
     }
   };
 

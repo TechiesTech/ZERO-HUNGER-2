@@ -1,161 +1,55 @@
-/**
- * frontend/src/pages/LiveTracking.tsx
- * Live order tracking page with Leaflet maps
- */
-
-import React, { useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useLiveTracking } from '../hooks/useLiveTracking';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import React, { useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Clock, MapPin, Navigation, Phone, Star, Truck, X, Loader2 } from 'lucide-react';
+import { OrderTrackingMap } from '../components/OrderTrackingMap';
+import { useLiveTracking } from '../hooks/useLiveTracking';
+import { cancelOrder } from '../services/orderService';
+import { formatAddressText } from '../services/trackingService';
 
 interface LiveTrackingProps {
   orderNumber?: string;
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  confirmed: 'Order Confirmed',
+  preparing: 'Preparing',
+  readyforpickup: 'Ready for Pickup',
+  outfordelivery: 'Out for Delivery',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+};
+
 function formatEta(estimatedDeliveryAt: string | null): string {
   if (!estimatedDeliveryAt) return 'Not available';
-
-  const diffMins = Math.floor(
-    (new Date(estimatedDeliveryAt).getTime() - Date.now()) / 60000,
-  );
+  const timestamp = new Date(estimatedDeliveryAt).getTime();
+  if (!Number.isFinite(timestamp)) return 'Not available';
+  const diffMins = Math.ceil((timestamp - Date.now()) / 60000);
   return diffMins > 0 ? `${diffMins} mins` : 'Arriving soon';
 }
 
 export function LiveTracking({ orderNumber: propOrderNumber }: LiveTrackingProps): React.ReactElement {
   const { orderNumber: paramOrderNumber } = useParams<{ orderNumber: string }>();
   const navigate = useNavigate();
-
   const orderNumber = propOrderNumber || paramOrderNumber || '';
+  const { tracking, loading, error, refreshWarning, refetch } = useLiveTracking(orderNumber);
+  const [actionError, setActionError] = useState('');
+  const [cancelling, setCancelling] = useState(false);
 
-  const { tracking, loading, error, refetch } = useLiveTracking(orderNumber);
-
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<L.Map | null>(null);
-  const markersRef = useRef<Map<string, L.Marker>>(new Map());
-  const polylinesRef = useRef<L.Polyline[]>([]);
-
-  const eta = tracking ? formatEta(tracking.estimatedDeliveryAt) : 'Calculating...';
-
-  useEffect(() => {
-    if (!mapRef.current || mapInstanceRef.current) return;
-
-    const map = L.map(mapRef.current, {
-      center: [17.3850, 78.4867],
-      zoom: 13,
-      scrollWheelZoom: false,
-      zoomControl: true,
-    });
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      subdomains: 'abc',
-      maxZoom: 19,
-    }).addTo(map);
-
-    mapInstanceRef.current = map;
-
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!mapInstanceRef.current || !tracking) return;
-
-    const map = mapInstanceRef.current;
-
-    markersRef.current.forEach((marker) => marker.remove());
-    markersRef.current.clear();
-    polylinesRef.current.forEach((polyline) => polyline.remove());
-    polylinesRef.current = [];
-
-    const boundsPoints: L.LatLngExpression[] = [];
-    const kitchen = tracking.kitchen?.location;
-    if (kitchen) {
-      const kitchenLocation: [number, number] = [kitchen.latitude, kitchen.longitude];
-      const kitchenIcon = L.divIcon({
-        className: 'bg-transparent border-0',
-        html: `
-          <div class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-orange-500 text-white shadow-lg">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M3 3h18v18H3zM12 8v8M8 12h8"/>
-            </svg>
-          </div>
-        `,
-        iconSize: [40, 40],
-        iconAnchor: [20, 20],
-      });
-      const kitchenMarker = L.marker(kitchenLocation, { icon: kitchenIcon }).addTo(map);
-      kitchenMarker.bindPopup('<div class="font-bold">Kitchen</div>');
-      markersRef.current.set('kitchen', kitchenMarker);
-      boundsPoints.push(kitchenLocation);
+  const handleCancel = async () => {
+    if (!tracking?.canCancel || !window.confirm(`Cancel order ${tracking.orderNumber}?`)) return;
+    setCancelling(true);
+    setActionError('');
+    try {
+      await cancelOrder(tracking.orderNumber);
+      await refetch();
+    } catch (cancelError) {
+      setActionError(cancelError instanceof Error ? cancelError.message : 'Could not cancel this order.');
+    } finally {
+      setCancelling(false);
     }
+  };
 
-    if (tracking.destination) {
-      const customerLocation: [number, number] = [
-        tracking.destination.latitude,
-        tracking.destination.longitude,
-      ];
-      const customerIcon = L.divIcon({
-      className: 'bg-transparent border-0',
-      html: `
-        <div class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-500 text-white shadow-lg">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-            <circle cx="12" cy="10" r="3"/>
-          </svg>
-        </div>
-      `,
-      iconSize: [40, 40],
-      iconAnchor: [20, 20],
-      });
-      const customerMarker = L.marker(customerLocation, { icon: customerIcon }).addTo(map);
-      customerMarker.bindPopup('<div class="font-bold">Delivery Location</div>');
-      markersRef.current.set('customer', customerMarker);
-      boundsPoints.push(customerLocation);
-    }
-
-    const riderLocation = tracking.rider?.currentLocation;
-    if (riderLocation?.latitude != null && riderLocation.longitude != null) {
-      const riderCoords: [number, number] = [riderLocation.latitude, riderLocation.longitude];
-      const riderIcon = L.divIcon({
-        className: 'bg-transparent border-0',
-        html: `
-          <div class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-blue-500 text-white shadow-lg animate-pulse">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M5 17l2-4 3 4 4-5 5 4"/>
-            </svg>
-          </div>
-        `,
-        iconSize: [40, 40],
-        iconAnchor: [20, 20],
-      });
-
-      const riderMarker = L.marker(riderCoords, { icon: riderIcon }).addTo(map);
-      riderMarker.bindPopup('<div class="font-bold">Delivery Partner</div>');
-      markersRef.current.set('rider', riderMarker);
-      boundsPoints.push(riderCoords);
-    }
-
-    const bounds = L.latLngBounds([restaurantLocation, customerLocation]);
-    map.fitBounds(bounds, { padding: [50, 50] });
-  }, [tracking]);
-
-  const statusSteps = [
-    { key: 'confirmed', label: 'Order Confirmed', icon: Clock },
-    { key: 'preparing', label: 'Preparing', icon: Clock },
-    { key: 'outfordelivery', label: 'Out for Delivery', icon: Truck },
-    { key: 'delivered', label: 'Delivered', icon: MapPin },
-  ];
-
-  const currentStepIndex = statusSteps.findIndex((step) => step.key === tracking?.customerMealStatus);
-
-  if (loading) {
+  if (loading && !tracking) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
@@ -166,13 +60,11 @@ export function LiveTracking({ orderNumber: propOrderNumber }: LiveTrackingProps
     );
   }
 
-  if (error) {
+  if (!tracking && error) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center max-w-md p-6">
-          <div className="text-red-500 mb-4">
-            <X size={48} className="mx-auto" />
-          </div>
+          <div className="text-red-500 mb-4"><X size={48} className="mx-auto" /></div>
           <h2 className="text-xl font-bold text-gray-800 mb-2">Tracking Error</h2>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
@@ -186,122 +78,192 @@ export function LiveTracking({ orderNumber: propOrderNumber }: LiveTrackingProps
     );
   }
 
+  if (!tracking) return <div className="min-h-screen" role="status">Loading tracking information...</div>;
+
+  const currentStatus = tracking.customerMealStatus;
+  const timeline = tracking.timeline || [];
+  const riderHasLocation = !tracking.rider?.isLocationStale &&
+    tracking.rider?.currentLocation?.latitude != null &&
+    tracking.rider.currentLocation.longitude != null;
+  const route = currentStatus === 'outfordelivery'
+    ? tracking.routes?.toCustomer
+    : tracking.routes?.toKitchen || tracking.routes?.toCustomer;
+
   return (
     <div className="min-h-screen bg-white">
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg">
+          <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg" aria-label="Go back">
             <X size={24} />
           </button>
           <div>
             <h1 className="text-lg font-bold text-gray-800">Live Tracking</h1>
-            <p className="text-sm text-gray-500">Order #{tracking?.orderNumber.slice(-6).toUpperCase()}</p>
+            <p className="text-sm text-gray-500">Order #{tracking.orderNumber.slice(-6).toUpperCase()}</p>
           </div>
         </div>
         <button
-          onClick={refetch}
-          className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+          onClick={() => void refetch()}
+          disabled={loading}
+          className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50"
         >
-          Refresh
+          {loading ? 'Refreshing…' : 'Refresh'}
         </button>
       </div>
 
       <div className="lg:flex lg:h-[calc(100vh-64px)]">
         <div className="lg:w-2/3">
-          <div ref={mapRef} className="w-full h-[50vh] lg:h-full" />
+          <div className="w-full h-[50vh] lg:h-full">
+            <OrderTrackingMap tracking={tracking} />
+          </div>
         </div>
 
         <div className="lg:w-1/3 bg-white border-l border-gray-200 overflow-y-auto">
+          {(refreshWarning || actionError) && (
+            <div role="status" className="m-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+              {actionError || refreshWarning}
+            </div>
+          )}
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
-                <span className="text-sm font-medium text-gray-800">Live Tracking</span>
+                <div className={`w-3 h-3 rounded-full ${currentStatus === 'delivered' || currentStatus === 'cancelled' ? 'bg-gray-400' : 'bg-green-500 animate-pulse'}`} />
+                <span className="text-sm font-medium text-gray-800">
+                  {STATUS_LABELS[currentStatus] || currentStatus}
+                </span>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-bold text-orange-500">{eta}</p>
+                <p className="text-2xl font-bold text-orange-500">{formatEta(tracking.estimatedDeliveryAt)}</p>
                 <p className="text-xs text-gray-500">Estimated Arrival</p>
               </div>
             </div>
 
-            <div className="space-y-3">
-              {statusSteps.map((step, index) => {
-                const Icon = step.icon;
-                const isCompleted = index <= currentStepIndex;
-                const isCurrent = index === currentStepIndex;
-
+            <ol className="space-y-3">
+              {timeline.map((step, index) => {
+                const isCurrent = step.status === currentStatus;
+                const complete = Boolean(step.at);
                 return (
-                  <div key={step.key} className="flex items-center gap-3">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        isCompleted ? 'bg-green-500' : 'bg-gray-200'
-                      }`}
-                    >
-                      <Icon size={16} className={isCompleted ? 'text-white' : 'text-gray-400'} />
+                  <li key={`${step.status}-${index}`} className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${complete ? 'bg-green-500' : 'bg-gray-200'}`}>
+                      {step.status === 'outfordelivery'
+                        ? <Truck size={16} className={complete ? 'text-white' : 'text-gray-400'} />
+                        : step.status === 'delivered'
+                          ? <MapPin size={16} className={complete ? 'text-white' : 'text-gray-400'} />
+                          : <Clock size={16} className={complete ? 'text-white' : 'text-gray-400'} />}
                     </div>
                     <div className="flex-1">
-                      <p
-                        className={`text-sm font-medium ${
-                          isCurrent ? 'text-orange-500' : isCompleted ? 'text-gray-800' : 'text-gray-400'
-                        }`}
-                      >
-                        {step.label}
+                      <p className={`text-sm font-medium ${isCurrent ? 'text-green-600' : complete ? 'text-gray-800' : 'text-gray-400'}`}>
+                        {STATUS_LABELS[step.status] || step.status}
                       </p>
-                      {isCurrent && <p className="text-xs text-gray-500">In Progress</p>}
+                      {step.at && <p className="text-xs text-gray-500">{new Date(step.at).toLocaleString()}</p>}
+                      {isCurrent && !step.at && <p className="text-xs text-gray-500">In Progress</p>}
                     </div>
-                  </div>
+                  </li>
                 );
               })}
-            </div>
+            </ol>
           </div>
 
-          <div className="p-4 border-b border-gray-200">
-            <h3 className="font-bold text-gray-800 mb-3">Delivery Partner</h3>
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-                <Truck size={24} className="text-orange-500" />
+          <div className="p-4 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center">
+                <MapPin size={18} />
               </div>
-              <div className="flex-1">
-                <p className="font-medium text-gray-800">Rahul Kumar</p>
-                <div className="flex items-center gap-1">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star key={star} size={14} className="text-yellow-400 fill-yellow-400" />
-                  ))}
-                  <span className="text-xs text-gray-500 ml-1">4.8</span>
-                </div>
+              <div>
+                <div className="text-xs uppercase tracking-wider text-gray-500">Kitchen</div>
+                <p className="font-semibold text-gray-800">{tracking.kitchen?.name || 'Kitchen'}</p>
+                <p className="text-sm text-gray-600">{formatAddressText(tracking.kitchen?.address) || 'Kitchen address unavailable'}</p>
               </div>
             </div>
-            <div className="flex gap-2">
-              <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
-                <Phone size={18} />
-                <span className="text-sm font-medium">Call</span>
-              </button>
-              <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
                 <Navigation size={18} />
-                <span className="text-sm font-medium">Navigate</span>
-              </button>
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-wider text-gray-500">Destination</div>
+                <p className="font-semibold text-gray-800">{tracking.customerName || 'Customer'}</p>
+                <p className="text-sm text-gray-600">
+                  {tracking.destination
+                    ? `${tracking.destination.latitude}, ${tracking.destination.longitude}`
+                    : 'Address unavailable'}
+                </p>
+              </div>
             </div>
-          </div>
 
-          <div className="p-4">
-            <h3 className="font-bold text-gray-800 mb-3">Order Details</h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Customer</span>
-                <span className="text-gray-800">{tracking?.customerName}</span>
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
+                <Truck size={18} />
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Items</span>
-                <span className="text-gray-800">{tracking?.items?.length || 0} items</span>
+              <div>
+                <div className="text-xs uppercase tracking-wider text-gray-500">Delivery Partner</div>
+                {tracking.rider ? (
+                  <>
+                    <p className="font-semibold text-gray-800">{tracking.rider.name || 'Rider'}</p>
+                    <p className="text-sm text-gray-600">
+                      {tracking.rider.vehicleType || 'Vehicle'} · {tracking.rider.vehicleNumber || 'N/A'}
+                    </p>
+                    {!riderHasLocation && <p className="text-sm text-amber-700">Rider location unavailable</p>}
+                  </>
+                ) : (
+                  <p className="text-sm text-gray-600">A rider has not been assigned yet.</p>
+                )}
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Total</span>
-                <span className="font-bold text-gray-800">₹{tracking?.totalAmountInr || 0}</span>
+            </div>
+
+            {route?.distanceMeters != null && (
+              <p className="text-sm text-gray-600">
+                Route distance: {(route.distanceMeters / 1000).toFixed(1)} km
+              </p>
+            )}
+            {!route && <p className="text-sm text-gray-500">Route is temporarily unavailable.</p>}
+
+            <div className="flex gap-2">
+              {tracking.rider?.phone ? (
+                <a href={`tel:${tracking.rider.phone}`} className="flex-1 flex items-center justify-center gap-2 py-3 bg-orange-500 text-white rounded-lg font-medium">
+                  <Phone size={18} /><span>Call</span>
+                </a>
+              ) : (
+                <button disabled className="flex-1 flex items-center justify-center gap-2 py-3 bg-orange-300 text-white rounded-lg font-medium">
+                  <Phone size={18} /><span>Call</span>
+                </button>
+              )}
+              <a
+                href={tracking.destination
+                  ? `https://www.google.com/maps/dir/?api=1&destination=${tracking.destination.latitude},${tracking.destination.longitude}`
+                  : 'https://www.google.com/maps'}
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 flex items-center justify-center gap-2 py-3 bg-blue-600 text-white rounded-lg font-medium"
+              >
+                <Navigation size={18} /><span>Navigate</span>
+              </a>
+            </div>
+
+            {(tracking.canEditDetails || tracking.canCancel) && (
+              <div className="flex gap-2">
+                {tracking.canEditDetails && (
+                  <Link
+                    to={`/track-order?orderNumber=${encodeURIComponent(tracking.orderNumber)}`}
+                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-center text-sm font-semibold text-gray-700"
+                  >
+                    Edit address
+                  </Link>
+                )}
+                {tracking.canCancel && (
+                  <button
+                    onClick={() => void handleCancel()}
+                    disabled={cancelling}
+                    className="flex-1 rounded-lg border border-red-300 px-3 py-2 text-sm font-semibold text-red-700 disabled:opacity-50"
+                  >
+                    {cancelling ? 'Cancelling…' : 'Cancel order'}
+                  </button>
+                )}
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Sponsored Meals</span>
-                <span className="text-green-600 font-medium">{tracking?.sponsoredMealsCount || 0}</span>
-              </div>
+            )}
+
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Star className="text-yellow-400 fill-yellow-400" size={16} />
+              <span>Live route updates every 5 seconds.</span>
             </div>
           </div>
         </div>

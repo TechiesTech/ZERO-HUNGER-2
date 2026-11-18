@@ -29,15 +29,20 @@ export interface OrderStats {
   ordersToday: number;
   pendingOrders: number;
   preparingOrders: number;
+  readyForPickup: number;
   outForDelivery: number;
   deliveredOrders: number;
   cancelledOrders: number;
+  successfulPayments: number;
+  pendingPayments: number;
+  failedPayments: number;
 }
 
 interface BackendOrderStats {
   totalOrders?: number;
   ordersToday?: number;
-  byMealStatus?: Partial<Record<'confirmed' | 'preparing' | 'outfordelivery' | 'delivered' | 'cancelled', number>>;
+  byMealStatus?: Partial<Record<'confirmed' | 'preparing' | 'readyforpickup' | 'outfordelivery' | 'delivered' | 'cancelled', number>>;
+  byPaymentStatus?: Partial<Record<'success' | 'pending' | 'failed', number>>;
 }
 
 function mapOrderStats(backendStats: BackendOrderStats): OrderStats {
@@ -46,9 +51,13 @@ function mapOrderStats(backendStats: BackendOrderStats): OrderStats {
     ordersToday: backendStats.ordersToday || 0,
     pendingOrders: backendStats.byMealStatus?.confirmed || 0,
     preparingOrders: backendStats.byMealStatus?.preparing || 0,
+    readyForPickup: backendStats.byMealStatus?.readyforpickup || 0,
     outForDelivery: backendStats.byMealStatus?.outfordelivery || 0,
     deliveredOrders: backendStats.byMealStatus?.delivered || 0,
     cancelledOrders: backendStats.byMealStatus?.cancelled || 0,
+    successfulPayments: backendStats.byPaymentStatus?.success || 0,
+    pendingPayments: backendStats.byPaymentStatus?.pending || 0,
+    failedPayments: backendStats.byPaymentStatus?.failed || 0,
   };
 }
 
@@ -97,6 +106,23 @@ export interface DeliveryHistory {
 export interface OrderDetails {
   orderNumber: string;
   deliveries: DeliveryHistory[];
+}
+
+export interface OrdersQuery {
+  status?: string;
+  paymentStatus?: string;
+  search?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface OrdersPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 }
 
 export interface KitchenOrder {
@@ -232,9 +258,12 @@ export function useOrders() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchOrders = useCallback(async (query?: any) => {
+  const [pagination, setPagination] = useState<OrdersPagination>({ page: 1, limit: 10, total: 0, totalPages: 0 });
+
+  const fetchOrders = useCallback(async (query: OrdersQuery = {}) => {
     if (admin?.role !== 'admin') {
       setOrders([]);
+      setPagination({ page: 1, limit: 10, total: 0, totalPages: 0 });
       setLoading(false);
       setError(null);
       return;
@@ -246,21 +275,35 @@ export function useOrders() {
       const params = new URLSearchParams();
       if (query?.status) params.append('customerMealStatus', query.status);
       if (query?.paymentStatus) params.append('paymentStatus', query.paymentStatus);
-      if (query?.customerEmail) params.append('customerEmail', query.customerEmail);
-      if (query?.page) params.append('page', query.page.toString());
-      if (query?.limit) params.append('limit', query.limit.toString());
+      if (query?.search) params.append('search', query.search);
+      if (query?.from) params.append('from', query.from);
+      if (query?.to) params.append('to', query.to);
+      params.append('page', String(query.page || 1));
+      params.append('limit', String(query.limit || 10));
 
       const path = params.toString() ? `/api/orders/getAllOrders?${params.toString()}` : '/api/orders/getAllOrders';
-      const res = await api.get<{ success: boolean; data: any }>(path);
+      const res = await api.get<{
+        success: boolean;
+        data: { orders: Array<Record<string, any>>; pagination: OrdersPagination };
+      }>(path);
 
-      const ordersData = res.data?.orders || res.data || [];
-      const transformedOrders = ordersData.map((order: any) => ({
+      const ordersData = res.data?.orders || [];
+      const transformedOrders = ordersData.map((order) => ({
         _id: order._id,
         orderNumber: order.orderNumber,
-        customerName: order.customerName,
-        customerEmail: order.customerEmail,
-        customerPhone: order.customerPhone,
-        deliveryAddress: typeof order.deliveryAddress === 'string' ? order.deliveryAddress : JSON.stringify(order.deliveryAddress),
+        customerName: order.customer?.name || order.customerName || '',
+        customerEmail: order.customer?.email || order.customerEmail || '',
+        customerPhone: order.customer?.phone || order.customerPhone || '',
+        deliveryAddress: typeof order.deliveryAddress === 'string'
+          ? order.deliveryAddress
+          : order.deliveryAddress
+            ? [
+                order.deliveryAddress.addressLine1,
+                order.deliveryAddress.area,
+                order.deliveryAddress.city,
+                order.deliveryAddress.pincode,
+              ].filter(Boolean).join(', ')
+            : '',
         items: order.items || [],
         subtotal: order.subtotal || 0,
         tax: order.tax || 0,
@@ -275,10 +318,12 @@ export function useOrders() {
         updatedAt: order.updatedAt,
       }));
 
-      setOrders(Array.isArray(transformedOrders) ? transformedOrders : []);
+      setOrders(transformedOrders);
+      setPagination(res.data.pagination);
     } catch (err: any) {
       setError(err.message);
       setOrders([]);
+      setPagination({ page: query.page || 1, limit: query.limit || 10, total: 0, totalPages: 0 });
     } finally {
       setLoading(false);
     }
@@ -305,34 +350,27 @@ export function useOrders() {
   };
 
   useEffect(() => {
-    fetchOrders();
     fetchStats();
-  }, [fetchOrders, fetchStats]);
-
-  const deleteOrderById = async (orderId: string) => {
-    if (admin?.role !== 'admin') throw new Error('Admin access is required to delete orders.');
-    await api.delete(`/api/orders/deleteOrder/${orderId}`);
-    setOrders((prev) => prev.filter((o) => o._id !== orderId));
-    await fetchStats();
-  };
+  }, [fetchStats]);
 
   return {
     orders,
     stats,
+    pagination,
     loading,
     error,
     fetchOrders,
     fetchStats,
     fetchOrderDetails,
-    deleteOrder: deleteOrderById,
   };
 }
 
 export interface DeliveryRider {
-  _id: string;
+  userId: string;
   name: string;
   phone: string;
-  isAvailable: boolean;
+  status: string;
+  isLive: boolean;
   isBusy: boolean;
 }
 
@@ -353,7 +391,7 @@ export function useDeliveryAssignments() {
       const res = await api.get<{
         success: boolean;
         data: { riders: DeliveryRider[] };
-      }>('/api/riders/getAllRiders?isActive=true&limit=100');
+      }>('/api/riders/getAllRiders?status=active&limit=50');
       setRiders(res.data.riders);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load riders');
@@ -364,17 +402,5 @@ export function useDeliveryAssignments() {
     fetchRiders();
   }, [fetchRiders]);
 
-  const assignRider = async (orderId: string, riderId: string) => {
-    if (admin?.role !== 'admin') throw new Error('Admin access is required to assign riders.');
-    await api.patch(`/api/orders/assignRider/${orderId}`, { riderId });
-    await fetchRiders();
-  };
-
-  const unassignRider = async (orderId: string) => {
-    if (admin?.role !== 'admin') throw new Error('Admin access is required to unassign riders.');
-    await api.patch(`/api/orders/unassignRider/${orderId}`, {});
-    await fetchRiders();
-  };
-
-  return { riders, error, fetchRiders, assignRider, unassignRider };
+  return { riders, error, fetchRiders };
 }
