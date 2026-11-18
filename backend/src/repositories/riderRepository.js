@@ -451,7 +451,7 @@ const getAllRiders = async (status, since, skip, limit) => {
 
 const reviewRider = async (userId, status, reason) => {
     return User.findOneAndUpdate(
-        { _id: userId, role: 'rider', status: 'pending' },
+        { _id: userId, roles: 'rider', status: 'pending' },
         { $set: { status, rejectionReason: reason ?? '' } },
         { new: true }
     )
