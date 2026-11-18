@@ -28,3 +28,18 @@ input {
   display: none;
 }
 
+/* Ensure MapLibre WebGL canvas always expands to fill its container */
+.maplibregl-map {
+  width: 100% !important;
+  height: 100% !important;
+  position: absolute !important;
+  inset: 0 !important;
+}
+
+.maplibregl-canvas-container,
+.maplibregl-canvas {
+  width: 100% !important;
+  height: 100% !important;
+  outline: none;
+}
+

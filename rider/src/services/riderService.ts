@@ -1,9 +1,9 @@
-import { apiClient } from './apiClient';
+import { ApiError, apiClient } from './apiClient';
 import type { AvailableOrder, ActiveDelivery, PastDelivery, RiderUser, VehicleType } from '../types/rider';
 
 export const riderService = {
   // Auth
-  login: async (identifier: string, password: string):Promise<{ session: { user: RiderUser } }> => {
+  login: async (identifier: string, password: string): Promise<{ user: RiderUser }> => {
     return apiClient.post('/auth/login', { identifier, password });
   },
 
@@ -58,12 +58,15 @@ export const riderService = {
     return apiClient.postMultipart(`/riders/updateStatus/${orderNumber}`, formData);
   },
 
+  // The API answers 404 when the rider has no open delivery. That is a normal
+  // "nothing to show" response, so it must not surface as a failure.
   currentDelivery: async (): Promise<ActiveDelivery | null> => {
     try {
       const res = await apiClient.get<any>('/riders/currentDelivery');
       return res?.order || res || null;
-    } catch {
-      return null;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
     }
   },
 

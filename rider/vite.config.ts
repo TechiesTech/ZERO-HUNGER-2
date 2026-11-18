@@ -12,6 +12,11 @@ export default defineConfig({
       '@': fileURLToPath(source),
     },
   },
+  // Exclude maplibre-gl from Vite's dependency pre-bundling so its
+  // built-in WebWorker loads from the correct URL in both dev and build.
+  optimizeDeps: {
+    exclude: ['maplibre-gl'],
+  },
   server: {
     port: 5175,
     host: '0.0.0.0',

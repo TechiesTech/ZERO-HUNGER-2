@@ -1,16 +1,20 @@
 export type RiderStatus = 'pending' | 'active' | 'rejected' | 'suspended';
 export type VehicleType = 'bike' | 'scooty';
+export type UserRole = 'customer' | 'kitchen' | 'rider' | 'admin';
 
 export interface RiderUser {
   _id: string;
   name: string;
   email: string | null;
   phone: string | null;
-  role: 'rider';
+  roles: UserRole[];
   status: RiderStatus;
   rejectionReason?: string;
   isAvailable?: boolean;
 }
+
+export const hasRole = (user: RiderUser | null | undefined, role: UserRole) =>
+  Boolean(user?.roles?.includes(role));
 
 export interface Coordinates {
   latitude: number;

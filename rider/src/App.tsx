@@ -9,6 +9,7 @@ import { LoginScreen } from './components/LoginScreen';
 import { RegisterScreen } from './components/RegisterScreen';
 import { useRiderLocation } from './hooks/useRiderLocation';
 import { riderService } from './services/riderService';
+import { hasRole } from './types/rider';
 import type { RiderUser, AvailableOrder, ActiveDelivery } from './types/rider';
 import { LogOut } from 'lucide-react';
 
@@ -17,7 +18,14 @@ export default function App() {
   const [authChecking, setAuthChecking] = useState(true);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
-  const [isOnline, setIsOnline] = useState(false);
+  // Remember online status across page refreshes until rider explicitly toggles offline
+  const [isOnline, setIsOnline] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('rider_online') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [toggleLoading, setToggleLoading] = useState(false);
 
   const [availableOrders, setAvailableOrders] = useState<AvailableOrder[]>([]);
@@ -39,9 +47,17 @@ export default function App() {
     riderService
       .getMe()
       .then((res) => {
-        if (res.user && res.user.role === 'rider') {
+        if (hasRole(res.user, 'rider')) {
           setUser(res.user);
-          setIsOnline(Boolean(res.user.isAvailable));
+          // Preserve online state if rider was online before refresh
+          const wasOnline = localStorage.getItem('rider_online') === 'true';
+          if (wasOnline) {
+            setIsOnline(true);
+            riderService.setAvailability(true).catch(() => {});
+          } else if (res.user.isAvailable !== undefined) {
+            setIsOnline(Boolean(res.user.isAvailable));
+            localStorage.setItem('rider_online', String(Boolean(res.user.isAvailable)));
+          }
         }
       })
       .catch(() => {
@@ -53,10 +69,11 @@ export default function App() {
   }, []);
 
   // GPS Tracking Hook
+  // `gpsError` is the single source of truth for GPS problems: passing an inline
+  // onError here duplicated the banner and recreated the watcher on every render.
   const { lastCoords, gpsError } = useRiderLocation({
     isOnline,
     hasActiveDelivery: Boolean(activeDelivery),
-    onError: (msg) => setBannerMessage({ type: 'warning', message: `GPS: ${msg}` }),
   });
 
   // Fetch Active Delivery
@@ -65,6 +82,10 @@ export default function App() {
     try {
       const active = await riderService.currentDelivery();
       setActiveDelivery(active);
+      if (active) {
+        setIsOnline(true);
+        localStorage.setItem('rider_online', 'true');
+      }
     } catch {
       setActiveDelivery(null);
     }
@@ -117,6 +138,7 @@ export default function App() {
       const nextState = !isOnline;
       await riderService.setAvailability(nextState);
       setIsOnline(nextState);
+      localStorage.setItem('rider_online', String(nextState));
       if (nextState) {
         fetchAvailableOrders();
       } else {
@@ -186,6 +208,7 @@ export default function App() {
     setUser(null);
     setIsOnline(false);
     setActiveDelivery(null);
+    localStorage.removeItem('rider_online');
   };
 
   if (authChecking) {
@@ -202,7 +225,8 @@ export default function App() {
       <LoginScreen
         onLoginSuccess={(u) => {
           setUser(u);
-          setIsOnline(Boolean(u.isAvailable));
+          const wasOnline = localStorage.getItem('rider_online') === 'true';
+          setIsOnline(wasOnline);
         }}
         onSwitchToRegister={() => setAuthMode('register')}
       />
@@ -235,6 +259,7 @@ export default function App() {
       {/* 3. Map View */}
       <MapView
         riderCoords={lastCoords}
+        gpsError={gpsError}
         kitchenCoords={activeDelivery?.kitchen ? { ...activeDelivery.kitchen.location, name: activeDelivery.kitchen.name } as any : null}
         customerCoords={
           activeDelivery?.deliveryAddress
