@@ -1,5 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { useInView, useReducedMotion } from 'motion/react';
+import React, { useEffect, useRef } from 'react';
+import {
+  animate,
+  motion,
+  useInView,
+  useMotionValue,
+  useReducedMotion,
+  useTransform,
+} from 'motion/react';
 
 interface AnimatedCounterProps {
   value: number;
@@ -23,51 +30,43 @@ export const AnimatedCounter: React.FC<AnimatedCounterProps> = ({
   const ref = useRef<HTMLSpanElement | null>(null);
   const isInView = useInView(ref, { once: true, margin: '-40px' });
   const prefersReducedMotion = useReducedMotion();
-  const [count, setCount] = useState<number>(0);
+  const count = useMotionValue(0);
+
+  const formatValue = (currentValue: number) => {
+    const currentCount = Math.round(currentValue);
+    const formattedCount = formatCompact
+      ? currentCount >= 1000
+        ? `${Math.floor(currentCount / 1000)}K`
+        : currentCount.toLocaleString('en-IN')
+      : currentCount.toLocaleString('en-IN');
+
+    return `${prefix}${formattedCount}${suffix}`;
+  };
+  const formattedCount = useTransform(count, formatValue);
+  const finalValue = formatValue(safeValue);
 
   useEffect(() => {
     if (!isInView) return;
 
     if (prefersReducedMotion) {
-      setCount(safeValue);
+      count.set(safeValue);
       return;
     }
 
-    let startTimestamp: number | null = null;
-    let animationFrameId: number;
-
-    const step = (timestamp: number) => {
-      if (!startTimestamp) startTimestamp = timestamp;
-      const progress = Math.min((timestamp - startTimestamp) / durationMs, 1);
-      // Cubic ease out
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setCount(Math.round(eased * safeValue));
-
-      if (progress < 1) {
-        animationFrameId = window.requestAnimationFrame(step);
-      } else {
-        setCount(safeValue);
-      }
-    };
-
-    animationFrameId = window.requestAnimationFrame(step);
-    return () => window.cancelAnimationFrame(animationFrameId);
-  }, [isInView, safeValue, durationMs, prefersReducedMotion]);
-
-  const safeCount =
-    typeof count === 'number' && !Number.isNaN(count) ? count : 0;
-
-  const formattedNumber = formatCompact
-    ? safeCount >= 1000
-      ? `${Math.floor(safeCount / 1000)}K`
-      : safeCount.toLocaleString('en-IN')
-    : safeCount.toLocaleString('en-IN');
+    const controls = animate(count, safeValue, {
+      duration: durationMs / 1000,
+      ease: 'easeOut',
+    });
+    return () => controls.stop();
+  }, [count, durationMs, isInView, prefersReducedMotion, safeValue]);
 
   return (
-    <span ref={ref} className={`tabular-nums ${className}`}>
-      {prefix}
-      {formattedNumber}
-      {suffix}
-    </span>
+    <motion.span
+      ref={ref}
+      className={`tabular-nums inline-block ${className}`}
+      style={{ minWidth: `${finalValue.length}ch` }}
+    >
+      {formattedCount}
+    </motion.span>
   );
 };

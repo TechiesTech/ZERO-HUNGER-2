@@ -6,7 +6,7 @@ export interface SavedAddress extends DeliveryAddress {
   label?: 'home' | 'work' | 'other';
   customerName: string;
   customerPhone: string;
-  location: DeliveryPoint;
+  location?: DeliveryPoint | null;
   isDefault: boolean;
 }
 

@@ -42,9 +42,32 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return json as T;
 }
 
+async function requestForm<T>(method: string, path: string, formData: FormData): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`, {
+    method,
+    body: formData,
+    credentials: 'include',
+  });
+  const responseText = await res.text();
+  let json: { message?: string } = {};
+  if (responseText) {
+    try {
+      json = JSON.parse(responseText);
+    } catch {
+      if (res.ok) throw new Error('The server returned an invalid response.');
+    }
+  }
+  if (!res.ok) {
+    throw new ApiError(json.message ?? `Request failed (${res.status})`, res.status);
+  }
+  return json as T;
+}
+
 export const api = {
   get: <T>(path: string) => request<T>('GET', path),
   post: <T>(path: string, body: unknown) => request<T>('POST', path, body),
   patch: <T>(path: string, body: unknown) => request<T>('PATCH', path, body),
   delete: <T>(path: string) => request<T>('DELETE', path),
+  form: <T>(method: 'POST' | 'PATCH', path: string, formData: FormData) =>
+    requestForm<T>(method, path, formData),
 };

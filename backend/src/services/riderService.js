@@ -27,6 +27,12 @@ const setAvailability = async (user, { isAvailable }) => {
     return rider;
 };
 
+const getMyProfile = async (user) => {
+    const rider = await riderRepository.getRiderProfile(user._id);
+    if (!rider) throw new AppError('Rider profile not found', 404);
+    return rider;
+};
+
 const updateLocation = async (user, { latitude, longitude, heading }) => {
     const rider = await riderRepository.updateLocation(user._id, latitude, longitude, heading ?? null);
     if (!rider) throw new AppError('Go online to share your location', 400);
@@ -58,15 +64,15 @@ const updateStatus = async (user, orderNumber, { status }, file) => {
     const rider = await riderRepository.getRider(user._id);
     if (!rider) throw new AppError('Rider profile not found', 404);
 
-    const photoKey = status === 'delivered' ? await uploadImage(file.buffer) : null;
-    const order = await riderRepository.updateStatus(rider._id, orderNumber, status, photoKey);
+    const photoPublicId = status === 'delivered' ? await uploadImage(file.buffer) : null;
+    const order = await riderRepository.updateStatus(rider._id, orderNumber, status, photoPublicId);
 
     if (!order) {
-        if (photoKey) await deleteImage(photoKey);
+        if (photoPublicId) await deleteImage(photoPublicId);
         throw new AppError('Order not found or not in the correct status', 404);
     }
 
-    return photoKey ? { ...order, photoUrl: getPhotoUrl(photoKey) } : order;
+    return photoPublicId ? { ...order, photoUrl: getPhotoUrl(photoPublicId) } : order;
 };
 
 const currentDelivery = async (user) => {
@@ -95,7 +101,7 @@ const getMyDeliveries = async (user, { month, page, limit }) => {
             orderNumber: delivery.orderNumber,
             deliveredAt: delivery.deliveredAt,
             area: delivery.area,
-            photoUrl: getPhotoUrl(delivery.photoKey),
+            photoUrl: delivery.photoUrl || getPhotoUrl(delivery.photoPublicId) || '',
         })),
         pagination: { page, limit, total: totalDeliveries, totalPages: Math.ceil(totalDeliveries / limit) },
     };
@@ -121,6 +127,7 @@ const reviewRider = async (userId, { status, reason }) => {
 
 export {
     registerRider,
+    getMyProfile,
     setAvailability,
     updateLocation,
     getAvailableOrders,
