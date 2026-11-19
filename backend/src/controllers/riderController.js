@@ -18,6 +18,15 @@ const setAvailability = async (req, res, next) => {
     }
 };
 
+const getMyProfile = async (req, res, next) => {
+    try {
+        const data = await riderService.getMyProfile(req.user);
+        return res.status(200).json({ success: true, data });
+    } catch (error) {
+        return next(error);
+    }
+};
+
 const updateLocation = async (req, res, next) => {
     try {
         const data = await riderService.updateLocation(req.user, req.body);
@@ -99,6 +108,7 @@ const reviewRider = async (req, res, next) => {
 
 export {
     registerRider,
+    getMyProfile,
     setAvailability,
     updateLocation,
     getAvailableOrders,

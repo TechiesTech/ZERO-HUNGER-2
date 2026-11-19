@@ -8,12 +8,12 @@ import { getActiveKitchens, type Kitchen } from '../services/kitchenService';
 import {
   createAddress,
   deleteAddress,
-  getMyAddresses,
   type SavedAddress,
   updateAddress,
 } from '../services/addressService';
-import type { DeliveryAddress, DeliveryPoint } from '../services/orderService';
+import { getCheckoutDetails, type DeliveryAddress, type DeliveryPoint } from '../services/orderService';
 import AddressSection from './AddressSection';
+import LocationPicker from './LocationPicker';
 import { SavedAddressPicker } from './SavedAddressPicker';
 import { useNavigate } from 'react-router-dom';
 
@@ -49,7 +49,8 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose, onRequest
   } = useMealProgram();
 
   const [kitchens, setKitchens] = useState<Kitchen[]>([]);
-  const [kitchensLoading, setKitchensLoading] = useState(true);
+  const [kitchensLoading, setKitchensLoading] = useState(false);
+  const [kitchensLoaded, setKitchensLoaded] = useState(false);
   const [selectedKitchenId, setSelectedKitchenId] = useState('');
   const { meals: backendMeals, loading: mealsLoading } = useMeals(selectedKitchenId || null);
   const [checkoutStep, setCheckoutStep] = useState<'CART' | 'CHECKOUT' | 'CONFIRMED'>('CART');
@@ -72,7 +73,8 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose, onRequest
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isOpen && kitchens.length === 0 && !kitchensLoading) {
+    if (isOpen && !kitchensLoaded && !kitchensLoading) {
+      setKitchensLoading(true);
       let active = true;
       getActiveKitchens()
         .then((activeKitchens) => {
@@ -82,15 +84,19 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose, onRequest
         })
         .catch((error: unknown) => {
           console.error('Failed to load kitchens:', error);
+          if (active) setFormError(error instanceof Error ? error.message : 'Could not load active kitchens.');
         })
         .finally(() => {
-          if (active) setKitchensLoading(false);
+          if (active) {
+            setKitchensLoaded(true);
+            setKitchensLoading(false);
+          }
         });
       return () => {
         active = false;
       };
     }
-  }, [isOpen, kitchens.length, kitchensLoading]);
+  }, [isOpen, kitchensLoaded, kitchensLoading]);
 
   const selectSavedAddress = (address: SavedAddress) => {
     setSelectedAddressId(address._id);
@@ -107,7 +113,7 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose, onRequest
       state: address.state,
       pincode: address.pincode,
     });
-    setDeliveryLocation(address.location);
+    setDeliveryLocation(address.location || null);
     setFormError('');
   };
 
@@ -137,7 +143,7 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose, onRequest
       state: address.state,
       pincode: address.pincode,
     });
-    setDeliveryLocation(address.location);
+    setDeliveryLocation(address.location || null);
     setFormError('');
   };
 
@@ -226,12 +232,29 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose, onRequest
         return;
       }
 
-      const addresses = await getMyAddresses();
-      const defaultAddress = addresses.find((address) => address.isDefault) || addresses[0];
+      const checkout = await getCheckoutDetails();
+      const addresses = (checkout.addresses ?? []).map((address) => ({
+        _id: address._id || '',
+        addressLine1: address.addressLine1 || '',
+        addressLine2: address.addressLine2 || '',
+        area: address.area || '',
+        landmark: address.landmark || '',
+        city: address.city || '',
+        state: address.state || '',
+        pincode: address.pincode || '',
+        label: 'home',
+        customerName: address.customerName || checkout.customer.name,
+        customerPhone: address.customerPhone || checkout.customer.phone || '',
+        location: address.location || null,
+        isDefault: Boolean(address.isDefault),
+      } satisfies SavedAddress));
+      const defaultAddress = checkout.defaultAddress
+        ? addresses.find((address) => address._id === checkout.defaultAddress?._id) || addresses[0]
+        : addresses.find((address) => address.isDefault) || addresses[0];
       setSavedAddresses(addresses);
-      setCustomerName(defaultAddress?.customerName || currentUser.name);
-      setCustomerEmail(currentUser.email || '');
-      setCustomerPhone(defaultAddress?.customerPhone || currentUser.phone || '');
+      setCustomerName(defaultAddress?.customerName || checkout.customer.name || currentUser.name);
+      setCustomerEmail(checkout.customer.email || currentUser.email || '');
+      setCustomerPhone(defaultAddress?.customerPhone || checkout.customer.phone || currentUser.phone || '');
       setSelectedAddressId(defaultAddress?._id || null);
       setIsAddingNewAddress(!defaultAddress);
       setDeliveryAddress(defaultAddress ? {
@@ -643,6 +666,13 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose, onRequest
                         onDelete={(address) => void removeSavedAddress(address)}
                         onAddNew={beginAddingAddress}
                       />
+                      {!isAddingNewAddress && !editingAddressId && (
+                        <LocationPicker
+                          value={deliveryLocation}
+                          onChange={() => {}}
+                          interactive={false}
+                        />
+                      )}
                       {(isAddingNewAddress || editingAddressId) && (
                         <AddressSection
                           value={{ address: deliveryAddress, location: deliveryLocation }}

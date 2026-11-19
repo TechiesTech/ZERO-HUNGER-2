@@ -10,33 +10,16 @@ import {
   DeliveryHubRouteGeo,
   getDeliveryRouteForLocation,
 } from "../data/mealProgram";
-import type {
-  TrackingCoordinates,
-  TrackingData,
+import {
+  formatAddressText,
+  type TrackingData,
 } from "../services/trackingService";
+import { OrderTrackingMap } from "./OrderTrackingMap";
 import { formatCoordinates, hasCoordinates } from "./deliveryRouteMap/coordinates";
 import {
   MapModeSwitcher,
   type MapFilterMode,
 } from "./deliveryRouteMap/MapModeSwitcher";
-
-function calculateDistanceKm(
-  latitude1: number,
-  longitude1: number,
-  latitude2: number,
-  longitude2: number,
-): number {
-  const earthRadiusKm = 6371;
-  const deltaLatitude = ((latitude2 - latitude1) * Math.PI) / 180;
-  const deltaLongitude = ((longitude2 - longitude1) * Math.PI) / 180;
-  const haversine =
-    Math.sin(deltaLatitude / 2) ** 2 +
-    Math.cos((latitude1 * Math.PI) / 180) *
-      Math.cos((latitude2 * Math.PI) / 180) *
-      Math.sin(deltaLongitude / 2) ** 2;
-
-  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
-}
 
 const LOCATION_PIN_HTML = `
   <svg width="32" height="40" viewBox="0 0 24 30" aria-hidden="true">
@@ -44,15 +27,6 @@ const LOCATION_PIN_HTML = `
     <circle cx="12" cy="11.5" r="3.5" fill="white"/>
   </svg>
 `;
-
-function createLocationIcon(): L.DivIcon {
-  return L.divIcon({
-    className: "bg-transparent border-0",
-    html: LOCATION_PIN_HTML,
-    iconSize: [32, 40],
-    iconAnchor: [16, 40],
-  });
-}
 
 function createKitchenIcon(): L.DivIcon {
   return L.divIcon({
@@ -100,11 +74,7 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
   const [selectedHubId, setSelectedHubId] = useState<string | null>(null);
   const [customerRoute, setCustomerRoute] = useState<[number, number][]>([]);
   const [sponsoredRoute, setSponsoredRoute] = useState<[number, number][]>([]);
-  const [resolvedKitchenLocation, setResolvedKitchenLocation] =
-    useState<TrackingCoordinates | null>(null);
-  const [kitchenGeocodeStatus, setKitchenGeocodeStatus] = useState<
-    "idle" | "loading" | "resolved" | "unavailable" | "failed"
-  >("idle");
+  const isLiveTracking = Boolean(liveTracking);
 
   const effectiveLocation = overrideLocation || token.deliveryLocation;
   const effectiveBeneficiary = overrideBeneficiaryId || token.beneficiaryId;
@@ -121,74 +91,15 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
   const isDelivered = token.status === "DELIVERED";
   const kitchenCoordinates = hasCoordinates(liveTracking?.kitchen?.location)
     ? liveTracking.kitchen.location
-    : resolvedKitchenLocation;
+    : null;
   const liveRouteDistance = useMemo(() => {
-    const destination = liveTracking?.destination;
-    if (!hasCoordinates(kitchenCoordinates) || !hasCoordinates(destination)) {
-      return "Not available";
-    }
-
-    return `${calculateDistanceKm(
-      kitchenCoordinates.latitude,
-      kitchenCoordinates.longitude,
-      destination.latitude,
-      destination.longitude,
-    ).toFixed(1)} km`;
-  }, [kitchenCoordinates, liveTracking?.destination]);
-
-  useEffect(() => {
-    const address = liveTracking?.kitchen?.address?.trim();
-    if (
-      !liveTracking ||
-      hasCoordinates(liveTracking.kitchen?.location) ||
-      !address
-    ) {
-      setResolvedKitchenLocation(null);
-      setKitchenGeocodeStatus("idle");
-      return;
-    }
-
-    const controller = new AbortController();
-    const resolveAddress = async () => {
-      setResolvedKitchenLocation(null);
-      setKitchenGeocodeStatus("loading");
-      try {
-        const query = encodeURIComponent(`${address}, Hyderabad, India`);
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${query}`,
-          { signal: controller.signal, headers: { "Accept-Language": "en" } },
-        );
-        if (!response.ok) {
-          throw new Error(`Kitchen address lookup failed (${response.status})`);
-        }
-
-        const results: Array<{ lat: string; lon: string }> =
-          await response.json();
-        const latitude = Number(results[0]?.lat);
-        const longitude = Number(results[0]?.lon);
-        const coordinates = { latitude, longitude };
-        if (!hasCoordinates(coordinates)) {
-          setResolvedKitchenLocation(null);
-          setKitchenGeocodeStatus("unavailable");
-          return;
-        }
-
-        setResolvedKitchenLocation(coordinates);
-        setKitchenGeocodeStatus("resolved");
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        console.error("Kitchen address lookup error:", error);
-        setKitchenGeocodeStatus("failed");
-      }
-    };
-
-    resolveAddress();
-    return () => controller.abort();
-  }, [
-    liveTracking?.kitchen?.address,
-    liveTracking?.kitchen?.location,
-    liveTracking,
-  ]);
+    const route = liveTracking?.customerMealStatus === "outfordelivery"
+      ? liveTracking.routes?.toCustomer
+      : liveTracking?.routes?.toKitchen ?? liveTracking?.routes?.toCustomer;
+    return route?.distanceMeters != null
+      ? `${(route.distanceMeters / 1000).toFixed(1)} km`
+      : "Not available";
+  }, [liveTracking?.customerMealStatus, liveTracking?.routes]);
 
   const fetchOSRMRoute = async (
     from: [number, number],
@@ -233,7 +144,7 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
   }, [mapMode, originKitchen, activeHubRoute, liveTracking]);
 
   useEffect(() => {
-    if (!mapContainerRef.current || mapInstanceRef.current) return;
+    if (isLiveTracking || !mapContainerRef.current || mapInstanceRef.current) return;
 
     const map = L.map(mapContainerRef.current, {
       center: [17.418, 78.478],
@@ -275,131 +186,15 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
       mapInstanceRef.current = null;
       layerGroupRef.current = null;
     };
-  }, []);
+  }, [isLiveTracking]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
     const layerGroup = layerGroupRef.current;
-    if (!map || !layerGroup) return;
+    if (!map || !layerGroup || liveTracking) return;
 
     layerGroup.clearLayers();
     const boundsPoints: [number, number][] = [];
-
-    if (liveTracking) {
-      const addLiveMarker = (
-        location: TrackingCoordinates | null | undefined,
-        tooltipContent: string | HTMLElement,
-        color: string,
-        popup?: HTMLElement,
-        icon?: L.DivIcon,
-      ) => {
-        if (!hasCoordinates(location)) return;
-        const point: [number, number] = [location.latitude, location.longitude];
-        boundsPoints.push(point);
-        const marker = icon
-          ? L.marker(point, { icon })
-          : L.circleMarker(point, {
-              radius: 9,
-              color: "#080808",
-              weight: 3,
-              fillColor: color,
-              fillOpacity: 1,
-            });
-        if (icon) {
-          marker.on("click", () => {
-            map.flyTo(point, Math.max(map.getZoom(), 16));
-          });
-        }
-        const tooltip =
-          typeof tooltipContent === "string"
-            ? document.createElement("span")
-            : tooltipContent;
-        if (typeof tooltipContent === "string")
-          tooltip.textContent = tooltipContent;
-        marker.bindTooltip(tooltip);
-        if (popup) marker.bindPopup(popup);
-        marker.addTo(layerGroup);
-      };
-
-      const kitchen = liveTracking.kitchen;
-      if (kitchenCoordinates) {
-        const tooltip = document.createElement("div");
-        const tooltipName = document.createElement("strong");
-        tooltipName.textContent = kitchen?.name || "Kitchen location";
-        tooltip.append(tooltipName);
-        if (kitchen?.address) {
-          const tooltipAddress = document.createElement("div");
-          tooltipAddress.textContent = kitchen.address;
-          tooltip.append(tooltipAddress);
-        }
-        if (kitchen?._id) {
-          const tooltipId = document.createElement("div");
-          tooltipId.textContent = `Kitchen ID: ${kitchen._id}`;
-          tooltip.append(tooltipId);
-        }
-
-        const popup = document.createElement("div");
-        const name = document.createElement("strong");
-        name.textContent = kitchen?.name || "Kitchen location";
-        popup.append(name);
-        if (kitchen?.address) {
-          const address = document.createElement("p");
-          address.textContent = kitchen.address;
-          popup.append(address);
-        }
-        if (kitchen?._id) {
-          const id = document.createElement("p");
-          id.textContent = `Kitchen ID: ${kitchen._id}`;
-          popup.append(id);
-        }
-        addLiveMarker(kitchenCoordinates, tooltip, "#dc2626", popup, createKitchenIcon());
-      }
-      addLiveMarker(
-        liveTracking.rider?.currentLocation,
-        "Delivery rider",
-        "#f97316",
-      );
-      const destinationLabel = `${liveTracking.customerName || "Donor"} destination`;
-      const destinationPopup = document.createElement("div");
-      const destinationName = document.createElement("strong");
-      destinationName.textContent = destinationLabel;
-      destinationPopup.append(destinationName);
-      addLiveMarker(
-        liveTracking.destination,
-        destinationLabel,
-        "#dc2626",
-        destinationPopup,
-        createLocationIcon(),
-      );
-
-      const apiRoutes = [
-        liveTracking.routes?.toKitchen,
-        liveTracking.routes?.toCustomer ?? liveTracking.route,
-      ];
-      apiRoutes.forEach((route) => {
-        const path = route?.path?.filter(
-          ([latitude, longitude]) =>
-            Number.isFinite(latitude) && Number.isFinite(longitude),
-        );
-        if (!path || path.length < 2) return;
-        boundsPoints.push(...path);
-        L.polyline(path, {
-          color: "#dc2626",
-          weight: 4,
-          opacity: 0.9,
-        }).addTo(layerGroup);
-      });
-
-      if (boundsPoints.length > 1) {
-        map.fitBounds(L.latLngBounds(boundsPoints), {
-          padding: [44, 44],
-          maxZoom: 14,
-        });
-      } else if (boundsPoints.length === 1) {
-        map.setView(boundsPoints[0], 13);
-      }
-      return;
-    }
 
     // 1. Render Community Kitchens
     const kitchensToRender =
@@ -745,24 +540,15 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
                   Kitchen ID: {liveTracking.kitchen._id}
                 </p>
               )}
-              {liveTracking.kitchen?.address && (
+              {formatAddressText(liveTracking.kitchen?.address) && (
                 <p className="mt-1 text-[11px] text-white/60">
-                  {liveTracking.kitchen.address}
+                  {formatAddressText(liveTracking.kitchen?.address)}
                 </p>
               )}
               <p className="mt-1 font-mono-tabular text-[10px] text-white/50">
                 {formatCoordinates(kitchenCoordinates)}
-                {!hasCoordinates(liveTracking.kitchen?.location) &&
-                kitchenGeocodeStatus === "loading"
-                  ? " · Locating on map"
-                  : ""}
-                {!hasCoordinates(liveTracking.kitchen?.location) &&
-                kitchenGeocodeStatus === "unavailable"
-                  ? " · Address could not be located"
-                  : ""}
-                {!hasCoordinates(liveTracking.kitchen?.location) &&
-                kitchenGeocodeStatus === "failed"
-                  ? " · Address lookup failed"
+                {!hasCoordinates(liveTracking.kitchen?.location)
+                  ? " · Kitchen pin unavailable"
                   : ""}
               </p>
             </div>
@@ -775,10 +561,9 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
               </p>
               {liveTracking.rider && (
                 <p className="mt-1 font-mono-tabular text-[10px] text-white/60">
-                  {formatCoordinates(liveTracking.rider.currentLocation)}
                   {liveTracking.rider.isLocationStale
-                    ? " · Location may be stale"
-                    : ""}
+                    ? "Location unavailable"
+                    : formatCoordinates(liveTracking.rider.currentLocation)}
                 </p>
               )}
             </div>
@@ -834,56 +619,31 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
           </div>
         )}
 
-        <button
+        {!liveTracking && <button
           type="button"
-          onClick={() => {
-            if (liveTracking) {
-              const points: [number, number][] = [];
-              [
-                kitchenCoordinates,
-                liveTracking.rider?.currentLocation,
-                liveTracking.destination,
-              ].forEach((location) => {
-                if (hasCoordinates(location)) {
-                  points.push([location.latitude, location.longitude]);
-                }
-              });
-              [
-                liveTracking.routes?.toKitchen?.path,
-                (liveTracking.routes?.toCustomer ?? liveTracking.route)?.path,
-              ].forEach((path) => path?.forEach((point) => points.push(point)));
-              if (mapInstanceRef.current && points.length > 1) {
-                mapInstanceRef.current.fitBounds(L.latLngBounds(points), {
-                  padding: [44, 44],
-                  maxZoom: 14,
-                });
-              } else if (mapInstanceRef.current && points[0]) {
-                mapInstanceRef.current.setView(points[0], 13);
-              }
-            } else {
-              handleResetView();
-            }
-          }}
+          onClick={handleResetView}
           className="font-mono-tabular text-[11px] font-bold uppercase tracking-wider text-white/75 hover:text-[#49E619] inline-flex items-center gap-1 cursor-pointer"
         >
           <Compass className="w-3.5 h-3.5 text-[#49E619] shrink-0" />
           <span>Reset Map Bounds</span>
-        </button>
+        </button>}
       </div>
 
       {/* =====================================================================
           LEAFLET INTERACTIVE CANVAS
       ====================================================================== */}
       <div className="relative">
-        <div
-          ref={mapContainerRef}
-          className="w-full h-[320px] sm:h-[400px] lg:h-[440px] z-10"
-          aria-label={
-            liveTracking
-              ? "Live order delivery map"
-              : "Interactive map of Zero Hunger community kitchens and meal delivery routes in Hyderabad"
-          }
-        />
+        {liveTracking ? (
+          <div className="h-[320px] sm:h-[400px] lg:h-[440px]">
+            <OrderTrackingMap tracking={liveTracking} />
+          </div>
+        ) : (
+          <div
+            ref={mapContainerRef}
+            className="w-full h-[320px] sm:h-[400px] lg:h-[440px] z-10"
+            aria-label="Interactive map of Zero Hunger community kitchens and meal delivery routes in Hyderabad"
+          />
+        )}
 
         {/* Floating Live Telemetry Overlay Badge */}
         {!liveTracking && (

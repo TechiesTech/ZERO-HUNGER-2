@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
     registerRider,
+    getMyProfile,
     setAvailability,
     updateLocation,
     getAvailableOrders,
@@ -32,6 +33,7 @@ import { riderLocationLimiter, riderRegisterLimiter } from '../middleware/rateLi
 const router = Router();
 
 router.post('/registerRider', riderRegisterLimiter, validate(registerRiderSchema), registerRider);
+router.get('/me', authenticate, requireRoles('rider'), getMyProfile);
 router.patch('/setAvailability', authenticate, requireRoles('rider'), validate(setAvailabilitySchema), setAvailability);
 router.patch('/updateLocation', authenticate, requireRoles('rider'), riderLocationLimiter, validate(updateLocationSchema), updateLocation);
 router.get('/getAvailableOrders', authenticate, requireRoles('rider'), getAvailableOrders);
