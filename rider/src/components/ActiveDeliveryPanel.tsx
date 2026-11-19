@@ -1,5 +1,5 @@
 import React from 'react';
-import { Phone, ExternalLink, MapPin, Store, CheckCircle, PackageCheck, AlertCircle } from 'lucide-react';
+import { Phone, ExternalLink, MapPin, Store, CheckCircle, PackageCheck, Camera } from 'lucide-react';
 import type { ActiveDelivery } from '../types/rider';
 
 interface ActiveDeliveryPanelProps {
@@ -8,6 +8,17 @@ interface ActiveDeliveryPanelProps {
   onOpenDeliveryProof: () => void;
   isLoading?: boolean;
 }
+
+// Helper function to safely convert address to string
+const addressToString = (address: any): string => {
+  if (!address) return '';
+  if (typeof address === 'string') return address;
+  if (typeof address === 'object') {
+    const parts = [address.addressLine1, address.area, address.city, address.state].filter(Boolean);
+    return parts.join(', ');
+  }
+  return String(address);
+};
 
 export const ActiveDeliveryPanel: React.FC<ActiveDeliveryPanelProps> = ({
   delivery,
@@ -22,8 +33,8 @@ export const ActiveDeliveryPanel: React.FC<ActiveDeliveryPanelProps> = ({
     : delivery.kitchen?.location;
 
   const destinationAddress = isPickedUp
-    ? `${delivery.deliveryAddress?.addressLine1}, ${delivery.deliveryAddress?.area}`
-    : delivery.kitchen?.address;
+    ? addressToString(delivery.deliveryAddress)
+    : addressToString(delivery.kitchen?.address);
 
   const handleOpenGoogleMaps = () => {
     if (destinationCoords?.latitude && destinationCoords?.longitude) {
@@ -40,30 +51,37 @@ export const ActiveDeliveryPanel: React.FC<ActiveDeliveryPanelProps> = ({
   };
 
   const handleCall = (phoneNumber?: string) => {
-    if (phoneNumber) {
-      window.location.href = `tel:${phoneNumber}`;
+    if (phoneNumber && phoneNumber.trim()) {
+      window.location.href = `tel:${phoneNumber.trim()}`;
     }
   };
 
+  // Get phone number from delivery data
+  const getPhoneNumber = () => {
+    if (isPickedUp) {
+      return delivery.customerPhone;
+    }
+    // Try multiple possible phone fields for kitchen
+    return (
+      delivery.kitchen?.phone
+    );
+  };
+
   return (
-    <div className="fixed bottom-0 inset-x-0 z-30 bg-zinc-900 border-t border-zinc-800 rounded-t-3xl shadow-2xl p-4 pb-safe space-y-4 max-h-[75vh] overflow-y-auto">
+    <div className="fixed bottom-0 inset-x-0 z-30 bg-zinc-900 border-t border-zinc-800 rounded-t-3xl shadow-2xl p-4 pb-safe space-y-3 max-h-[75vh] overflow-y-auto">
       {/* Drag handle pill */}
       <div className="w-12 h-1.5 bg-zinc-700 rounded-full mx-auto" />
 
-      {/* Header Info */}
-      <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
-        <div>
-          <span className="text-xs font-mono font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-md">
+      {/* Header Info - Compact */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono font-bold text-[#49E619] bg-[#49E619]/10 px-2 py-1 rounded-md">
             #{delivery.orderNumber}
           </span>
-          <p className="text-sm font-black text-white mt-1">
-            {isPickedUp ? 'Drop at Customer' : 'Pickup from Kitchen'}
-          </p>
+          <span className="text-xs text-zinc-500">•</span>
+          <span className="text-xs text-zinc-400">{delivery.items?.length || 1} items</span>
         </div>
-        <div className="text-right">
-          <span className="text-base font-black text-white">₹{delivery.totalAmountInr}</span>
-          <p className="text-xs text-zinc-400 font-medium">{delivery.items?.length || 1} items</p>
-        </div>
+        <span className="text-base font-black text-white">₹{delivery.totalAmountInr}</span>
       </div>
 
       {/* Target Address Card */}
@@ -86,7 +104,7 @@ export const ActiveDeliveryPanel: React.FC<ActiveDeliveryPanelProps> = ({
             <p className="text-xs text-zinc-300 mt-0.5 leading-relaxed">{destinationAddress}</p>
             {isPickedUp && delivery.deliveryAddress?.landmark && (
               <p className="text-xs text-amber-400/90 font-medium mt-1">
-                Landmark: {delivery.deliveryAddress.landmark}
+                Landmark: {typeof delivery.deliveryAddress.landmark === 'string' ? delivery.deliveryAddress.landmark : ''}
               </p>
             )}
           </div>
@@ -95,41 +113,41 @@ export const ActiveDeliveryPanel: React.FC<ActiveDeliveryPanelProps> = ({
         {/* Quick Actions: Call + Google Maps */}
         <div className="grid grid-cols-2 gap-2 pt-2 border-t border-zinc-800/60">
           <button
-            onClick={() => handleCall(isPickedUp ? delivery.customerPhone : delivery.kitchen?.phone)}
-            className="h-11 rounded-xl bg-zinc-900 hover:bg-zinc-800 active:scale-95 text-xs font-bold text-zinc-200 border border-zinc-700/80 flex items-center justify-center gap-2"
+            onClick={() => handleCall(getPhoneNumber())}
+            className="h-10 rounded-xl bg-zinc-900 hover:bg-zinc-800 active:scale-95 text-xs font-bold text-zinc-200 border border-zinc-700/80 flex items-center justify-center gap-2"
           >
-            <Phone className="w-4 h-4 text-emerald-400" />
-            <span>Call {isPickedUp ? 'Customer' : 'Kitchen'}</span>
+            <Phone className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Call</span>
           </button>
 
           <button
             onClick={handleOpenGoogleMaps}
-            className="h-11 rounded-xl bg-zinc-900 hover:bg-zinc-800 active:scale-95 text-xs font-bold text-zinc-200 border border-zinc-700/80 flex items-center justify-center gap-2"
+            className="h-10 rounded-xl bg-zinc-900 hover:bg-zinc-800 active:scale-95 text-xs font-bold text-zinc-200 border border-zinc-700/80 flex items-center justify-center gap-2"
           >
-            <ExternalLink className="w-4 h-4 text-sky-400" />
-            <span>Google Maps</span>
+            <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
+            <span>Maps</span>
           </button>
         </div>
       </div>
 
-      {/* Main Single Bottom Thumb Action Button (48px+ tall, full width) */}
+      {/* Compact Action Buttons */}
       {!isPickedUp ? (
         <button
           onClick={onMarkPickedUp}
           disabled={isLoading}
-          className="w-full h-14 bg-amber-500 hover:bg-amber-600 active:scale-98 text-zinc-950 font-black text-base rounded-2xl flex items-center justify-center gap-2.5 shadow-lg shadow-amber-500/20 transition-transform"
+          className="w-full h-12 bg-amber-500 hover:bg-amber-600 active:scale-98 text-zinc-950 font-black text-sm rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 transition-transform"
         >
-          <PackageCheck className="w-5 h-5 shrink-0" />
-          <span>{isLoading ? 'CONFIRMING...' : 'CONFIRM PICKED UP'}</span>
+          <PackageCheck className="w-4 h-4 shrink-0" />
+          <span>{isLoading ? 'Confirming...' : 'Confirm Pickup'}</span>
         </button>
       ) : (
         <button
           onClick={onOpenDeliveryProof}
           disabled={isLoading}
-          className="w-full h-14 bg-emerald-500 hover:bg-emerald-600 active:scale-98 text-zinc-950 font-black text-base rounded-2xl flex items-center justify-center gap-2.5 shadow-lg shadow-emerald-500/20 transition-transform"
+          className="w-full h-12 bg-[#49E619] hover:bg-[#3ED016] active:scale-98 text-zinc-950 font-black text-sm rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-[#49E619]/20 transition-transform"
         >
-          <CheckCircle className="w-5 h-5 shrink-0" />
-          <span>MARK DELIVERED (PHOTO PROOF)</span>
+          <Camera className="w-4 h-4 shrink-0" />
+          <span>{isLoading ? 'Processing...' : 'Mark Delivered'}</span>
         </button>
       )}
     </div>

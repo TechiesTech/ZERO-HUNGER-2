@@ -54,7 +54,7 @@ export const riderService = {
   markDelivered: async (orderNumber: string, photo: File) => {
     const formData = new FormData();
     formData.append('status', 'delivered');
-    formData.append('photo', photo);
+    formData.append('file', photo); // Backend expects 'file' field, not 'photo'
     return apiClient.postMultipart(`/riders/updateStatus/${orderNumber}`, formData);
   },
 

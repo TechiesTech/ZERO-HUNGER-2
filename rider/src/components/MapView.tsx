@@ -339,7 +339,7 @@ export const MapView: React.FC<MapViewProps> = ({
   const hasDelivery = !!(kitchenCoords || customerCoords);
 
   return (
-    <div className="relative w-full h-[52vh] min-h-[320px] overflow-hidden bg-zinc-200">
+    <div className="relative w-full h-[52vh] min-h-80 overflow-hidden bg-zinc-200">
       {/* MapLibre canvas */}
       <div ref={containerRef} className="absolute inset-0" />
 
@@ -365,54 +365,42 @@ export const MapView: React.FC<MapViewProps> = ({
         <LocateFixed className="w-4 h-4" />
       </button>
 
-      {/* ── Bottom: ETA / GPS info card — Zepto style ── */}
-      <div className="absolute bottom-3 left-3 right-14 z-10 pointer-events-none">
-        <div className="bg-zinc-950/90 backdrop-blur-md rounded-2xl px-4 py-3
-                        border border-zinc-800 shadow-xl flex items-center gap-3">
-          {/* Route icon */}
-          <div className="w-8 h-8 rounded-xl bg-violet-600/20 flex items-center justify-center shrink-0">
-            <Navigation className="w-4 h-4 text-violet-400" />
+      {/* ── Bottom: GPS error only (hidden when GPS is working) ── */}
+      {gpsError && (
+        <div className="absolute bottom-3 left-3 right-14 z-10 pointer-events-none">
+          <div className="bg-rose-500/10 backdrop-blur-md rounded-2xl px-4 py-3
+                          border border-rose-500/30 shadow-xl flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-rose-500/20 flex items-center justify-center shrink-0">
+              <LocateFixed className="w-4 h-4 text-rose-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-rose-300">Location unavailable</p>
+              <p className="text-[10px] text-rose-400/80 mt-0.5 truncate">{gpsError}</p>
+            </div>
           </div>
+        </div>
+      )}
 
-          <div className="flex-1 min-w-0">
-            {riderCoords ? (
-              <div>
-                <p className="text-xs font-semibold text-white leading-tight truncate">
-                  {eta ? `ETA ${eta}` : 'GPS acquired'}
-                </p>
-                <p className="text-[10px] text-zinc-400 font-mono mt-0.5">
-                  {riderCoords.latitude.toFixed(4)}, {riderCoords.longitude.toFixed(4)}
-                </p>
+      {/* ── Marker legend (shown when active delivery) ── */}
+      {hasDelivery && (
+        <div className="absolute bottom-3 right-3 z-10 pointer-events-none">
+          <div className="bg-zinc-950/90 backdrop-blur-md rounded-xl px-3 py-2
+                          border border-zinc-800 shadow-lg flex flex-col gap-1.5">
+            {kitchenCoords && (
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-orange-500 border border-white/30" />
+                <span className="text-[10px] text-zinc-400">Kitchen</span>
               </div>
-            ) : gpsError ? (
-              <div>
-                <p className="text-xs font-semibold text-rose-400">Location unavailable</p>
-                <p className="text-[10px] text-zinc-500 mt-0.5 truncate">{gpsError}</p>
+            )}
+            {customerCoords && (
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-violet-600 border border-white/30" />
+                <span className="text-[10px] text-zinc-400">Drop</span>
               </div>
-            ) : (
-              <p className="text-xs text-zinc-400 animate-pulse">Searching for GPS fix…</p>
             )}
           </div>
-
-          {/* Marker legend (shown when active delivery) */}
-          {hasDelivery && (
-            <div className="flex flex-col gap-1 items-end shrink-0">
-              {kitchenCoords && (
-                <div className="flex items-center gap-1">
-                  <span className="text-[9px] text-zinc-400">Kitchen</span>
-                  <span className="w-2.5 h-2.5 rounded-full bg-orange-500 border border-white/30" />
-                </div>
-              )}
-              {customerCoords && (
-                <div className="flex items-center gap-1">
-                  <span className="text-[9px] text-zinc-400">Drop</span>
-                  <span className="w-2.5 h-2.5 rounded-full bg-violet-600 border border-white/30" />
-                </div>
-              )}
-            </div>
-          )}
         </div>
-      </div>
+      )}
     </div>
   );
 };

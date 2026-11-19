@@ -1,11 +1,8 @@
 import React, { useState } from 'react';
 import { Bike, KeyRound, User, Phone, ArrowRight, ShieldCheck } from 'lucide-react';
-import { riderService } from '../services/riderService';
-import { hasRole } from '../types/rider';
-import type { RiderUser } from '../types/rider';
 
 interface LoginScreenProps {
-  onLoginSuccess: (user: RiderUser) => void;
+  onLoginSuccess: (identifier: string, password: string) => Promise<void>;
   onSwitchToRegister: () => void;
 }
 
@@ -21,12 +18,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onSwit
     setLoading(true);
 
     try {
-      const res = await riderService.login(identifier, password);
-      const user = res?.user;
-      if (!hasRole(user, 'rider')) {
-        throw new Error('Access denied: This login is only for approved riders.');
-      }
-      onLoginSuccess(user as RiderUser);
+      await onLoginSuccess(identifier, password);
     } catch (err: any) {
       setError(err.message || 'Login failed. Please check credentials.');
     } finally {
