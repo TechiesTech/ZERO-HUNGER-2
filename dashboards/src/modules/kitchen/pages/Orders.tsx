@@ -16,6 +16,36 @@ import {
 
 type Tab = 'ALL' | 'CONFIRMED' | 'PREPARING' | 'READY';
 
+const ORDER_STATUS_UI: Record<
+  KitchenOrder['customerMealStatus'],
+  { label: string; className: string }
+> = {
+  confirmed: {
+    label: 'Pending',
+    className: 'bg-amber-500/10 text-amber-400 border-amber-500/25',
+  },
+  preparing: {
+    label: 'Preparing',
+    className: 'bg-sky-500/10 text-sky-300 border-sky-500/25',
+  },
+  readyforpickup: {
+    label: 'Ready for Pickup',
+    className: 'bg-[#49E619]/10 text-[#49E619] border-[#49E619]/25',
+  },
+  outfordelivery: {
+    label: 'Out for Delivery',
+    className: 'bg-purple-500/10 text-purple-300 border-purple-500/25',
+  },
+  delivered: {
+    label: 'Delivered',
+    className: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25',
+  },
+  cancelled: {
+    label: 'Cancelled',
+    className: 'bg-red-500/10 text-red-300 border-red-500/25',
+  },
+};
+
 export function Orders() {
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -192,41 +222,35 @@ export function Orders() {
           <p className="text-white/40 text-xs mt-1">Paid customer orders will appear as soon as they are placed.</p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {filteredOrders.map((order) => {
             const status = getOrderStatus(order);
             const isConfirmed = status === 'confirmed';
             const isPreparing = status === 'preparing';
             const isReady = status === 'readyforpickup';
+            const statusUi = ORDER_STATUS_UI[status];
+            const deliveryAddress = formatDeliveryAddress(order.deliveryAddress);
 
             return (
               <div
                 key={order._id}
-                className="p-5 rounded-2xl bg-[#0D1719] border border-white/8 hover:border-white/15 transition-all shadow-sm space-y-4"
+                className="rounded-xl bg-[#0D1719] border border-white/8 hover:border-white/15 transition-colors shadow-sm"
               >
-                {/* Header row: ID, Status, Timestamp, Total */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/6">
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono-tabular font-bold text-white text-base">
-                      #{order.orderNumber}
+                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 border-b border-white/6">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+                    <span className="font-mono-tabular font-bold text-white text-sm sm:text-base">
+                      Order #{order.orderNumber}
                     </span>
-                    <span
-                      className={`text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
-                        isConfirmed
-                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                          : isPreparing
-                          ? 'bg-[#49E619]/10 text-[#49E619] border border-[#49E619]/20'
-                          : 'bg-[#49E619]/10 text-[#49E619] border border-[#49E619]/20'
-                      }`}
-                    >
-                      {status}
+                    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-wide ${statusUi.className}`}>
+                      {statusUi.label}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-4 text-xs text-white/50">
+                  <div className="flex shrink-0 items-center gap-3 text-xs text-white/55">
                     {order.createdAt && (
-                      <span className="flex items-center gap-1 font-mono-tabular">
-                        <Calendar size={13} /> {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      <span className="flex items-center gap-1.5 font-mono-tabular">
+                        <Calendar size={13} className="text-white/40" />
+                        {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     )}
                     <span className="font-bold text-white text-sm font-mono-tabular">
@@ -235,71 +259,82 @@ export function Orders() {
                   </div>
                 </div>
 
-                {/* Items and delivery information */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Items list */}
-                  <div className="space-y-2">
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-white/40">
-                      Dishes & Quantity
-                    </p>
-                    <div className="space-y-1.5">
-                      {order.items?.map((it, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center justify-between text-xs p-2 rounded-lg bg-black/30 border border-white/5"
-                        >
-                          <span className="text-white font-medium">
-                            <span className="text-[#49E619] font-bold mr-1.5">{it.quantity}x</span>
-                            {it.productName}
-                          </span>
-                          <span className="text-white/60 font-mono-tabular">
-                            ₹{it.totalPriceInr}
-                          </span>
-                        </div>
-                      ))}
+                <div className="grid grid-cols-1 gap-4 px-4 py-3 md:grid-cols-[minmax(0,1.5fr)_minmax(220px,1fr)]">
+                  <section className="min-w-0">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-white/45">
+                        Order items
+                      </h3>
+                      {order.items?.length ? (
+                        <span className="text-[10px] text-white/35">
+                          {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
+                        </span>
+                      ) : null}
                     </div>
-                  </div>
+                    {order.items?.length ? (
+                      <ul className="divide-y divide-white/5">
+                        {order.items.map((it, idx) => (
+                          <li
+                            key={`${it.productName}-${idx}`}
+                            className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-medium text-white">{it.productName}</p>
+                              <p className="mt-0.5 text-[11px] text-white/45">
+                                {it.quantity} × ₹{it.unitPriceInr}
+                              </p>
+                            </div>
+                            <span className="shrink-0 text-xs font-medium font-mono-tabular text-white/75">
+                              ₹{it.totalPriceInr}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-white/40">No items found</p>
+                    )}
+                  </section>
 
-                  <div className="space-y-2">
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-white/40">
-                      Delivery Destination
-                    </p>
-                    <div className="p-3 rounded-lg bg-black/30 border border-white/5 text-xs text-white/70">
-                      <p className="flex items-start gap-1.5">
-                        <MapPin size={14} className="shrink-0 mt-0.5 text-white/40" />
-                        <span>{formatDeliveryAddress(order.deliveryAddress) || 'Standard delivery address'}</span>
+                  <section className="min-w-0 md:border-l md:border-white/6 md:pl-4">
+                    <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-white/45">
+                      Delivery
+                    </h3>
+                    <div className="flex items-start gap-2.5">
+                      <MapPin size={15} className="mt-0.5 shrink-0 text-[#49E619]" />
+                      <p className="text-xs leading-relaxed text-white/75">
+                        {deliveryAddress || 'Address details unavailable'}
                       </p>
                     </div>
-                  </div>
+                    <p className={`mt-2 pl-[25px] text-[11px] ${
+                      isReady ? 'text-[#49E619]' : 'text-white/40'
+                    }`}>
+                      {isReady ? 'Ready for rider dispatch' : statusUi.label}
+                    </p>
+                  </section>
                 </div>
 
-                {/* Status action buttons */}
-                <div className="pt-2 flex justify-end items-center gap-3">
-                  {isConfirmed && (
-                    <button
-                      onClick={() => handleStartPreparing(order._id)}
-                      disabled={actionLoading === order._id}
-                      className="px-5 py-2.5 rounded-xl bg-[#49E619] hover:bg-[#3dd111] text-black font-bold text-xs uppercase tracking-wider transition-colors disabled:opacity-50 cursor-pointer shadow-md shadow-[#49E619]/10"
-                    >
-                      {actionLoading === order._id ? 'Updating...' : 'Start Preparing'}
-                    </button>
-                  )}
-                  {isPreparing && (
-                    <button
-                      onClick={() => handleMarkReady(order._id)}
-                      disabled={actionLoading === order._id}
-                      className="px-5 py-2.5 rounded-xl bg-[#49E619] hover:bg-[#3dd111] text-black font-bold text-xs uppercase tracking-wider transition-colors disabled:opacity-50 cursor-pointer shadow-md shadow-[#49E619]/10"
-                    >
-                      {actionLoading === order._id ? 'Updating...' : 'Mark Ready for Pickup'}
-                    </button>
-                  )}
-                  {isReady && (
-                    <div className="flex items-center gap-2 text-xs font-semibold text-[#49E619] py-1">
-                      <CheckCircle2 size={16} />
-                      <span>Ready for Rider Dispatch</span>
-                    </div>
-                  )}
-                </div>
+                {(isConfirmed || isPreparing) && (
+                  <div className="flex items-center justify-end gap-3 border-t border-white/6 px-4 py-3">
+                    {isConfirmed && (
+                      <button
+                        onClick={() => handleStartPreparing(order._id)}
+                        disabled={actionLoading === order._id}
+                        className="rounded-lg bg-[#49E619] px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-black transition-colors hover:bg-[#3dd111] disabled:opacity-50 cursor-pointer"
+                      >
+                        {actionLoading === order._id ? 'Updating...' : 'Start Preparing'}
+                      </button>
+                    )}
+                    {isPreparing && (
+                      <button
+                        onClick={() => handleMarkReady(order._id)}
+                        disabled={actionLoading === order._id}
+                        className="rounded-lg bg-[#49E619] px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-black transition-colors hover:bg-[#3dd111] disabled:opacity-50 cursor-pointer"
+                      >
+                        {actionLoading === order._id ? 'Updating...' : 'Mark Ready for Pickup'}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}

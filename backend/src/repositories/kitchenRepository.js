@@ -113,6 +113,36 @@ const getPaidOrders = (kitchenId) =>
                 as: 'items',
             },
         },
+        {
+            $lookup: {
+                from: 'addresses',
+                localField: 'customerId',
+                foreignField: 'userId',
+                let: { orderAddressId: '$addressId' },
+                pipeline: [
+                    {
+                        $project: {
+                            _id: 0,
+                            address: {
+                                $arrayElemAt: [
+                                    {
+                                        $filter: {
+                                            input: '$addresses',
+                                            as: 'saved',
+                                            cond: { $eq: ['$$saved._id', '$$orderAddressId'] },
+                                        },
+                                    },
+                                    0,
+                                ],
+                            },
+                        },
+                    },
+                ],
+                as: 'savedAddress',
+            },
+        },
+        { $set: { deliveryAddress: { $arrayElemAt: ['$savedAddress.address', 0] } } },
+        { $unset: ['savedAddress', 'deliveryAddress.isDefault', 'deliveryAddress.isDeleted'] },
     ]);
 
 const moveOrderStatus = (orderId, kitchenId, from, to, stampField) =>
