@@ -39,6 +39,7 @@ const createOrder = async (user, body) => {
         customerId: user._id,
         addressId: address._id,
         paymentMethod: body.paymentMethod,
+        paymentStatus: 'success',
         kitchenId,
         totalAmountInr: orderItems.reduce((sum, item) => sum + item.totalPriceInr, 0),
         sponsoredMealsCount: orderItems.reduce((sum, item) => sum + item.sponsoredChildMeals, 0),
