@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { AlertCircle, Eye, EyeOff, KeyRound, Lock, Mail } from 'lucide-react';
+import { AlertCircle, Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import { ApiError } from '@core/api/apiClient';
 import { useAuth } from '@core/auth/useAuth';
 
@@ -84,10 +84,11 @@ export function Login() {
     <div className="flex min-h-screen items-center justify-center bg-[#080808] p-4">
       <div className="w-full max-w-md rounded-2xl border border-white/8 bg-[#0D1719] p-8 shadow-2xl">
         <div className="mb-8 text-center">
-          <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-xl border border-[#49E619]/20 bg-[#49E619]/10 text-[#49E619]">
-            <KeyRound size={22} />
-          </div>
-          <h1 className="text-2xl font-bold uppercase tracking-wider text-[#49E619]">ZeroHunger</h1>
+          <img
+            src="/image/Logo.png"
+            alt="Zero Hunger"
+            className="mx-auto mb-3 h-24 w-24 object-contain"
+          />
           <p className="mt-1 text-xs uppercase tracking-widest text-white/40">Admin &amp; Kitchen Portal</p>
         </div>
 

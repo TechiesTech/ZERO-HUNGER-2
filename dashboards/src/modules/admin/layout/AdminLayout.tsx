@@ -29,15 +29,20 @@ export function AdminLayout(): React.ReactElement {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#080808]">
+    <div className="flex h-screen overflow-hidden bg-[#080808]">
       {/* ── Sidebar ── */}
       <aside className="w-56 flex-shrink-0 flex flex-col bg-[#0D1719] border-r border-white/8 sticky top-0 h-screen">
         {/* Logo / brand mark */}
-        <div className="h-16 flex items-center px-5 border-b border-white/8">
+        <div className="h-16 flex items-center gap-2 px-4 border-b border-white/8">
+          <img
+            src="/image/Logo.png"
+            alt="Zero Hunger"
+            className="h-11 w-11 shrink-0 object-contain"
+          />
           <span className="text-[#49E619] font-bold text-sm tracking-wider uppercase">
             ZeroHunger
           </span>
-          <span className="ml-2 text-[10px] font-medium text-white/40 uppercase tracking-widest">
+          <span className="ml-auto text-[10px] font-medium text-white/40 uppercase tracking-widest">
             Admin
           </span>
         </div>
@@ -72,9 +77,9 @@ export function AdminLayout(): React.ReactElement {
       </aside>
 
       {/* ── Main content area ── */}
-      <main className="flex-1 flex flex-col overflow-auto">
+      <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         {/* Top bar */}
-        <header className="h-16 flex items-center justify-between px-8 border-b border-white/8 bg-[#080808]/80 backdrop-blur-sm sticky top-0 z-10">
+        <header className="h-16 shrink-0 flex items-center justify-between px-8 border-b border-white/8 bg-[#080808]/80 backdrop-blur-sm sticky top-0 z-10">
           <div className="flex items-center gap-2 text-sm text-white/40 font-medium">
             <span className="text-white/20 capitalize">{role}</span>
             <span className="text-white/15">/</span>
@@ -99,7 +104,7 @@ export function AdminLayout(): React.ReactElement {
         </header>
 
         {/* Page content — rendered by child routes */}
-        <div className="flex-1 p-8">
+        <div className="flex-1 px-8 pt-5 pb-8">
           <Outlet />
         </div>
       </main>

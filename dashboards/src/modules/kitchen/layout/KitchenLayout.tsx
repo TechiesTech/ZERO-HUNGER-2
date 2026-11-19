@@ -102,15 +102,17 @@ export function KitchenLayout(): React.ReactElement {
   };
 
   return (
-    <div className="min-h-screen bg-[#080808] flex text-white font-sans antialiased">
+    <div className="h-screen overflow-hidden bg-[#080808] flex text-white font-sans antialiased">
       {/* ── DESKTOP SIDEBAR ── */}
-      <aside className="hidden lg:flex w-64 bg-[#0D1719] border-r border-white/8 flex-col shrink-0 select-none">
+      <aside className="hidden lg:sticky lg:top-0 lg:flex lg:h-screen w-64 bg-[#0D1719] border-r border-white/8 flex-col shrink-0 select-none">
         {/* Brand header */}
         <div className="p-6 border-b border-white/8">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#49E619]/10 border border-[#49E619]/20 flex items-center justify-center text-[#49E619]">
-              <ChefHat size={20} />
-            </div>
+          <div className="flex items-center gap-3">
+            <img
+              src="/image/Logo.png"
+              alt="Zero Hunger"
+              className="h-11 w-11 shrink-0 object-contain"
+            />
             <div>
               <span className="font-bold text-base tracking-wider uppercase text-white block">
                 Zero<span className="text-[#49E619]">Hunger</span>
@@ -183,9 +185,11 @@ export function KitchenLayout(): React.ReactElement {
           <div className="relative w-64 max-w-[80vw] bg-[#0D1719] border-r border-white/10 flex flex-col z-10">
             <div className="p-5 border-b border-white/8 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#49E619]/10 border border-[#49E619]/20 flex items-center justify-center text-[#49E619]">
-                  <ChefHat size={18} />
-                </div>
+                <img
+                  src="/image/Logo.png"
+                  alt="Zero Hunger"
+                  className="h-9 w-9 shrink-0 object-contain"
+                />
                 <span className="font-bold text-sm tracking-wider uppercase text-white">
                   Zero<span className="text-[#49E619]">Hunger</span>
                 </span>
@@ -242,9 +246,9 @@ export function KitchenLayout(): React.ReactElement {
       )}
 
       {/* ── MAIN CONTENT AREA ── */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {/* Top Navbar */}
-        <header className="h-16 px-6 bg-[#0D1719]/60 backdrop-blur border-b border-white/8 flex items-center justify-between sticky top-0 z-30">
+        <header className="h-16 shrink-0 px-6 bg-[#0D1719]/60 backdrop-blur border-b border-white/8 flex items-center justify-between sticky top-0 z-30">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileMenuOpen(true)}
@@ -266,7 +270,7 @@ export function KitchenLayout(): React.ReactElement {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-6 md:p-8 max-w-7xl w-full mx-auto">
+        <main className="min-h-0 flex-1 overflow-y-auto px-6 pt-5 pb-6 md:px-8 md:pt-6 md:pb-8 max-w-7xl w-full mx-auto">
           <Outlet />
         </main>
       </div>

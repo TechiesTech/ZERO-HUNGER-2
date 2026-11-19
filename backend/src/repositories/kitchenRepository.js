@@ -104,7 +104,7 @@ const getPaidOrders = (kitchenId) =>
                 customerMealStatus: { $in: ['confirmed', 'preparing', 'readyforpickup'] },
             },
         },
-        { $sort: { createdAt: 1 } },
+        { $sort: { createdAt: -1, _id: -1 } },
         {
             $lookup: {
                 from: OrderItem.collection.name,
