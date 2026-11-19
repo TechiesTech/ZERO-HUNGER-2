@@ -142,7 +142,17 @@ const getPaidOrders = (kitchenId) =>
             },
         },
         { $set: { deliveryAddress: { $arrayElemAt: ['$savedAddress.address', 0] } } },
-        { $unset: ['savedAddress', 'deliveryAddress.isDefault', 'deliveryAddress.isDeleted'] },
+        {
+            $unset: [
+                'savedAddress',
+                'deliveryAddress.customerName',
+                'deliveryAddress.customerPhone',
+                'deliveryAddress.isDefault',
+                'deliveryAddress.isDeleted',
+                'deliveryAddress.label',
+                'deliveryAddress.location',
+            ],
+        },
     ]);
 
 const moveOrderStatus = (orderId, kitchenId, from, to, stampField) =>
