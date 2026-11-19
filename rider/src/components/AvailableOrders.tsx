@@ -71,7 +71,7 @@ export const AvailableOrders: React.FC<AvailableOrdersProps> = ({
                     #{order.orderNumber}
                   </span>
                   <span className="text-xs text-zinc-500">•</span>
-                  <span className="text-xs text-zinc-400">{order.items?.length || 1} items</span>
+                  <span className="text-xs text-zinc-400">{order.itemsCount || 1} items</span>
                 </div>
                 <span className="text-base font-black text-white">₹{order.totalAmountInr}</span>
               </div>
