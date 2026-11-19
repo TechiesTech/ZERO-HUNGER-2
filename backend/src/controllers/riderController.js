@@ -108,6 +108,15 @@ const reviewRider = async (req, res, next) => {
     }
 };
 
+const releaseOrder = async (req, res, next) => {
+    try {
+        const data = await riderService.releaseOrder(req.user, req.params.orderNumber);
+        return res.status(200).json({ success: true, message: 'Order released', data });
+    } catch (error) {
+        return next(error);
+    }
+};
+
 export {
     registerRider,
     getMyProfile,
@@ -121,4 +130,5 @@ export {
     getRiderStats,
     getAllRiders,
     reviewRider,
+    releaseOrder,
 };

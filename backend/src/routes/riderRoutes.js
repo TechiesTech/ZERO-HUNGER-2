@@ -11,7 +11,8 @@ import {
     getMyDeliveries,
     getRiderStats,
     getAllRiders,
-    reviewRider
+    reviewRider,
+    releaseOrder
 } from '../controllers/riderController.js';
 import {
     registerRiderSchema,
@@ -41,6 +42,7 @@ router.post('/acceptOrder/:orderNumber', authenticate, requireRoles('rider'), va
 router.patch('/updateStatus/:orderNumber', authenticate, requireRoles('rider'), validate(orderNumberParamSchema, 'params'), uploadImage, validate(updateStatusSchema), updateStatus);
 router.get('/currentDelivery', authenticate, requireRoles('rider'), currentDelivery);
 router.get('/getMyDeliveries', authenticate, requireRoles('rider'), validate(getMyDeliveriesSchema, 'query'), getMyDeliveries);
+router.patch('/releaseOrder/:orderNumber', authenticate, requireRoles('rider'), validate(orderNumberParamSchema, 'params'), releaseOrder);
 
 router.get('/getRiderStats', authenticate, requireRoles('admin'), getRiderStats);
 router.get('/getAllRiders', authenticate, requireRoles('admin'), validate(getAllRidersSchema, 'query'), getAllRiders);

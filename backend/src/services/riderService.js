@@ -3,6 +3,16 @@ import AppError from '../utils/appError.js';
 import { uploadImage, deleteImage, getPhotoUrl } from '../config/cloudinary.js';
 import * as riderRepository from '../repositories/riderRepository.js';
 
+// A failed delete must never hide the real error, so it is only logged
+const safeDeleteImage = async (photoPublicId) => {
+    if (!photoPublicId) return;
+    try {
+        await deleteImage(photoPublicId);
+    } catch (error) {
+        console.error('Could not delete delivery photo:', photoPublicId, error.message);
+    }
+};
+
 const registerRider = async ({ name, email, phone, password, vehicleType, vehicleNumber }) => {
     const passwordHash = await bcrypt.hash(password, 12);
 
@@ -58,6 +68,17 @@ const acceptOrder = async (user, orderNumber) => {
     return delivery;
 };
 
+const releaseOrder = async (user, orderNumber) => {
+    const rider = await riderRepository.getRider(user._id);
+    if (!rider) throw new AppError('Rider profile not found', 404);
+
+    const released = await riderRepository.releaseOrder(rider._id, orderNumber);
+    if (!released) {
+        throw new AppError('Order not found, or it is already picked up and cannot be released', 404);
+    }
+    return released;
+};
+
 const updateStatus = async (user, orderNumber, { status }, file) => {
     if (status === 'delivered' && !file) throw new AppError('Delivery photo is required', 400);
 
@@ -71,12 +92,12 @@ const updateStatus = async (user, orderNumber, { status }, file) => {
     const order = await riderRepository
         .updateStatus(rider._id, orderNumber, status, photoPublicId, photoUrl)
         .catch(async (error) => {
-            if (photoPublicId) await deleteImage(photoPublicId);
+            await safeDeleteImage(photoPublicId);
             throw error;
         });
 
     if (!order) {
-        if (photoPublicId) await deleteImage(photoPublicId);
+        await safeDeleteImage(photoPublicId);
         throw new AppError('Order not found or not in the correct status', 404);
     }
 
@@ -141,6 +162,7 @@ export {
     updateLocation,
     getAvailableOrders,
     acceptOrder,
+    releaseOrder,
     updateStatus,
     currentDelivery,
     getMyDeliveries,
