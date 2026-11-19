@@ -1,24 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
-  Sparkles,
-  Cake,
-  Heart,
-  Shirt,
-  Truck,
-  PhoneCall,
-  Clock,
-  MapPin,
-  CheckCircle2,
-  Calendar,
-  Share2,
-  Download,
-  AlertTriangle,
-  ArrowRight,
-  ShieldCheck,
-  Building,
-  User,
-  Package,
+  Sparkles, Cake, Heart, Flower2, Star, Shirt, Truck, PhoneCall,
+  MapPin, CheckCircle2, ShieldCheck, Package, ChevronDown,
 } from 'lucide-react';
 import { ScrollReveal } from '../components/ScrollReveal';
 import { EditorialImage } from '../components/EditorialImage';
@@ -32,1012 +16,629 @@ import {
 } from '../data/communityDrives';
 
 type DriveTab = 'OCCASION_FOOD' | 'CLOTH_DONATION' | 'LEFTOVER_RESCUE';
+type Accent = 'green' | 'cyan' | 'lime';
+
+/* ---------- tokens & helpers ---------- */
+
+const ACCENTS: Record<Accent, { focus: string; solid: string; text: string }> = {
+  green: { focus: 'focus:border-[#49E619] focus:ring-[#49E619]/15', solid: 'bg-[#49E619]', text: 'text-[#49E619]' },
+  cyan: { focus: 'focus:border-[#4EDBE2] focus:ring-[#4EDBE2]/15', solid: 'bg-[#4EDBE2]', text: 'text-[#4EDBE2]' },
+  lime: { focus: 'focus:border-[#B9FF2C] focus:ring-[#B9FF2C]/15', solid: 'bg-[#B9FF2C]', text: 'text-[#B9FF2C]' },
+};
+
+const OCCASIONS = [
+  { value: 'Birthday', label: 'Birthday', Icon: Cake },
+  { value: 'Wedding Anniversary', label: 'Anniversary', Icon: Heart },
+  { value: 'Memorial / In Remembrance', label: 'Remembrance', Icon: Flower2 },
+  { value: 'Personal Milestone', label: 'Milestone', Icon: Star },
+];
+
+const ordinal = (n: number) => {
+  const s = ['TH', 'ST', 'ND', 'RD'];
+  const v = n % 100;
+  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
+};
+
+const fmtDate = (iso: string) => {
+  const d = new Date(`${iso}T00:00:00`);
+  return iso && !isNaN(d.getTime())
+    ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+    : 'Pick a date';
+};
+
+const fmtPrice = (v: number | string) => (typeof v === 'number' ? v.toLocaleString('en-IN') : v);
+
+const card = 'rounded-3xl bg-[#122023] border border-white/10 shadow-2xl shadow-black/40 p-5 sm:p-9';
+const panel = 'rounded-2xl bg-[#122023] border border-white/10 p-6';
+
+/* ---------- small reusable pieces ---------- */
+
+interface FieldProps {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: string;
+  accent?: Accent;
+  hint?: React.ReactNode;
+  className?: string;
+  options?: [string, string][]; // renders a dropdown
+  rows?: number; // renders a textarea
+  maxLength?: number;
+  optional?: boolean;
+}
+
+const Field: React.FC<FieldProps> = ({
+  label, value, onChange, placeholder, type = 'text', accent = 'green',
+  hint, className = '', options, rows, maxLength, optional,
+}) => {
+  const cls = `w-full rounded-xl bg-[#080808] border border-white/15 px-4 py-3 text-sm text-white placeholder:text-white/35 hover:border-white/30 focus:outline-none focus:ring-4 [color-scheme:dark] ${ACCENTS[accent].focus}`;
+  const common = { value, required: !optional, onChange: (e: React.ChangeEvent<any>) => onChange(e.target.value) };
+  return (
+    <label className={`block ${className}`}>
+      <span className="block text-sm font-medium text-white/85 mb-2">{label}</span>
+      {options ? (
+        <div className="relative">
+          <select {...common} className={`${cls} appearance-none pr-10 ${value ? '' : 'text-white/35'}`}>
+            <option value="" disabled>{placeholder || 'Select…'}</option>
+            {options.map(([v, l]) => <option key={v} value={v} className="text-white">{l}</option>)}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50" />
+        </div>
+      ) : rows ? (
+        <textarea {...common} rows={rows} maxLength={maxLength} placeholder={placeholder} className={`${cls} resize-none leading-relaxed`} />
+      ) : (
+        <input {...common} type={type} placeholder={placeholder} className={cls} />
+      )}
+      {hint && <span className="block mt-1.5 text-xs text-white/50">{hint}</span>}
+    </label>
+  );
+};
+
+const Group: React.FC<{ title: string; hint?: string; children: React.ReactNode }> = ({ title, hint, children }) => (
+  <section className="pt-7 border-t border-white/10 first:border-0 first:pt-0">
+    <h3 className="font-display-sans text-base font-bold text-white">{title}</h3>
+    {hint && <p className="mt-0.5 text-xs text-white/55">{hint}</p>}
+    <div className="mt-4 space-y-4">{children}</div>
+  </section>
+);
+
+const Heading: React.FC<{ kicker: string; title: string; accent: Accent }> = ({ kicker, title, accent }) => (
+  <div className="pb-5 mb-6 border-b border-white/10">
+    <p className={`text-xs font-semibold ${ACCENTS[accent].text}`}>{kicker}</p>
+    <h2 className="font-display-sans uppercase text-2xl sm:text-3xl font-black text-white mt-1 leading-tight">{title}</h2>
+  </div>
+);
+
+const SubmitBtn: React.FC<{ accent: Accent; Icon: typeof Truck; children: React.ReactNode; className?: string }> = ({
+  accent, Icon, children, className = 'w-full',
+}) => (
+  <button
+    type="submit"
+    className={`${className} ${ACCENTS[accent].solid} py-3.5 px-7 rounded-xl text-[#080808] text-sm font-bold inline-flex items-center justify-center gap-2 hover:brightness-110 transition cursor-pointer`}
+  >
+    <Icon className="w-4 h-4" />
+    {children}
+  </button>
+);
+
+interface DoneProps {
+  accent: Accent;
+  eyebrow: string;
+  title: string;
+  code: string;
+  resetLabel: string;
+  onReset: () => void;
+  extra?: React.ReactNode;
+  children: React.ReactNode;
+}
+
+const Done: React.FC<DoneProps> = ({ accent, eyebrow, title, code, resetLabel, onReset, extra, children }) => (
+  <div className="py-8 text-center">
+    <div className={`w-14 h-14 rounded-full mx-auto mb-4 flex items-center justify-center text-[#080808] ${ACCENTS[accent].solid}`}>
+      <CheckCircle2 className="w-8 h-8" />
+    </div>
+    <p className={`text-sm font-semibold ${ACCENTS[accent].text}`}>{eyebrow}</p>
+    <h3 className="font-display-sans uppercase text-3xl font-black text-white mt-2">{title}</h3>
+    <p className="mt-4 inline-block px-4 py-2 rounded-lg bg-white/10 font-mono-tabular text-sm text-white">
+      Reference: <strong className={ACCENTS[accent].text}>{code}</strong>
+    </p>
+    <div className="mt-4 text-sm text-white/75 max-w-md mx-auto leading-relaxed space-y-3">{children}</div>
+    <div className="mt-7 flex flex-wrap justify-center gap-3">
+      {extra}
+      <button type="button" onClick={onReset} className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm font-bold cursor-pointer">
+        {resetLabel}
+      </button>
+    </div>
+  </div>
+);
+
+/* ---------- page ---------- */
+
+const EMPTY = {
+  // celebration
+  occasion: 'Birthday', name: '', age: '', message: '', centerId: '', date: '',
+  sName: '', sEmail: '', sPhone: '',
+  // clothes
+  bags: '', clothType: '', clothDate: '', clothAddr: '', cName: '', cPhone: '',
+  // food rescue
+  servings: '', eventType: '', cooked: '', items: '', venue: '', rName: '', rPhone: '',
+};
 
 export const CelebrateAndGive: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = (searchParams.get('tab') as DriveTab) || 'OCCASION_FOOD';
-  const [activeTab, setActiveTab] = useState<DriveTab>(initialTab);
+  const [activeTab, setActiveTab] = useState<DriveTab>((searchParams.get('tab') as DriveTab) || 'OCCASION_FOOD');
+  const [clothMode, setClothMode] = useState<'PICKUP' | 'DROP_OFF'>('PICKUP');
+  const [pkg, setPkg] = useState<OccasionPackage>(OCCASION_PACKAGES[1]);
+  const [f, setF] = useState(EMPTY);
+  const [codes, setCodes] = useState<Record<string, string>>({});
 
-  // Tab 1: Occasion Sponsorship State
-  const [occasionType, setOccasionType] = useState('Birthday');
-  const [celebrantName, setCelebrantName] = useState('Aarav');
-  const [celebrantAge, setCelebrantAge] = useState('10');
-  const [customMessage, setCustomMessage] = useState('May God bless you with wisdom, joy & abundant health!');
-  const [selectedPackage, setSelectedPackage] = useState<OccasionPackage>(OCCASION_PACKAGES[1]); // 50 meals
-  const [selectedCenterId, setSelectedCenterId] = useState(DISTRIBUTION_CENTERS[1].id);
-  const [celebrationDate, setCelebrationDate] = useState('2026-10-15');
-  const [sponsorName, setSponsorName] = useState('Vikram & Ananya Malhotra');
-  const [sponsorEmail, setSponsorEmail] = useState('vikram@example.com');
-  const [sponsorPhone, setSponsorPhone] = useState('+91 98480 88210');
-  const [isOccasionBooked, setIsOccasionBooked] = useState(false);
-  const [bookingToken, setBookingToken] = useState('');
-
-  // Tab 2: Cloth Donation State
-  const [clothMode, setClothMode] = useState<'DROP_OFF' | 'REQUEST_PICKUP'>('REQUEST_PICKUP');
-  const [clothBagsCount, setClothBagsCount] = useState(2);
-  const [clothType, setClothType] = useState('Mix of Gently Used Adult & Children Wear');
-  const [clothPickupDate, setClothPickupDate] = useState('2026-10-08');
-  const [clothPickupAddress, setClothPickupAddress] = useState('Flat 402, Lotus Towers, Road 3, Banjara Hills, Hyderabad');
-  const [clothContactName, setClothContactName] = useState('Siddharth Rao');
-  const [clothContactPhone, setClothContactPhone] = useState('+91 98480 33419');
-  const [isClothBooked, setIsClothBooked] = useState(false);
-  const [clothRefNumber, setClothRefNumber] = useState('');
-
-  // Tab 3: Leftover Food Rescue State
-  const [foodServings, setFoodServings] = useState('80-100 People');
-  const [eventType, setEventType] = useState('Wedding Reception / Banquet');
-  const [cookedTimeAgo, setCookedTimeAgo] = useState('Cooked 2.5 hours ago (Fresh & Hot)');
-  const [foodItems, setFoodItems] = useState('Pulao Rice, Dal Tadka, Paneer Butter Masala, Rotis, Gulab Jamun');
-  const [venueAddress, setVenueAddress] = useState('Imperial Gardens Function Hall, Secunderabad');
-  const [rescueContactName, setRescueContactName] = useState('Sunil Agarwal');
-  const [rescueContactPhone, setRescueContactPhone] = useState('+91 98480 91823');
-  const [isRescueRaised, setIsRescueRaised] = useState(false);
-  const [rescueCode, setRescueCode] = useState('');
-
-  const handleTabChange = (tab: DriveTab) => {
-    setActiveTab(tab);
-    setSearchParams({ tab });
-  };
-
-  // Placard text calculation
-  const computedPlacardHeading =
-    occasionType === 'Birthday'
-      ? `HAPPY ${celebrantAge ? `${celebrantAge}TH ` : ''}BIRTHDAY ${celebrantName.toUpperCase()}!`
-      : occasionType === 'Wedding Anniversary'
-        ? `HAPPY ANNIVERSARY ${celebrantName.toUpperCase()}!`
-        : occasionType === 'Memorial / In Remembrance'
-          ? `IN SACRED MEMORY OF ${celebrantName.toUpperCase()}`
-          : `CELEBRATING ${celebrantName.toUpperCase()}`;
-
-  const selectedCenter =
-    DISTRIBUTION_CENTERS.find((c) => c.id === selectedCenterId) ||
-    DISTRIBUTION_CENTERS[0];
-
-  const handleOccasionSubmit = (e: React.FormEvent) => {
+  const set = (k: keyof typeof EMPTY) => (v: string) => setF((p) => ({ ...p, [k]: v }));
+  const goTab = (t: DriveTab) => { setActiveTab(t); setSearchParams({ tab: t }); };
+  const submit = (key: string, prefix: string) => (e: React.FormEvent) => {
     e.preventDefault();
-    const token = `OCC-2026-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-    setBookingToken(token);
-    setIsOccasionBooked(true);
+    setCodes((c) => ({ ...c, [key]: `${prefix}-${Math.random().toString(36).slice(2, 7).toUpperCase()}` }));
   };
+  const reset = (key: string) => () => setCodes((c) => ({ ...c, [key]: '' }));
 
-  const handleClothPickupSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const ref = `CLOTH-${Math.floor(100000 + Math.random() * 900000)}`;
-    setClothRefNumber(ref);
-    setIsClothBooked(true);
-  };
+  // Placard falls back to sample text until the user types
+  const center = DISTRIBUTION_CENTERS.find((c) => c.id === f.centerId);
+  const name = (f.name.trim() || 'Aarav').toUpperCase();
+  const n = parseInt(f.age, 10);
+  const num = n > 0 ? `${ordinal(n)} ` : '';
+  const heading =
+    f.occasion === 'Birthday' ? `HAPPY ${num}BIRTHDAY ${name}!`
+    : f.occasion === 'Wedding Anniversary' ? `HAPPY ${num}ANNIVERSARY ${name}!`
+    : f.occasion === 'Memorial / In Remembrance' ? `IN SACRED MEMORY OF ${name}`
+    : `CELEBRATING ${name}`;
 
-  const handleLeftoverSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const code = `FOOD-RESCUE-${Math.floor(1000 + Math.random() * 9000)}`;
-    setRescueCode(code);
-    setIsRescueRaised(true);
-  };
+  const tabs: { id: DriveTab; label: string; Icon: typeof Cake; accent: Accent }[] = [
+    { id: 'OCCASION_FOOD', label: 'Celebrate birthdays & anniversaries', Icon: Cake, accent: 'green' },
+    { id: 'CLOTH_DONATION', label: 'Donate clothes', Icon: Shirt, accent: 'cyan' },
+    { id: 'LEFTOVER_RESCUE', label: 'Leftover food rescue', Icon: Truck, accent: 'lime' },
+  ];
 
   return (
     <div className="bg-[#080808] text-white min-h-screen">
-      {/* =====================================================================
-          HERO SECTION — CELEBRATE LIFE · CLOTHE WITH DIGNITY · RESCUE FOOD
-      ====================================================================== */}
-
-
-
+      {/* ================= HERO ================= */}
       <section
-        className="relative isolate overflow-hidden pt-28 sm:pt-36 pb-16 sm:pb-20 border-b border-white/10"
+        className="relative isolate overflow-hidden pt-28 sm:pt-36 pb-14 sm:pb-20 border-b border-white/10"
         style={{
-          backgroundImage: `
-      linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.45)),
-      url("/images/Kindness%20in%20Every%20Gift.webp")
-    `,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
+          backgroundImage: `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.45)), url("/images/Kindness%20in%20Every%20Gift.webp")`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
         }}
       >
         <div className="max-w-[1360px] mx-auto px-5 sm:px-8 lg:px-12 text-center">
           <ScrollReveal>
-            <span className="text-[10px] sm:text-xs font-mono-tabular font-bold uppercase tracking-[0.18em] sm:tracking-[0.22em] text-[#49E619] block mb-3">
+            <span className="text-[11px] sm:text-xs font-mono-tabular font-bold uppercase tracking-[0.2em] text-[#49E619] block mb-3">
               COMMUNITY CELEBRATIONS & ZERO-WASTE DRIVES
             </span>
-
-            <h1 className="font-display-sans uppercase text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-[-0.035em] leading-[1.05] text-white max-w-5xl mx-auto">
+            <h1 className="font-display-sans uppercase text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-[-0.035em] leading-[1.05] max-w-5xl mx-auto">
               SHARE YOUR <span className="text-[#49E619]">JOY.</span>
               <br />
               FEED & CLOTHE WITH DIGNITY.
             </h1>
-
-            <p className="mt-5 text-sm sm:text-base md:text-lg text-white/90 max-w-2xl mx-auto leading-relaxed px-2">
-              Celebrate your birthdays and wedding anniversaries by sponsoring
-              hot meals where children hold your personalized placards and send
-              video gratitude. Donate clothes at local drop boxes, or call our
-              24/7 rescue vans for leftover party food.
+            <p className="mt-5 text-sm sm:text-base md:text-lg text-white/90 max-w-2xl mx-auto leading-relaxed">
+              Celebrate your birthdays and wedding anniversaries by sponsoring hot meals where children hold your
+              personalized placards and send video gratitude. Donate clothes at local drop boxes, or call our 24/7
+              rescue vans for leftover party food.
             </p>
 
-            {/* All three buttons preserved */}
-            <div className="mt-8 sm:mt-10 flex flex-wrap items-center justify-center p-1.5 rounded-[16px] bg-[#122023]/90 backdrop-blur-sm border border-white/15 gap-1.5 max-w-fit mx-auto">
-
-              <button
-                type="button"
-                onClick={() => handleTabChange('OCCASION_FOOD')}
-                className={`flex items-center gap-2 px-4 py-3 rounded-[12px] font-mono-tabular text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${activeTab === 'OCCASION_FOOD'
-                    ? 'bg-[#49E619] text-[#080808] shadow-lg'
-                    : 'text-white/80 hover:text-white'
+            <div role="tablist" className="mt-8 sm:mt-10 grid grid-cols-1 md:grid-cols-3 gap-1.5 p-1.5 rounded-2xl bg-[#122023]/90 backdrop-blur-sm border border-white/15 max-w-3xl mx-auto">
+              {tabs.map(({ id, label, Icon, accent }) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === id}
+                  onClick={() => goTab(id)}
+                  className={`flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
+                    activeTab === id ? `${ACCENTS[accent].solid} text-[#080808]` : 'text-white/80 hover:text-white hover:bg-white/5'
                   }`}
-              >
-                <Cake className="w-4 h-4 shrink-0" />
-                <span>Celebrate Birthdays & Anniversaries</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleTabChange('CLOTH_DONATION')}
-                className={`flex items-center gap-2 px-4 py-3 rounded-[12px] font-mono-tabular text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${activeTab === 'CLOTH_DONATION'
-                    ? 'bg-[#4EDBE2] text-[#080808] shadow-lg'
-                    : 'text-white/80 hover:text-white'
-                  }`}
-              >
-                <Shirt className="w-4 h-4 shrink-0" />
-                <span>Donate Clothes (Drop-off & Pickup)</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleTabChange('LEFTOVER_RESCUE')}
-                className={`flex items-center gap-2 px-4 py-3 rounded-[12px] font-mono-tabular text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${activeTab === 'LEFTOVER_RESCUE'
-                    ? 'bg-[#B9FF2C] text-[#080808] shadow-lg'
-                    : 'text-white/80 hover:text-white'
-                  }`}
-              >
-                <Truck className="w-4 h-4 shrink-0" />
-                <span>Leftover Food Rescue (Fast Pickup)</span>
-              </button>
-
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  {label}
+                </button>
+              ))}
             </div>
           </ScrollReveal>
         </div>
       </section>
 
+      <div className="max-w-[1360px] mx-auto px-5 sm:px-8 lg:px-12 py-12 sm:py-20">
+        {/* ================= TAB 1: CELEBRATE ================= */}
+        {activeTab === 'OCCASION_FOOD' && (
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
+              {/* Form */}
+              <div className={`lg:col-span-7 ${card}`}>
+                <Heading kicker="Placard guaranteed" title="Sponsor meals & send placards" accent="green" />
 
-
-
-      {/* =====================================================================
-          TAB 1: CELEBRATE OCCASIONS WITH CUSTOM PLACARDS
-      ====================================================================== */}
-      {activeTab === 'OCCASION_FOOD' && (
-        <section className="py-16 sm:py-24">
-          <div className="max-w-[1360px] mx-auto px-5 sm:px-8 lg:px-12">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
-              {/* Left Column: Live Customizer Form */}
-              <div className="lg:col-span-7">
-                <ScrollReveal>
-                  <div className="rounded-[20px] bg-[#122023] border border-white/15 p-6 sm:p-10 shadow-2xl">
-                    <div className="pb-6 border-b border-white/12 flex items-center justify-between">
-                      <div>
-                        <span className="text-xs font-mono-tabular font-bold uppercase tracking-widest text-[#49E619]">
-                          STEP 01 · PERSONALIZE CELEBRATION
-                        </span>
-                        <h2 className="font-display-sans uppercase text-2xl sm:text-3xl font-black text-white mt-1">
-                          Sponsor Meals & Send Placards
-                        </h2>
-                      </div>
-                      <span className="px-3.5 py-1 rounded-[6px] bg-[#49E619] text-[#080808] font-mono-tabular text-xs font-bold uppercase">
-                        Placard Guaranteed
-                      </span>
-                    </div>
-
-                    {isOccasionBooked ? (
-                      <div className="py-10 text-center">
-                        <div className="w-14 h-14 rounded-full mx-auto mb-4 flex items-center justify-center bg-[#49E619] text-[#080808]">
-                          <CheckCircle2 className="w-8 h-8" />
-                        </div>
-                        <span className="text-xs font-mono-tabular font-bold uppercase tracking-widest text-[#49E619]">
-                          BOOKING CONFIRMED · CHARITY TOKEN GENERATED
-                        </span>
-                        <h3 className="font-display-sans uppercase text-3xl font-black text-white mt-2">
-                          Thank You, {sponsorName}!
-                        </h3>
-                        <div className="mt-4 inline-block px-4 py-2 rounded-[8px] bg-white/10 border border-[#49E619]/40 font-mono-tabular text-sm text-[#B9FF2C]">
-                          Token: <strong>{bookingToken}</strong>
-                        </div>
-                        <p className="mt-4 text-sm sm:text-base text-white/80 max-w-lg mx-auto leading-relaxed">
-                          Your celebration meal drive for <strong className="text-white">{celebrantName}</strong> ({selectedPackage.mealsCount} Meals · ₹{selectedPackage.priceInr}) is scheduled for <strong className="text-[#49E619]">{celebrationDate}</strong> at <strong className="text-white">{selectedCenter.name}</strong>.
-                        </p>
-                        <p className="mt-3 text-xs text-white/70 max-w-md mx-auto">
-                          Our field culinary team will prepare the feast, print your custom placard, and record the children singing blessings and holding your message. Photo & video album will be sent to <strong>{sponsorEmail}</strong> and WhatsApp within 24 hours of meal service.
-                        </p>
-
-                        <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-                          <Link
-                            to={`/track-meal?token=${bookingToken}`}
-                            className="px-6 py-3.5 rounded-[10px] bg-[#49E619] hover:bg-[#B9FF2C] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-widest transition-colors"
-                          >
-                            Track Meal & Proof Live →
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={() => setIsOccasionBooked(false)}
-                            className="px-6 py-3.5 rounded-[10px] bg-white/10 hover:bg-white/20 text-white font-mono-tabular text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer"
-                          >
-                            Sponsor Another Occasion
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <form onSubmit={handleOccasionSubmit} className="mt-6 space-y-6">
-                        {/* Occasion Type Pills */}
-                        <div>
-                          <label className="block text-xs font-mono-tabular font-bold uppercase text-white/70 mb-2">
-                            What are you celebrating? *
-                          </label>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                            {['Birthday', 'Wedding Anniversary', 'Memorial / In Remembrance', 'Personal Milestone'].map(
-                              (type) => (
-                                <button
-                                  key={type}
-                                  type="button"
-                                  onClick={() => setOccasionType(type)}
-                                  className={`py-2.5 px-3 rounded-[8px] text-xs font-mono-tabular font-bold uppercase border transition-colors cursor-pointer text-center ${occasionType === type
-                                    ? 'bg-[#49E619] text-[#080808] border-[#49E619]'
-                                    : 'bg-[#080808] text-white/75 border-white/15 hover:border-white/40'
-                                    }`}
-                                >
-                                  {type}
-                                </button>
-                              )
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Celebrant Name & Age/Years */}
-                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
-                          <div className="sm:col-span-8">
-                            <label className="block text-xs font-mono-tabular font-bold uppercase text-white/70 mb-1.5">
-                              Celebrant / Couple / Dedication Name *
-                            </label>
-                            <input
-                              type="text"
-                              required
-                              value={celebrantName}
-                              onChange={(e) => setCelebrantName(e.target.value)}
-                              placeholder="e.g. Aarav, Ramesh & Sunita, Late Smt. Sharda Devi"
-                              className="w-full rounded-[10px] bg-[#080808] border border-white/20 px-4 py-3 text-sm text-white focus:outline-none focus:border-[#49E619]"
-                            />
-                          </div>
-
-                          <div className="sm:col-span-4">
-                            <label className="block text-xs font-mono-tabular font-bold uppercase text-white/70 mb-1.5">
-                              {occasionType === 'Birthday'
-                                ? 'Age Turning'
-                                : occasionType === 'Wedding Anniversary'
-                                  ? 'Anniversary Years'
-                                  : 'Special Note'}
-                            </label>
-                            <input
-                              type="text"
-                              value={celebrantAge}
-                              onChange={(e) => setCelebrantAge(e.target.value)}
-                              placeholder="e.g. 10, 25, 50"
-                              className="w-full rounded-[10px] bg-[#080808] border border-white/20 px-4 py-3 text-sm text-white focus:outline-none focus:border-[#49E619]"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Custom Message to Print on Placard */}
-                        <div>
-                          <label className="block text-xs font-mono-tabular font-bold uppercase text-white/70 mb-1.5">
-                            Custom Blessing Message on Placard (Children & Elders will read this aloud) *
-                          </label>
-                          <textarea
-                            rows={2}
-                            required
-                            value={customMessage}
-                            onChange={(e) => setCustomMessage(e.target.value)}
-                            placeholder="e.g. Wishing you good health, wisdom, and sunshine always!"
-                            className="w-full rounded-[10px] bg-[#080808] border border-white/20 px-4 py-3 text-sm text-white focus:outline-none focus:border-[#49E619] resize-none"
-                          />
-                        </div>
-
-                        {/* Package Selection */}
-                        <div>
-                          <label className="block text-xs font-mono-tabular font-bold uppercase text-white/70 mb-2">
-                            Select Sponsoring Feast Package *
-                          </label>
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            {OCCASION_PACKAGES.slice(0, 3).map((pkg) => {
-                              const isSelected = selectedPackage.id === pkg.id;
-                              return (
-                                <button
-                                  key={pkg.id}
-                                  type="button"
-                                  onClick={() => setSelectedPackage(pkg)}
-                                  className={`p-3.5 rounded-[12px] text-left border transition-all cursor-pointer ${isSelected
-                                    ? 'bg-[#49E619] text-[#080808] border-[#49E619]'
-                                    : 'bg-[#080808] text-white border-white/15 hover:border-white/40'
-                                    }`}
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <span className="font-mono-tabular text-xs font-bold">
-                                      {pkg.mealsCount} MEALS
-                                    </span>
-                                    <span className="font-mono-tabular text-sm font-black">
-                                      ₹{pkg.priceInr}
-                                    </span>
-                                  </div>
-                                  <div className="font-display-sans uppercase text-base font-black mt-1">
-                                    {pkg.name}
-                                  </div>
-                                  <p className="text-[11px] mt-1 opacity-80 line-clamp-2">
-                                    {pkg.suitableFor}
-                                  </p>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        {/* Center & Date Selection */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-xs font-mono-tabular font-bold uppercase text-white/70 mb-1.5">
-                              Distribution Center *
-                            </label>
-                            <select
-                              value={selectedCenterId}
-                              onChange={(e) => setSelectedCenterId(e.target.value)}
-                              className="w-full rounded-[10px] bg-[#080808] border border-white/20 px-3.5 py-3 text-xs text-white focus:outline-none focus:border-[#49E619]"
+                {codes.occasion ? (
+                  <Done
+                    accent="green"
+                    eyebrow="Booking confirmed"
+                    title={`Thank you, ${f.sName}!`}
+                    code={codes.occasion}
+                    resetLabel="Sponsor another occasion"
+                    onReset={reset('occasion')}
+                    extra={
+                      <Link to={`/track-meal?token=${codes.occasion}`} className="px-6 py-3 rounded-xl bg-[#49E619] text-[#080808] text-sm font-bold">
+                        Track meal & proof live →
+                      </Link>
+                    }
+                  >
+                    <p>
+                      {pkg.mealsCount} meals (₹{fmtPrice(pkg.priceInr)}) for <strong className="text-white">{f.name}</strong> will be
+                      served on <strong className="text-white">{fmtDate(f.date)}</strong> at{' '}
+                      <strong className="text-white">{center?.name}</strong>.
+                    </p>
+                    <p className="text-white/60">
+                      We print your placard, record the children’s thank-you, and send photos and video to {f.sEmail} and
+                      WhatsApp within 24 hours of the meal.
+                    </p>
+                  </Done>
+                ) : (
+                  <form onSubmit={submit('occasion', 'OCC-2026')} className="space-y-7">
+                    <Group title="What are you celebrating?">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        {OCCASIONS.map(({ value, label, Icon }) => {
+                          const on = f.occasion === value;
+                          return (
+                            <button
+                              key={value}
+                              type="button"
+                              aria-pressed={on}
+                              onClick={() => set('occasion')(value)}
+                              className={`flex flex-col items-center gap-2 py-4 rounded-2xl border text-sm font-semibold transition cursor-pointer ${
+                                on ? 'bg-[#49E619]/15 border-[#49E619] text-white' : 'bg-[#080808] border-white/15 text-white/70 hover:border-white/35'
+                              }`}
                             >
-                              {DISTRIBUTION_CENTERS.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                  {c.name} ({c.area})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-mono-tabular font-bold uppercase text-white/70 mb-1.5">
-                              Celebration / Distribution Date *
-                            </label>
-                            <input
-                              type="date"
-                              required
-                              value={celebrationDate}
-                              onChange={(e) => setCelebrationDate(e.target.value)}
-                              className="w-full rounded-[10px] bg-[#080808] border border-white/20 px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#49E619]"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Sponsor Contact Details */}
-                        <div className="pt-4 border-t border-white/12 space-y-4">
-                          <span className="text-xs font-mono-tabular font-bold uppercase tracking-widest text-[#B9FF2C] block">
-                            YOUR CONTACT & 80G RECEIPT DETAILS
-                          </span>
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <input
-                              type="text"
-                              required
-                              value={sponsorName}
-                              onChange={(e) => setSponsorName(e.target.value)}
-                              placeholder="Your Full Name"
-                              className="rounded-[8px] bg-[#080808] border border-white/20 px-3 py-2 text-xs text-white focus:outline-none focus:border-[#49E619]"
-                            />
-                            <input
-                              type="email"
-                              required
-                              value={sponsorEmail}
-                              onChange={(e) => setSponsorEmail(e.target.value)}
-                              placeholder="Email for Video & Receipt"
-                              className="rounded-[8px] bg-[#080808] border border-white/20 px-3 py-2 text-xs text-white focus:outline-none focus:border-[#49E619]"
-                            />
-                            <input
-                              type="tel"
-                              required
-                              value={sponsorPhone}
-                              onChange={(e) => setSponsorPhone(e.target.value)}
-                              placeholder="WhatsApp for Live Photos"
-                              className="rounded-[8px] bg-[#080808] border border-white/20 px-3 py-2 text-xs text-white focus:outline-none focus:border-[#49E619]"
-                            />
-                          </div>
-                        </div>
-
-                        <button
-                          type="submit"
-                          className="w-full py-4 px-6 rounded-[12px] bg-[#49E619] hover:bg-[#B9FF2C] text-[#080808] font-mono-tabular text-sm font-black uppercase tracking-wider inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                        >
-                          <Sparkles className="w-4 h-4 text-[#080808]" />
-                          <span>
-                            SPONSOR {selectedPackage.mealsCount} CELEBRATION MEALS (₹{selectedPackage.priceInr})
-                          </span>
-                        </button>
-                      </form>
-                    )}
-                  </div>
-                </ScrollReveal>
-              </div>
-
-              {/* Right Column: Live Interactive Placard Preview */}
-              <div className="lg:col-span-5 space-y-6">
-                <ScrollReveal delay={0.15}>
-                  <div className="rounded-[20px] bg-[#080808] border-2 border-[#49E619]/40 p-6 shadow-2xl relative overflow-hidden">
-                    <div className="flex items-center justify-between pb-3 border-b border-white/15">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#49E619] animate-pulse" />
-                        <span className="font-mono-tabular text-xs font-bold uppercase tracking-widest text-[#49E619]">
-                          LIVE PLACARD PREVIEW
-                        </span>
+                              <Icon className={`w-5 h-5 ${on ? 'text-[#49E619]' : 'text-white/50'}`} />
+                              {label}
+                            </button>
+                          );
+                        })}
                       </div>
-                      <span className="font-mono-tabular text-[11px] text-white/60">
-                        Physical Banner Held in Hands
-                      </span>
-                    </div>
+                    </Group>
 
-                    {/* Simulated High-Visibility Physical Placard Card */}
-                    <div className="mt-5 p-6 rounded-[16px] bg-[#F2F4F3] text-[#080808] border-4 border-[#122023] shadow-xl relative">
-                      {/* Placard Hole Marks & Hanging String effect */}
-                      <div className="flex justify-between items-center mb-3 px-2">
-                        <span className="w-3 h-3 rounded-full bg-[#122023] inline-block" />
-                        <span className="font-mono-tabular text-[10px] font-black uppercase tracking-widest text-[#188D44]">
-                          ZERO HUNGER INITIATIVE · HYDERABAD
-                        </span>
-                        <span className="w-3 h-3 rounded-full bg-[#122023] inline-block" />
+                    <Group title="Your placard" hint="The preview on the right updates as you type.">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <Field className="sm:col-span-2" label="Name on the placard" value={f.name} onChange={set('name')} placeholder="e.g. Aarav, or Ramesh & Sunita" />
+                        <Field
+                          label={f.occasion === 'Birthday' ? 'Turning age' : f.occasion === 'Wedding Anniversary' ? 'Anniversary year' : 'Number (optional)'}
+                          value={f.age} onChange={set('age')} placeholder="e.g. 10" optional
+                        />
                       </div>
+                      <Field
+                        label="Blessing message" rows={3} maxLength={120}
+                        value={f.message} onChange={set('message')}
+                        placeholder="e.g. Wishing you good health, wisdom and sunshine always!"
+                        hint={`The children will read this aloud · ${f.message.length}/120`}
+                      />
+                    </Group>
 
-                      <div className="text-center py-4 border-y-2 border-dashed border-[#122023]/25">
-                        <div className="font-display-sans uppercase text-2xl sm:text-3xl font-black text-[#122023] tracking-tight leading-none">
-                          {computedPlacardHeading}
-                        </div>
+                    <Group title="Choose a feast package" hint="Every package includes the placard, a thank-you video and an 80G receipt.">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {OCCASION_PACKAGES.slice(0, 3).map((p) => {
+                          const on = pkg.id === p.id;
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              aria-pressed={on}
+                              onClick={() => setPkg(p)}
+                              className={`p-4 rounded-2xl text-left border transition cursor-pointer ${
+                                on ? 'bg-[#49E619]/15 border-[#49E619]' : 'bg-[#080808] border-white/15 hover:border-white/35'
+                              }`}
+                            >
+                              <span className="text-xs text-white/60">{p.mealsCount} meals</span>
+                              <span className="block font-display-sans text-2xl font-black">₹{fmtPrice(p.priceInr)}</span>
+                              <span className="block mt-2 text-sm font-semibold">{p.name}</span>
+                              <span className="block mt-1 text-xs text-white/60 line-clamp-2">{p.suitableFor}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </Group>
 
-                        <p className="mt-3 font-serif-editorial italic text-sm sm:text-base text-[#122023]/90 leading-snug px-3">
-                          “{customMessage}”
+                    <Group title="Where and when">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <Field
+                          label="Distribution center" value={f.centerId} onChange={set('centerId')}
+                          placeholder="Choose a center"
+                          options={DISTRIBUTION_CENTERS.map((c) => [c.id, `${c.name} (${c.area})`])}
+                        />
+                        <Field label="Celebration date" type="date" value={f.date} onChange={set('date')} />
+                      </div>
+                    </Group>
+
+                    <Group title="Your details" hint="Your 80G receipt, video and photos are sent here.">
+                      <Field label="Full name" value={f.sName} onChange={set('sName')} placeholder="e.g. Vikram Malhotra" />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <Field label="Email" type="email" value={f.sEmail} onChange={set('sEmail')} placeholder="you@example.com" />
+                        <Field label="WhatsApp number" type="tel" value={f.sPhone} onChange={set('sPhone')} placeholder="+91 98765 43210" />
+                      </div>
+                    </Group>
+
+                    <div className="rounded-2xl bg-[#080808] border border-white/10 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <div>
+                        <p className="text-xs text-white/55">Your sponsorship</p>
+                        <p className="font-display-sans text-xl font-black">
+                          {pkg.mealsCount} meals <span className="text-white/30 mx-1">·</span>
+                          <span className="text-[#49E619]">₹{fmtPrice(pkg.priceInr)}</span>
                         </p>
-
-                        <div className="mt-3 inline-block px-3 py-1 rounded-full bg-[#49E619] text-[#122023] font-mono-tabular text-[11px] font-black uppercase tracking-wider">
-                          {selectedPackage.mealsCount} WARM MEALS DEDICATED
-                        </div>
                       </div>
-
-                      <div className="mt-3 pt-2 flex items-center justify-between text-[10px] font-mono-tabular uppercase tracking-wider text-[#122023]/70">
-                        <span>Center: {selectedCenter.name.substring(0, 22)}...</span>
-                        <span>Date: {celebrationDate}</span>
-                      </div>
+                      <SubmitBtn accent="green" Icon={Sparkles} className="w-full sm:w-auto">
+                        Sponsor {pkg.mealsCount} meals
+                      </SubmitBtn>
                     </div>
+                  </form>
+                )}
+              </div>
 
-                    <div className="mt-5 space-y-3 font-mono-tabular text-xs text-white/80">
-                      <div className="flex items-start gap-2.5">
-                        <CheckCircle2 className="w-4 h-4 text-[#49E619] shrink-0 mt-0.5" />
-                        <span>Children & beneficiaries will hold this exact printed placard in front of their hot lunch feast.</span>
-                      </div>
-                      <div className="flex items-start gap-2.5">
-                        <CheckCircle2 className="w-4 h-4 text-[#49E619] shrink-0 mt-0.5" />
-                        <span>High-resolution video clip of beneficiaries saying thank you sent via WhatsApp on the afternoon of delivery.</span>
-                      </div>
-                      <div className="flex items-start gap-2.5">
-                        <CheckCircle2 className="w-4 h-4 text-[#49E619] shrink-0 mt-0.5" />
-                        <span>Eligible for 50% Tax Exemption under Section 80G (Instant 80G receipt issued).</span>
-                      </div>
-                    </div>
-                  </div>
-                </ScrollReveal>
+              {/* Live preview */}
+              <div className="lg:col-span-5 space-y-6">
+              <aside className={card}>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-2 text-sm font-semibold">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#49E619] animate-pulse" />
+                    Live placard preview
+                  </span>
+                  <span className="text-xs text-white/50">Held by the children</span>
+                </div>
 
-                {/* Recent Celebrations Showcase */}
-                <ScrollReveal delay={0.25}>
-                  <div className="rounded-[18px] bg-[#122023] p-6 border border-white/12">
-                    <span className="font-mono-tabular text-xs font-bold uppercase tracking-widest text-[#4EDBE2] block mb-3">
-                      RECENT OCCASIONS CELEBRATED WITH US
+                <div className="mt-5 relative rounded-2xl bg-[#F2F4F3] text-[#122023] p-3 shadow-xl shadow-black/50">
+                  <span className="absolute top-4 left-4 w-3 h-3 rounded-full bg-[#122023]" />
+                  <span className="absolute top-4 right-4 w-3 h-3 rounded-full bg-[#122023]" />
+                  <div className="rounded-xl border-2 border-dashed border-[#122023]/25 px-5 pt-9 pb-5 text-center">
+                    <p className="text-[11px] font-semibold tracking-[0.14em] uppercase text-[#0F6B33]">
+                      Zero Hunger Initiative · Hyderabad
+                    </p>
+                    <h3 className="mt-4 font-display-sans uppercase text-3xl font-black leading-[1.05] tracking-tight break-words">
+                      {heading}
+                    </h3>
+                    <p className="mt-4 font-serif-editorial italic text-base text-[#122023]/85 leading-snug break-words">
+                      “{f.message.trim() || 'Your blessing message will appear here.'}”
+                    </p>
+                    <span className="mt-5 inline-block px-3.5 py-1.5 rounded-full bg-[#49E619] text-xs font-bold">
+                      {pkg.mealsCount} warm meals dedicated
                     </span>
-                    <div className="space-y-4">
-                      {RECENT_OCCASIONS.map((item) => (
-                        <div key={item.id} className="p-3.5 rounded-[12px] bg-[#080808] border border-white/10 flex items-start gap-3">
-                          <div className="w-16 h-16 rounded-[8px] overflow-hidden shrink-0 bg-white/10">
-                            <EditorialImage src={item.image} alt={item.occasionType} className="w-full h-full" />
-                          </div>
-                          <div>
-                            <div className="font-display-sans text-xs font-black text-white uppercase">
-                              {item.occasionType}
-                            </div>
-                            <div className="font-mono-tabular text-[10px] text-[#49E619]">
-                              By {item.sponsorName} · {item.mealsServed} Meals
-                            </div>
-                            <p className="mt-1 text-[11px] text-white/70 line-clamp-2 italic font-serif-editorial">
-                              “{item.beneficiaryQuote}”
-                            </p>
-                          </div>
-                        </div>
-                      ))}
+                    <div className="mt-5 pt-3 border-t border-[#122023]/15 flex justify-between gap-3 text-[11px] text-[#122023]/70">
+                      <span className="truncate">{center?.name || 'Your chosen center'}</span>
+                      <span className="shrink-0 font-medium">{fmtDate(f.date)}</span>
                     </div>
                   </div>
-                </ScrollReveal>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
+                </div>
 
-      {/* =====================================================================
-          TAB 2: CLOTH DONATION (DROP BINS & HOME PICKUP)
-      ====================================================================== */}
-      {activeTab === 'CLOTH_DONATION' && (
-        <section className="py-16 sm:py-24">
-          <div className="max-w-[1360px] mx-auto px-5 sm:px-8 lg:px-12">
-            <div className="text-center max-w-3xl mx-auto mb-12">
-              <span className="text-xs font-mono-tabular font-bold uppercase tracking-[0.2em] text-[#4EDBE2] block mb-2">
-                VASTRA DAAN · CLOTHES FOR DIGNITY
-              </span>
-              <h2 className="font-display-sans uppercase text-3xl sm:text-5xl font-black text-white">
-                Give New Or Gently Used Clothes
-              </h2>
-              <p className="mt-3 text-white/75 text-sm sm:text-base leading-relaxed">
-                Clean, wearable garments, blankets, school shoes, and children’s wear are collected, sorted by our volunteers, and distributed to pavement families and rural homesteads.
-              </p>
+                <ul className="mt-6 space-y-3 text-sm text-white/75 leading-relaxed">
+                  {[
+                    'Children hold this exact printed placard in front of their hot lunch.',
+                    'A thank-you video reaches you on WhatsApp the same afternoon.',
+                    '50% tax exemption under Section 80G, with an instant receipt.',
+                  ].map((t) => (
+                    <li key={t} className="flex gap-3">
+                      <CheckCircle2 className="w-4 h-4 text-[#49E619] shrink-0 mt-1" />
+                      {t}
+                    </li>
+                  ))}
+                </ul>
+              </aside>
 
-              {/* Mode Toggle: Drop-off vs Doorstep Pickup */}
-              <div className="mt-8 inline-flex p-1.5 rounded-[14px] bg-[#122023] border border-white/15 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setClothMode('REQUEST_PICKUP')}
-                  className={`px-5 py-2.5 rounded-[10px] font-mono-tabular text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer ${clothMode === 'REQUEST_PICKUP'
-                    ? 'bg-[#4EDBE2] text-[#080808]'
-                    : 'text-white/80 hover:text-white'
-                    }`}
-                >
-                  <Truck className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />
-                  Schedule Free Doorstep Pickup
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setClothMode('DROP_OFF')}
-                  className={`px-5 py-2.5 rounded-[10px] font-mono-tabular text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer ${clothMode === 'DROP_OFF'
-                    ? 'bg-[#4EDBE2] text-[#080808]'
-                    : 'text-white/80 hover:text-white'
-                    }`}
-                >
-                  <MapPin className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />
-                  Drop at Nearest Collection Bin (4 Hubs)
-                </button>
-              </div>
-            </div>
-
-            {/* PICKUP REQUEST FORM */}
-            {clothMode === 'REQUEST_PICKUP' ? (
-              <div className="max-w-2xl mx-auto">
-                <div className="rounded-[20px] bg-[#122023] border border-white/15 p-6 sm:p-10 shadow-2xl">
-                  {isClothBooked ? (
-                    <div className="py-8 text-center">
-                      <div className="w-14 h-14 rounded-full mx-auto mb-4 flex items-center justify-center bg-[#4EDBE2] text-[#080808]">
-                        <CheckCircle2 className="w-8 h-8" />
+              {/* Recent occasions as row cards */}
+              <div className={panel}>
+                <h2 className="font-display-sans uppercase text-lg font-black">Recently celebrated with us</h2>
+                <div className="mt-4 space-y-3">
+                  {RECENT_OCCASIONS.map((item) => (
+                    <article key={item.id} className="flex gap-3.5 p-3 rounded-xl bg-[#080808] border border-white/10">
+                      <div className="w-20 h-20 shrink-0 rounded-lg overflow-hidden bg-white/10">
+                        <EditorialImage src={item.image} alt={item.occasionType} className="w-full h-full" />
                       </div>
-                      <span className="text-xs font-mono-tabular font-bold uppercase tracking-widest text-[#4EDBE2]">
-                        PICKUP CONFIRMED · VAN DISPATCH SCHEDULED
-                      </span>
-                      <h3 className="font-display-sans uppercase text-3xl font-black text-white mt-2">
-                        Thank You, {clothContactName}!
-                      </h3>
-                      <div className="mt-3 inline-block px-4 py-2 rounded-[8px] bg-white/10 font-mono-tabular text-sm text-[#4EDBE2] font-bold">
-                        Reference Code: {clothRefNumber}
+                      <div className="min-w-0">
+                        <h3 className="font-display-sans uppercase text-sm font-black leading-snug">{item.occasionType}</h3>
+                        <p className="mt-0.5 text-xs font-semibold text-[#49E619]">By {item.sponsorName} · {item.mealsServed} meals</p>
+                        <p className="mt-1.5 text-xs text-white/65 italic font-serif-editorial leading-relaxed line-clamp-2">
+                          “{item.beneficiaryQuote}”
+                        </p>
                       </div>
-                      <p className="mt-4 text-sm text-white/80 leading-relaxed max-w-md mx-auto">
-                        Our collection vehicle will arrive at your address on <strong className="text-white">{clothPickupDate}</strong> to collect your {clothBagsCount} bag(s) of garments.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setIsClothBooked(false)}
-                        className="mt-6 px-6 py-3 rounded-[10px] bg-[#4EDBE2] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-wider cursor-pointer"
-                      >
-                        Raise Another Collection Request
-                      </button>
-                    </div>
-                  ) : (
-                    <form onSubmit={handleClothPickupSubmit} className="space-y-5">
-                      <div className="pb-4 border-b border-white/10">
-                        <span className="text-xs font-mono-tabular font-bold uppercase tracking-widest text-[#4EDBE2]">
-                          DOORSTEP COLLECTION SERVICE · HYDERABAD & CYBERABAD
-                        </span>
-                        <h3 className="font-display-sans uppercase text-2xl font-black text-white mt-1">
-                          Book a Free Volunteer Pickup
-                        </h3>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-mono-tabular font-bold uppercase text-white/70 mb-1.5">
-                            Estimated Bags of Clothes *
-                          </label>
-                          <select
-                            value={clothBagsCount}
-                            onChange={(e) => setClothBagsCount(Number(e.target.value))}
-                            className="w-full rounded-[10px] bg-[#080808] border border-white/20 px-3.5 py-3 text-xs text-white focus:outline-none focus:border-[#4EDBE2]"
-                          >
-                            <option value={1}>1 Bag (Approx 10-15 garments)</option>
-                            <option value={2}>2 Bags (Approx 25-35 garments)</option>
-                            <option value={3}>3-5 Bags (Full Wardrobe / Community Collection)</option>
-                            <option value={10}>6-10+ Bags (Apartment Society Collection Drive)</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-mono-tabular font-bold uppercase text-white/70 mb-1.5">
-                            Preferred Pickup Date *
-                          </label>
-                          <input
-                            type="date"
-                            required
-                            value={clothPickupDate}
-                            onChange={(e) => setClothPickupDate(e.target.value)}
-                            className="w-full rounded-[10px] bg-[#080808] border border-white/20 px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#4EDBE2]"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-mono-tabular font-bold uppercase text-white/70 mb-1.5">
-                          Type of Clothing & Items *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={clothType}
-                          onChange={(e) => setClothType(e.target.value)}
-                          placeholder="e.g. Sarees, Men Shirts, Winter Blankets, Kids Shoes"
-                          className="w-full rounded-[10px] bg-[#080808] border border-white/20 px-4 py-3 text-xs text-white focus:outline-none focus:border-[#4EDBE2]"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-mono-tabular font-bold uppercase text-white/70 mb-1.5">
-                          Full Doorstep Address for Pickup *
-                        </label>
-                        <textarea
-                          rows={2}
-                          required
-                          value={clothPickupAddress}
-                          onChange={(e) => setClothPickupAddress(e.target.value)}
-                          placeholder="Flat/House number, Apartment name, Street, Landmark, Pin code"
-                          className="w-full rounded-[10px] bg-[#080808] border border-white/20 px-4 py-3 text-xs text-white focus:outline-none focus:border-[#4EDBE2] resize-none"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-mono-tabular font-bold uppercase text-white/70 mb-1.5">
-                            Contact Person Name *
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            value={clothContactName}
-                            onChange={(e) => setClothContactName(e.target.value)}
-                            className="w-full rounded-[10px] bg-[#080808] border border-white/20 px-4 py-3 text-xs text-white focus:outline-none focus:border-[#4EDBE2]"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-mono-tabular font-bold uppercase text-white/70 mb-1.5">
-                            Phone (for Van Driver Call) *
-                          </label>
-                          <input
-                            type="tel"
-                            required
-                            value={clothContactPhone}
-                            onChange={(e) => setClothContactPhone(e.target.value)}
-                            className="w-full rounded-[10px] bg-[#080808] border border-white/20 px-4 py-3 text-xs text-white focus:outline-none focus:border-[#4EDBE2]"
-                          />
-                        </div>
-                      </div>
-
-                      <button
-                        type="submit"
-                        className="w-full py-4 px-6 rounded-[12px] bg-[#4EDBE2] hover:bg-[#3bc4cb] text-[#080808] font-mono-tabular text-xs font-black uppercase tracking-wider inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                      >
-                        <Package className="w-4 h-4" />
-                        <span>Schedule Free Van Pickup</span>
-                      </button>
-                    </form>
-                  )}
+                    </article>
+                  ))}
                 </div>
               </div>
+            </div>
+            </div>
+          </>
+        )}
+
+        {/* ================= TAB 2: CLOTHES ================= */}
+        {activeTab === 'CLOTH_DONATION' && (
+          <>
+            <div className="text-center max-w-3xl mx-auto mb-10">
+              <h2 className="font-display-sans uppercase text-3xl sm:text-5xl font-black">Give new or gently used clothes</h2>
+              <p className="mt-3 text-white/75 text-sm sm:text-base leading-relaxed">
+                Clean, wearable garments, blankets, school shoes and children’s wear are sorted by our volunteers and
+                given to pavement families and rural homes.
+              </p>
+              <div className="mt-8 inline-flex flex-col sm:flex-row w-full sm:w-auto p-1.5 rounded-2xl bg-[#122023] border border-white/15 gap-1.5">
+                {([['PICKUP', 'Free doorstep pickup', Truck], ['DROP_OFF', 'Drop at a collection bin', MapPin]] as const).map(([m, label, Icon]) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setClothMode(m)}
+                    className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
+                      clothMode === m ? 'bg-[#4EDBE2] text-[#080808]' : 'text-white/80 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {clothMode === 'PICKUP' ? (
+              <div className={`max-w-2xl mx-auto ${card}`}>
+                {codes.cloth ? (
+                  <Done
+                    accent="cyan"
+                    eyebrow="Pickup confirmed"
+                    title={`Thank you, ${f.cName}!`}
+                    code={codes.cloth}
+                    resetLabel="Book another pickup"
+                    onReset={reset('cloth')}
+                  >
+                    <p>Our van will reach your address on <strong className="text-white">{fmtDate(f.clothDate)}</strong> to collect your clothes.</p>
+                  </Done>
+                ) : (
+                  <form onSubmit={submit('cloth', 'CLOTH')} className="space-y-5">
+                    <Heading kicker="Hyderabad & Cyberabad" title="Book a free volunteer pickup" accent="cyan" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Field
+                        accent="cyan" label="Bags of clothes" value={f.bags} onChange={set('bags')} placeholder="How many bags?"
+                        options={[['1', '1 bag (10-15 garments)'], ['2', '2 bags (25-35 garments)'], ['3', '3-5 bags (full wardrobe)'], ['10', '6-10+ bags (society drive)']]}
+                      />
+                      <Field accent="cyan" label="Pickup date" type="date" value={f.clothDate} onChange={set('clothDate')} />
+                    </div>
+                    <Field accent="cyan" label="What are you donating?" value={f.clothType} onChange={set('clothType')} placeholder="e.g. Sarees, men’s shirts, blankets, kids’ shoes" />
+                    <Field accent="cyan" label="Pickup address" rows={3} value={f.clothAddr} onChange={set('clothAddr')} placeholder="Flat/house no., apartment, street, landmark, pin code" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Field accent="cyan" label="Contact name" value={f.cName} onChange={set('cName')} placeholder="Your name" />
+                      <Field accent="cyan" label="Phone" type="tel" value={f.cPhone} onChange={set('cPhone')} placeholder="For the van driver" />
+                    </div>
+                    <SubmitBtn accent="cyan" Icon={Package}>Schedule free pickup</SubmitBtn>
+                  </form>
+                )}
+              </div>
             ) : (
-              /* DROP-OFF HUBS DIRECTORY */
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
                 {CLOTH_DROP_HUBS.map((hub) => (
-                  <div key={hub.id} className="rounded-[18px] bg-[#122023] p-6 border border-white/12 flex flex-col justify-between">
+                  <div key={hub.id} className={`${panel} flex flex-col justify-between`}>
                     <div>
-                      <div className="flex items-center justify-between pb-3 border-b border-white/10">
-                        <span className="font-mono-tabular text-xs font-bold text-[#4EDBE2] uppercase">
-                          DESIGNATED DROP BIN
-                        </span>
-                        <span className="font-mono-tabular text-[11px] text-white/60">
-                          {hub.hours}
-                        </span>
+                      <div className="flex justify-between gap-3 pb-3 border-b border-white/10 text-xs">
+                        <span className="font-semibold text-[#4EDBE2]">Drop bin</span>
+                        <span className="text-white/60">{hub.hours}</span>
                       </div>
-                      <h3 className="font-display-sans uppercase text-xl font-black text-white mt-3">
-                        {hub.name}
-                      </h3>
-                      <p className="text-xs text-white/80 mt-1 leading-relaxed">
-                        {hub.address}
-                      </p>
-                      <p className="text-xs font-mono-tabular text-[#B9FF2C] mt-1">
-                        Landmark: {hub.landmark}
-                      </p>
-
-                      <div className="mt-4 pt-3 border-t border-white/10">
-                        <span className="text-[10px] font-mono-tabular uppercase tracking-wider text-white/60 block mb-1.5">
-                          Items Accepted Here:
-                        </span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {hub.accepts.map((item) => (
-                            <span key={item} className="px-2 py-0.5 rounded-[4px] bg-white/10 font-mono-tabular text-[10px] text-white">
-                              ✓ {item}
-                            </span>
-                          ))}
-                        </div>
+                      <h3 className="font-display-sans uppercase text-xl font-black mt-4">{hub.name}</h3>
+                      <p className="text-sm text-white/80 mt-1.5">{hub.address}</p>
+                      <p className="text-xs text-[#B9FF2C] mt-1.5">Landmark: {hub.landmark}</p>
+                      <div className="mt-4 flex flex-wrap gap-1.5">
+                        {hub.accepts.map((item) => (
+                          <span key={item} className="px-2.5 py-1 rounded-md bg-white/10 text-xs">✓ {item}</span>
+                        ))}
                       </div>
                     </div>
-
-                    <div className="mt-6 pt-3 border-t border-white/10 flex items-center justify-between text-xs font-mono-tabular">
-                      <span className="text-white/60">Helpline:</span>
-                      <a href={`tel:${hub.phone}`} className="text-[#4EDBE2] font-bold hover:underline">
-                        {hub.phone}
-                      </a>
+                    <div className="mt-6 pt-4 border-t border-white/10 flex justify-between text-sm">
+                      <span className="text-white/60">Helpline</span>
+                      <a href={`tel:${hub.phone}`} className="text-[#4EDBE2] font-bold hover:underline">{hub.phone}</a>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </div>
-        </section>
-      )}
+          </>
+        )}
 
-      {/* =====================================================================
-          TAB 3: LEFTOVER FOOD RESCUE (INSTANT HOTLINE & DISPATCH)
-      ====================================================================== */}
-      {activeTab === 'LEFTOVER_RESCUE' && (
-        <section className="py-16 sm:py-24">
-          <div className="max-w-[1360px] mx-auto px-5 sm:px-8 lg:px-12">
-            {/* Urgent 24/7 Hotline Alert Banner */}
-            <div className="rounded-[20px] bg-[#B9FF2C] text-[#122023] p-8 sm:p-12 mb-12 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
+        {/* ================= TAB 3: FOOD RESCUE ================= */}
+        {activeTab === 'LEFTOVER_RESCUE' && (
+          <>
+            <div className="rounded-3xl bg-[#B9FF2C] text-[#122023] p-7 sm:p-12 mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[6px] bg-[#122023] text-white font-mono-tabular text-xs font-bold uppercase tracking-wider mb-3">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#122023] text-white text-xs font-semibold mb-4">
                   <PhoneCall className="w-3.5 h-3.5 text-[#B9FF2C]" />
-                  24/7 RAPID FOOD RESCUE HELPLINE
+                  24/7 food rescue helpline
                 </span>
-                <h2 className="font-display-sans uppercase text-3xl sm:text-5xl font-black text-[#122023] tracking-tight leading-none">
-                  Have Leftover Cooked Food? Call Us Immediately!
+                <h2 className="font-display-sans uppercase text-3xl sm:text-5xl font-black leading-[1.02]">
+                  Have leftover cooked food? Call us now.
                 </h2>
-                <p className="mt-3 text-sm sm:text-base text-[#122023]/85 font-medium max-w-2xl leading-relaxed">
-                  Do not throw away good food. From weddings, banquets, tech parks, and birthday parties—our thermal-equipped vans collect freshly cooked food within 45 minutes and deliver it to night shelters & hospital courtyards.
+                <p className="mt-4 text-sm sm:text-base font-medium max-w-2xl leading-relaxed text-[#122023]/85">
+                  Our thermal vans collect fresh food from weddings, banquets, tech parks and parties within 45 minutes
+                  and deliver it to night shelters and hospitals.
                 </p>
               </div>
-
-              <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
-                <a
-                  href="tel:+919848024190"
-                  className="w-full sm:w-auto px-8 py-4 rounded-[12px] bg-[#122023] hover:bg-[#080808] text-white font-mono-tabular text-sm font-black uppercase tracking-wider inline-flex items-center justify-center gap-2.5 transition-colors shadow-lg"
-                >
-                  <PhoneCall className="w-4 h-4 text-[#B9FF2C]" />
-                  <span>CALL +91 98480 24190</span>
-                </a>
-              </div>
+              <a href="tel:+919848024190" className="shrink-0 px-8 py-4 rounded-xl bg-[#122023] text-white text-sm font-bold inline-flex items-center justify-center gap-2.5">
+                <PhoneCall className="w-4 h-4 text-[#B9FF2C]" />
+                Call +91 98480 24190
+              </a>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
-              {/* Left Column: Raise Leftover Food Request Online */}
-              <div className="lg:col-span-7">
-                <div className="rounded-[20px] bg-[#122023] border border-white/15 p-6 sm:p-10 shadow-2xl">
-                  {isRescueRaised ? (
-                    <div className="py-8 text-center">
-                      <div className="w-14 h-14 rounded-full mx-auto mb-4 flex items-center justify-center bg-[#B9FF2C] text-[#080808]">
-                        <CheckCircle2 className="w-8 h-8" />
-                      </div>
-                      <span className="text-xs font-mono-tabular font-bold uppercase tracking-widest text-[#B9FF2C]">
-                        FOOD RESCUE REQUEST LOGGED · VEHICLE DISPATCHED
-                      </span>
-                      <h3 className="font-display-sans uppercase text-3xl font-black text-white mt-2">
-                        Rescue Code: {rescueCode}
-                      </h3>
-                      <p className="mt-4 text-sm text-white/80 max-w-lg mx-auto leading-relaxed">
-                        Our nearest food rescue team at <strong className="text-white">Secunderabad / Cyberabad Dispatch Hub</strong> has been assigned to <strong className="text-[#B9FF2C]">{venueAddress}</strong>.
-                      </p>
-                      <div className="mt-4 p-4 rounded-[12px] bg-[#080808] border border-white/15 text-left font-mono-tabular text-xs space-y-2 max-w-md mx-auto">
-                        <div className="flex justify-between">
-                          <span className="text-white/60">Estimated Van Arrival:</span>
-                          <span className="text-[#49E619] font-bold">35 - 45 Minutes</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-white/60">Servings Claimed:</span>
-                          <span className="text-white font-bold">{foodServings}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-white/60">Target Shelter:</span>
-                          <span className="text-white">Afzalgunj Night Shelter & Hospital</span>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => setIsRescueRaised(false)}
-                        className="mt-6 px-6 py-3 rounded-[10px] bg-[#B9FF2C] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-wider cursor-pointer"
-                      >
-                        Raise Another Food Pickup
-                      </button>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
+              <div className={`lg:col-span-7 ${card}`}>
+                {codes.rescue ? (
+                  <Done
+                    accent="lime"
+                    eyebrow="Request logged · van dispatched"
+                    title="Rescue on the way"
+                    code={codes.rescue}
+                    resetLabel="Raise another pickup"
+                    onReset={reset('rescue')}
+                  >
+                    <p>Our nearest team has been assigned to <strong className="text-white">{f.venue}</strong>. Expected arrival: 35 – 45 minutes. Please keep {f.rPhone} on.</p>
+                  </Done>
+                ) : (
+                  <form onSubmit={submit('rescue', 'FOOD-RESCUE')} className="space-y-5">
+                    <Heading kicker="Online dispatch form" title="Request immediate food pickup" accent="lime" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Field
+                        accent="lime" label="Servings available" value={f.servings} onChange={set('servings')} placeholder="How many people?"
+                        options={[['25-50', '25 – 50 servings'], ['50-100', '50 – 100 servings'], ['100-250', '100 – 250 servings'], ['250-500+', '250 – 500+ servings']]}
+                      />
+                      <Field
+                        accent="lime" label="Event type" value={f.eventType} onChange={set('eventType')} placeholder="Where is it from?"
+                        options={[['Wedding / Banquet', 'Wedding / banquet'], ['Birthday / Party', 'Birthday / party'], ['Corporate Cafeteria', 'Corporate cafeteria'], ['Restaurant / Cloud Kitchen', 'Restaurant / cloud kitchen'], ['Temple Feast', 'Religious / temple feast']]}
+                      />
                     </div>
-                  ) : (
-                    <form onSubmit={handleLeftoverSubmit} className="space-y-5">
-                      <div className="pb-4 border-b border-white/10">
-                        <span className="text-xs font-mono-tabular font-bold uppercase tracking-widest text-[#B9FF2C]">
-                          ONLINE RESCUE DISPATCH FORM
-                        </span>
-                        <h3 className="font-display-sans uppercase text-2xl font-black text-white mt-1">
-                          Request Immediate Leftover Food Pickup
-                        </h3>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-mono-tabular font-bold uppercase text-white/70 mb-1.5">
-                            Estimated Servings Available *
-                          </label>
-                          <select
-                            value={foodServings}
-                            onChange={(e) => setFoodServings(e.target.value)}
-                            className="w-full rounded-[10px] bg-[#080808] border border-white/20 px-3.5 py-3 text-xs text-white focus:outline-none focus:border-[#B9FF2C]"
-                          >
-                            <option value="25-50 People">25 – 50 Servings (Minimum)</option>
-                            <option value="50-100 People">50 – 100 Servings</option>
-                            <option value="100-250 People">100 – 250 Servings</option>
-                            <option value="250-500+ People">250 – 500+ Servings (Large Wedding/Buffet)</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-mono-tabular font-bold uppercase text-white/70 mb-1.5">
-                            Event / Source Type *
-                          </label>
-                          <select
-                            value={eventType}
-                            onChange={(e) => setEventType(e.target.value)}
-                            className="w-full rounded-[10px] bg-[#080808] border border-white/20 px-3.5 py-3 text-xs text-white focus:outline-none focus:border-[#B9FF2C]"
-                          >
-                            <option value="Wedding Reception / Banquet">Wedding Reception / Banquet</option>
-                            <option value="Birthday Party / Celebration">Birthday Party / Celebration</option>
-                            <option value="Corporate Tech Park Cafeteria">Corporate Tech Park Cafeteria</option>
-                            <option value="Restaurant / Cloud Kitchen">Restaurant / Cloud Kitchen Excess</option>
-                            <option value="Religious / Temple Feast">Religious / Temple Feast</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-mono-tabular font-bold uppercase text-white/70 mb-1.5">
-                          When Was Food Prepared? (Food Safety Requirement) *
-                        </label>
-                        <select
-                          value={cookedTimeAgo}
-                          onChange={(e) => setCookedTimeAgo(e.target.value)}
-                          className="w-full rounded-[10px] bg-[#080808] border border-white/20 px-3.5 py-3 text-xs text-white focus:outline-none focus:border-[#B9FF2C]"
-                        >
-                          <option value="Cooked 1-2 hours ago (Hot & Fresh)">Cooked 1 – 2 hours ago (Hot & Fresh)</option>
-                          <option value="Cooked 2-4 hours ago (Stored in clean vessels)">Cooked 2 – 4 hours ago (Stored in clean vessels)</option>
-                          <option value="Cooked 4-6 hours ago (Quality inspected)">Cooked 4 – 6 hours ago (Maximum safety cutoff)</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-mono-tabular font-bold uppercase text-white/70 mb-1.5">
-                          List Food Items Available *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={foodItems}
-                          onChange={(e) => setFoodItems(e.target.value)}
-                          placeholder="e.g. Biryani, Sambar Rice, Dal, Chapati, Paneer, Veg Korma"
-                          className="w-full rounded-[10px] bg-[#080808] border border-white/20 px-4 py-3 text-xs text-white focus:outline-none focus:border-[#B9FF2C]"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-mono-tabular font-bold uppercase text-white/70 mb-1.5">
-                          Exact Pickup Location / Venue Address *
-                        </label>
-                        <textarea
-                          rows={2}
-                          required
-                          value={venueAddress}
-                          onChange={(e) => setVenueAddress(e.target.value)}
-                          placeholder="Function hall name, Gate number, Street, Landmark"
-                          className="w-full rounded-[10px] bg-[#080808] border border-white/20 px-4 py-3 text-xs text-white focus:outline-none focus:border-[#B9FF2C] resize-none"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-mono-tabular font-bold uppercase text-white/70 mb-1.5">
-                            Coordinator Name *
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            value={rescueContactName}
-                            onChange={(e) => setRescueContactName(e.target.value)}
-                            className="w-full rounded-[10px] bg-[#080808] border border-white/20 px-4 py-3 text-xs text-white focus:outline-none focus:border-[#B9FF2C]"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-mono-tabular font-bold uppercase text-white/70 mb-1.5">
-                            Direct Phone (Kept ON for driver) *
-                          </label>
-                          <input
-                            type="tel"
-                            required
-                            value={rescueContactPhone}
-                            onChange={(e) => setRescueContactPhone(e.target.value)}
-                            className="w-full rounded-[10px] bg-[#080808] border border-white/20 px-4 py-3 text-xs text-white focus:outline-none focus:border-[#B9FF2C]"
-                          />
-                        </div>
-                      </div>
-
-                      <button
-                        type="submit"
-                        className="w-full py-4 px-6 rounded-[12px] bg-[#B9FF2C] hover:bg-[#aef425] text-[#080808] font-mono-tabular text-xs font-black uppercase tracking-wider inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                      >
-                        <Truck className="w-4 h-4 text-[#080808]" />
-                        <span>DISPATCH RESCUE VAN NOW</span>
-                      </button>
-                    </form>
-                  )}
-                </div>
+                    <Field
+                      accent="lime" label="When was the food cooked?" hint="Required for food safety"
+                      value={f.cooked} onChange={set('cooked')} placeholder="Choose a time"
+                      options={[['1-2h', '1 – 2 hours ago (hot & fresh)'], ['2-4h', '2 – 4 hours ago (clean vessels)'], ['4-6h', '4 – 6 hours ago (safety cutoff)']]}
+                    />
+                    <Field accent="lime" label="Food items" value={f.items} onChange={set('items')} placeholder="e.g. Biryani, dal, chapati, paneer curry" />
+                    <Field accent="lime" label="Pickup address" rows={3} value={f.venue} onChange={set('venue')} placeholder="Function hall name, gate number, street, landmark" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Field accent="lime" label="Coordinator name" value={f.rName} onChange={set('rName')} placeholder="Your name" />
+                      <Field accent="lime" label="Direct phone" type="tel" value={f.rPhone} onChange={set('rPhone')} placeholder="Keep it on for the driver" />
+                    </div>
+                    <SubmitBtn accent="lime" Icon={Truck}>Dispatch rescue van now</SubmitBtn>
+                  </form>
+                )}
               </div>
 
-              {/* Right Column: Safety Protocol & Nearest Needy Centers */}
               <div className="lg:col-span-5 space-y-6">
-                <div className="rounded-[18px] bg-[#122023] p-6 border border-white/12">
-                  <span className="font-mono-tabular text-xs font-bold uppercase tracking-widest text-[#B9FF2C] block mb-3">
-                    FOOD HYGIENE & SAFETY PROTOCOL
-                  </span>
-                  <div className="space-y-3 text-xs text-white/80">
-                    <div className="flex items-start gap-2.5">
-                      <ShieldCheck className="w-4 h-4 text-[#49E619] shrink-0 mt-0.5" />
-                      <span><strong>Freshly Cooked Only:</strong> Food must be cooked on the same day within 6 hours.</span>
-                    </div>
-                    <div className="flex items-start gap-2.5">
-                      <ShieldCheck className="w-4 h-4 text-[#49E619] shrink-0 mt-0.5" />
-                      <span><strong>Clean Vessels:</strong> Covered in clean, sanitary food-grade containers or buffet chafers.</span>
-                    </div>
-                    <div className="flex items-start gap-2.5">
-                      <ShieldCheck className="w-4 h-4 text-[#49E619] shrink-0 mt-0.5" />
-                      <span><strong>Thermal Transit:</strong> Our vans carry insulated thermal boxes maintaining food warmth during rapid transfer.</span>
-                    </div>
-                  </div>
+                <div className={panel}>
+                  <h3 className="font-display-sans text-base font-bold text-[#B9FF2C] mb-4">Food safety rules</h3>
+                  <ul className="space-y-3 text-sm text-white/80 leading-relaxed">
+                    {[
+                      ['Freshly cooked only', 'cooked the same day, within 6 hours.'],
+                      ['Clean vessels', 'covered, food-grade containers or buffet chafers.'],
+                      ['Thermal transit', 'insulated boxes keep the food warm in the van.'],
+                    ].map(([b, t]) => (
+                      <li key={b} className="flex gap-3">
+                        <ShieldCheck className="w-4 h-4 text-[#49E619] shrink-0 mt-1" />
+                        <span><strong className="text-white">{b}:</strong> {t}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
 
-                <div className="rounded-[18px] bg-[#122023] p-6 border border-white/12">
-                  <span className="font-mono-tabular text-xs font-bold uppercase tracking-widest text-[#4EDBE2] block mb-4">
-                    NEAREST DISTRIBUTION SHELTERS MAPPED
-                  </span>
-                  <div className="space-y-3.5">
-                    {LEFTOVER_RESCUE_CENTERS.map((center) => (
-                      <div key={center.id} className="p-3.5 rounded-[12px] bg-[#080808] border border-white/10">
-                        <div className="font-display-sans uppercase text-sm font-black text-white">
-                          {center.name}
-                        </div>
-                        <div className="font-mono-tabular text-[11px] text-[#49E619] mt-0.5">
-                          {center.distanceKm}
-                        </div>
-                        <div className="text-[11px] text-white/70 mt-1">
-                          Capacity: {center.acceptedVolume}
-                        </div>
-                        <div className="mt-2 text-[10px] font-mono-tabular text-white/60">
-                          Direct Call: {center.contactNumber}
-                        </div>
+                <div className={panel}>
+                  <h3 className="font-display-sans text-base font-bold text-[#4EDBE2] mb-4">Nearest shelters</h3>
+                  <div className="space-y-3">
+                    {LEFTOVER_RESCUE_CENTERS.map((c) => (
+                      <div key={c.id} className="p-4 rounded-xl bg-[#080808] border border-white/10">
+                        <div className="font-display-sans uppercase text-sm font-black">{c.name}</div>
+                        <div className="text-xs font-semibold text-[#49E619] mt-1">{c.distanceKm}</div>
+                        <div className="text-xs text-white/70 mt-1.5">Capacity: {c.acceptedVolume}</div>
+                        <div className="text-xs text-white/60 mt-1">Call: {c.contactNumber}</div>
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        </section>
-      )}
+          </>
+        )}
+      </div>
     </div>
   );
 };
