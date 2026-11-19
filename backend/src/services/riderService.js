@@ -64,15 +64,23 @@ const updateStatus = async (user, orderNumber, { status }, file) => {
     const rider = await riderRepository.getRider(user._id);
     if (!rider) throw new AppError('Rider profile not found', 404);
 
+    // Upload first. If the status cannot be saved, the photo is deleted again
     const photoPublicId = status === 'delivered' ? await uploadImage(file.buffer) : null;
-    const order = await riderRepository.updateStatus(rider._id, orderNumber, status, photoPublicId);
+    const photoUrl = photoPublicId ? getPhotoUrl(photoPublicId) : null;
+
+    const order = await riderRepository
+        .updateStatus(rider._id, orderNumber, status, photoPublicId, photoUrl)
+        .catch(async (error) => {
+            if (photoPublicId) await deleteImage(photoPublicId);
+            throw error;
+        });
 
     if (!order) {
         if (photoPublicId) await deleteImage(photoPublicId);
         throw new AppError('Order not found or not in the correct status', 404);
     }
 
-    return photoPublicId ? { ...order, photoUrl: getPhotoUrl(photoPublicId) } : order;
+    return photoUrl ? { ...order, photoUrl } : order;
 };
 
 const currentDelivery = async (user) => {
@@ -101,6 +109,7 @@ const getMyDeliveries = async (user, { month, page, limit }) => {
             orderNumber: delivery.orderNumber,
             deliveredAt: delivery.deliveredAt,
             area: delivery.area,
+            // New records have the link saved. Older ones are built from the public id
             photoUrl: delivery.photoUrl || getPhotoUrl(delivery.photoPublicId) || '',
         })),
         pagination: { page, limit, total: totalDeliveries, totalPages: Math.ceil(totalDeliveries / limit) },

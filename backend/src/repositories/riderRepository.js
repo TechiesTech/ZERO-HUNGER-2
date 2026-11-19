@@ -66,34 +66,6 @@ const getAvailableOrders = async () => {
         { $limit: 20 },
         {
             $lookup: {
-                from: 'addresses',
-                localField: 'customerId',
-                foreignField: 'userId',
-                let: { orderAddressId: '$addressId' },
-                pipeline: [
-                    {
-                        $project: {
-                            _id: 0,
-                            address: {
-                                $arrayElemAt: [
-                                    {
-                                        $filter: {
-                                            input: '$addresses',
-                                            as: 'saved',
-                                            cond: { $eq: ['$$saved._id', '$$orderAddressId'] },
-                                        },
-                                    },
-                                    0,
-                                ],
-                            },
-                        },
-                    },
-                ],
-                as: 'savedAddress',
-            },
-        },
-        {
-            $lookup: {
                 from: 'kitchens',
                 localField: 'kitchenId',
                 foreignField: '_id',
@@ -126,8 +98,8 @@ const getAvailableOrders = async () => {
                 orderNumber: 1,
                 totalAmountInr: 1,
                 createdAt: 1,
-                deliveryArea: { $arrayElemAt: ['$savedAddress.address.area', 0] },
-                deliveryLocation: { $arrayElemAt: ['$savedAddress.address.location', 0] },
+                deliveryArea: '$deliveryAddress.area',
+                deliveryLocation: '$deliveryAddress.location',
                 kitchen: { $arrayElemAt: ['$kitchen', 0] },
             },
         },
@@ -146,7 +118,7 @@ const acceptOrder = async (riderId, orderNumber) => {
     if (!order) return null;
 
     try {
-        await Delivery.create({ orderId: order._id, riderId });
+        await Delivery.create({ orderId: order._id, riderId, status: 'accepted', acceptedAt: new Date() });
     } catch (error) {
         await Order.updateOne({ _id: order._id }, { $set: { assignedRiderId: null } });
         throw error;
@@ -155,37 +127,47 @@ const acceptOrder = async (riderId, orderNumber) => {
     return { orderNumber: order.orderNumber, status: 'accepted' };
 };
 
-const updateStatus = async (riderId, orderNumber, status, photoPublicId) => {
+// Order, delivery and the rider's counter change together, or not at all
+const updateStatus = async (riderId, orderNumber, status, photoPublicId, photoUrl) => {
     const flow = statusFlow[status];
     const updatedAt = new Date();
 
-    const order = await Order.findOneAndUpdate(
-        { orderNumber, assignedRiderId: riderId, isDeleted: false, customerMealStatus: flow.from },
-        { $set: { customerMealStatus: flow.to, [flow.orderTimeField]: updatedAt } },
-        { new: true }
-    )
-        .select('orderNumber customerMealStatus')
-        .lean();
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-    if (!order) return null;
+    try {
+        const order = await Order.findOneAndUpdate(
+            { orderNumber, assignedRiderId: riderId, isDeleted: false, customerMealStatus: flow.from },
+            { $set: { customerMealStatus: flow.to, [flow.orderTimeField]: updatedAt } },
+            { new: true, session }
+        )
+            .select('orderNumber customerMealStatus')
+            .lean();
 
-    if (status === 'pickedup') {
-        await Delivery.updateOne(
-            { orderId: order._id, riderId, isOpen: true },
-            { $set: { status, [flow.deliveryTimeField]: updatedAt } }
-        );
+        if (!order) {
+            await session.abortTransaction();
+            return null;
+        }
+
+        const deliveryChanges = { status, [flow.deliveryTimeField]: updatedAt };
+        if (status === 'delivered') {
+            Object.assign(deliveryChanges, { isOpen: false, photoPublicId, photoUrl });
+        }
+
+        await Delivery.updateOne({ orderId: order._id, riderId, isOpen: true }, { $set: deliveryChanges }, { session });
+
+        if (status === 'delivered') {
+            await Rider.updateOne({ _id: riderId }, { $inc: { totalDeliveries: 1 } }, { session });
+        }
+
+        await session.commitTransaction();
         return { ...order, updatedAt };
+    } catch (error) {
+        await session.abortTransaction();
+        throw error;
+    } finally {
+        await session.endSession();
     }
-
-    await Promise.all([
-        Delivery.updateOne(
-            { orderId: order._id, riderId, isOpen: true },
-            { $set: { status, isOpen: false, [flow.deliveryTimeField]: updatedAt, photoPublicId } }
-        ),
-        Rider.updateOne({ _id: riderId }, { $inc: { totalDeliveries: 1 } }),
-    ]);
-
-    return { ...order, updatedAt };
 };
 
 const currentDelivery = async (userId) => {
@@ -205,35 +187,6 @@ const currentDelivery = async (userId) => {
         { $match: { delivery: { $exists: true } } },
         { $lookup: { from: 'orders', localField: 'delivery.orderId', foreignField: '_id', as: 'order' } },
         { $set: { order: { $arrayElemAt: ['$order', 0] } } },
-        {
-            $lookup: {
-                from: 'addresses',
-                localField: 'order.customerId',
-                foreignField: 'userId',
-                let: { orderAddressId: '$order.addressId' },
-                pipeline: [
-                    {
-                        $project: {
-                            _id: 0,
-                            address: {
-                                $arrayElemAt: [
-                                    {
-                                        $filter: {
-                                            input: '$addresses',
-                                            as: 'saved',
-                                            cond: { $eq: ['$$saved._id', '$$orderAddressId'] },
-                                        },
-                                    },
-                                    0,
-                                ],
-                            },
-                        },
-                    },
-                ],
-                as: 'savedAddress',
-            },
-        },
-        { $set: { deliveryAddress: { $arrayElemAt: ['$savedAddress.address', 0] } } },
         {
             $lookup: {
                 from: 'kitchens',
@@ -271,17 +224,9 @@ const currentDelivery = async (userId) => {
                 totalAmountInr: '$order.totalAmountInr',
                 acceptedAt: '$delivery.acceptedAt',
                 pickedUpAt: '$delivery.pickedUpAt',
-                customerName: '$deliveryAddress.customerName',
-                customerPhone: '$deliveryAddress.customerPhone',
-                deliveryAddress: {
-                    addressLine1: '$deliveryAddress.addressLine1',
-                    addressLine2: '$deliveryAddress.addressLine2',
-                    area: '$deliveryAddress.area',
-                    landmark: '$deliveryAddress.landmark',
-                    city: '$deliveryAddress.city',
-                    pincode: '$deliveryAddress.pincode',
-                    location: '$deliveryAddress.location',
-                },
+                customerName: '$order.customerName',
+                customerPhone: '$order.customerPhone',
+                deliveryAddress: '$order.deliveryAddress',
                 kitchen: { $arrayElemAt: ['$kitchen', 0] },
             },
         },
@@ -310,39 +255,12 @@ const getMyDeliveries = async (userId, from, to, skip, limit) => {
                                 { $lookup: { from: 'orders', localField: 'orderId', foreignField: '_id', as: 'order' } },
                                 { $set: { order: { $arrayElemAt: ['$order', 0] } } },
                                 {
-                                    $lookup: {
-                                        from: 'addresses',
-                                        localField: 'order.customerId',
-                                        foreignField: 'userId',
-                                        let: { orderAddressId: '$order.addressId' },
-                                        pipeline: [
-                                            {
-                                                $project: {
-                                                    _id: 0,
-                                                    address: {
-                                                        $arrayElemAt: [
-                                                            {
-                                                                $filter: {
-                                                                    input: '$addresses',
-                                                                    as: 'saved',
-                                                                    cond: { $eq: ['$$saved._id', '$$orderAddressId'] },
-                                                                },
-                                                            },
-                                                            0,
-                                                        ],
-                                                    },
-                                                },
-                                            },
-                                        ],
-                                        as: 'savedAddress',
-                                    },
-                                },
-                                {
                                     $project: {
                                         _id: 0,
                                         orderNumber: '$order.orderNumber',
                                         deliveredAt: 1,
-                                        area: { $arrayElemAt: ['$savedAddress.address.area', 0] },
+                                        area: '$order.deliveryAddress.area',
+                                        photoUrl: 1,
                                         photoPublicId: 1,
                                     },
                                 },
