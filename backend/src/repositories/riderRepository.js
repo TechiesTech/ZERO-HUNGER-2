@@ -147,9 +147,6 @@ const getAvailableOrders = async () => {
     ]);
 };
 
-// Order assignment and delivery record are created together, or not at all.
-// withTransaction repeats the steps by itself on a write conflict, so when two riders
-// accept the same order, the second one finds it taken and gets null.
 const acceptOrder = async (riderId, orderNumber) => {
     let result = null;
 
@@ -163,7 +160,7 @@ const acceptOrder = async (riderId, orderNumber) => {
                 { $set: { assignedRiderId: riderId } },
                 { new: true, session }
             )
-                .select('orderNumber')
+                .select('orderNumber customerId kitchenId')
                 .lean();
 
             if (!order) return;
@@ -174,7 +171,12 @@ const acceptOrder = async (riderId, orderNumber) => {
                 { session }
             );
 
-            result = { orderNumber: order.orderNumber, status: 'accepted' };
+            result = {
+                orderNumber: order.orderNumber,
+                status: 'accepted',
+                customerId: order.customerId,
+                kitchenId: order.kitchenId,
+            };
         });
     } finally {
         await session.endSession();
@@ -183,8 +185,6 @@ const acceptOrder = async (riderId, orderNumber) => {
     return result;
 };
 
-// Order, delivery and the rider's counter change together, or not at all.
-// withTransaction runs the steps again by itself if MongoDB reports a write conflict.
 const updateStatus = async (riderId, orderNumber, status, photoPublicId, photoUrl) => {
     const flow = statusFlow[status];
     const updatedAt = new Date();
@@ -200,7 +200,7 @@ const updateStatus = async (riderId, orderNumber, status, photoPublicId, photoUr
                 { $set: { customerMealStatus: flow.to, [flow.orderTimeField]: updatedAt } },
                 { new: true, session }
             )
-                .select('orderNumber customerMealStatus')
+                .select('orderNumber customerMealStatus customerId kitchenId')
                 .lean();
 
             if (!order) return;
@@ -234,7 +234,6 @@ const updateStatus = async (riderId, orderNumber, status, photoPublicId, photoUr
     return result;
 };
 
-// The rider gives the order back, only before pickup. The order goes back to the available list.
 const releaseOrder = async (riderId, orderNumber) => {
     let result = null;
 
@@ -248,7 +247,7 @@ const releaseOrder = async (riderId, orderNumber) => {
                 { $set: { assignedRiderId: null } },
                 { new: true, session }
             )
-                .select('orderNumber')
+                .select('orderNumber customerId kitchenId')
                 .lean();
 
             if (!order) return;
@@ -263,7 +262,12 @@ const releaseOrder = async (riderId, orderNumber) => {
                 throw new AppError('Open delivery not found for this order', 409);
             }
 
-            result = { orderNumber: order.orderNumber, status: 'released' };
+            result = {
+                orderNumber: order.orderNumber,
+                status: 'released',
+                customerId: order.customerId,
+                kitchenId: order.kitchenId,
+            };
         });
     } finally {
         await session.endSession();

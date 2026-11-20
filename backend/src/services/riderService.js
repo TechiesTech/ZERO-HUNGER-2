@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import AppError from '../utils/appError.js';
 import { uploadImage, deleteImage, getPhotoUrl } from '../config/cloudinary.js';
 import * as riderRepository from '../repositories/riderRepository.js';
+import { notifyOrderStatus, notifyOrderReady, notifyOrderTaken, notifyRiderRegistered } from '../socket.js';
 
 // A failed delete must never hide the real error, so it is only logged
 const safeDeleteImage = async (photoPublicId) => {
@@ -16,12 +17,15 @@ const safeDeleteImage = async (photoPublicId) => {
 const registerRider = async ({ name, email, phone, password, vehicleType, vehicleNumber }) => {
     const passwordHash = await bcrypt.hash(password, 12);
 
-    return riderRepository
+    const rider = await riderRepository
         .registerRider({ name, email, phone, passwordHash, vehicleType, vehicleNumber })
         .catch((error) => {
             if (error.code === 11000) throw new AppError('Email, phone or vehicle number is already registered', 409);
             throw error;
         });
+
+    notifyRiderRegistered(rider); // the admin sees the pending rider at once
+    return rider;
 };
 
 const setAvailability = async (user, { isAvailable }) => {
@@ -65,7 +69,18 @@ const acceptOrder = async (user, orderNumber) => {
     });
     if (!delivery) throw new AppError('Order is no longer available', 409);
 
-    return delivery;
+    const { customerId, kitchenId, ...data } = delivery;
+
+    notifyOrderTaken(data.orderNumber); // other riders remove it from their list
+    notifyOrderStatus({
+        orderNumber: data.orderNumber,
+        status: 'readyforpickup',
+        deliveryStatus: 'accepted',
+        customerId,
+        kitchenId,
+    });
+
+    return data;
 };
 
 const releaseOrder = async (user, orderNumber) => {
@@ -76,7 +91,19 @@ const releaseOrder = async (user, orderNumber) => {
     if (!released) {
         throw new AppError('Order not found, or it is already picked up and cannot be released', 404);
     }
-    return released;
+
+    const { customerId, kitchenId, ...data } = released;
+
+    notifyOrderReady(data.orderNumber); // open for other riders again
+    notifyOrderStatus({
+        orderNumber: data.orderNumber,
+        status: 'readyforpickup',
+        deliveryStatus: 'released',
+        customerId,
+        kitchenId,
+    });
+
+    return data;
 };
 
 const updateStatus = async (user, orderNumber, { status }, file) => {
@@ -101,7 +128,17 @@ const updateStatus = async (user, orderNumber, { status }, file) => {
         throw new AppError('Order not found or not in the correct status', 404);
     }
 
-    return photoUrl ? { ...order, photoUrl } : order;
+    const { customerId, kitchenId, ...data } = order;
+
+    notifyOrderStatus({
+        orderNumber: data.orderNumber,
+        status: data.customerMealStatus,
+        deliveryStatus: status,
+        customerId,
+        kitchenId,
+    });
+
+    return photoUrl ? { ...data, photoUrl } : data;
 };
 
 const currentDelivery = async (user) => {

@@ -1,6 +1,8 @@
 import 'dotenv/config';
+import http from 'http';
 import app from './app.js';
 import { connectDB } from './config/db.js';
+import { initSocket, closeSocket } from './socket.js';
 
 const port = process.env.PORT || 5000;
 
@@ -34,7 +36,11 @@ const startServer = async () => {
   try {
     await connectDB();
 
-    server = app.listen(port, '0.0.0.0', () => {
+    // Express and Socket.IO share one server and one port
+    server = http.createServer(app);
+    initSocket(server);
+
+    server.listen(port, '0.0.0.0', () => {
       console.log(`Server running on port ${port}`);
     });
   } catch (error) {
@@ -43,11 +49,11 @@ const startServer = async () => {
   }
 };
 
-// Render sends SIGTERM on every redeploy: let in-flight requests finish, then exit
+// Render sends SIGTERM on every redeploy: close sockets and the server, then exit
 const shutdown = (signal) => {
   console.log(`${signal} received, shutting down`);
   if (!server) process.exit(0);
-  server.close(() => process.exit(0));
+  closeSocket(() => process.exit(0));
   setTimeout(() => process.exit(1), 10000).unref(); // force exit if requests hang
 };
 process.on('SIGTERM', () => shutdown('SIGTERM'));
