@@ -192,6 +192,48 @@ const reviewRider = async (userId, { status, reason }) => {
     return rider;
 };
 
+const getMySummary = async (user, { month }) => {
+    const rider = await riderRepository.getRider(user._id);
+    if (!rider) throw new AppError('Rider profile not found', 404);
+
+    // Month range in Indian time
+    const currentMonth = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 7);
+    const selectedMonth = month || currentMonth;
+    if (selectedMonth > currentMonth) throw new AppError('Month cannot be in the future', 400);
+
+    const [year, monthNumber] = selectedMonth.split('-').map(Number);
+    const nextYear = monthNumber === 12 ? year + 1 : year;
+    const nextMonthNumber = monthNumber === 12 ? 1 : monthNumber + 1;
+    const from = new Date(`${selectedMonth}-01T00:00:00+05:30`);
+    const to = new Date(`${nextYear}-${String(nextMonthNumber).padStart(2, '0')}-01T00:00:00+05:30`);
+
+    // Today in Indian time. India has no daylight saving, so a day is always 24 hours
+    const today = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const todayFrom = new Date(`${today}T00:00:00+05:30`);
+    const todayTo = new Date(todayFrom.getTime() + 24 * 60 * 60 * 1000);
+
+    const { days, todayCount } = await riderRepository.getDeliverySummary(rider._id, from, to, todayFrom, todayTo);
+
+    // One row for every day, so the app can draw a calendar (days with no deliveries show 0)
+    const counts = new Map(days.map((day) => [day.date, day.deliveries]));
+    const daysInMonth = new Date(year, monthNumber, 0).getDate();
+    const lastDay = selectedMonth === currentMonth ? Number(today.slice(8, 10)) : daysInMonth;
+    const calendar = Array.from({ length: lastDay }, (_, index) => {
+        const date = `${selectedMonth}-${String(index + 1).padStart(2, '0')}`;
+        return { date, deliveries: counts.get(date) || 0 };
+    });
+
+    return {
+        today: { date: today, deliveries: todayCount },
+        month: {
+            month: selectedMonth,
+            totalDeliveries: days.reduce((sum, day) => sum + day.deliveries, 0),
+            daysWorked: days.length,
+            days: calendar,
+        },
+    };
+};
+
 export {
     registerRider,
     getMyProfile,
@@ -205,5 +247,6 @@ export {
     getMyDeliveries,
     getRiderStats,
     getAllRiders,
-    reviewRider
+    reviewRider,
+    getMySummary
 };

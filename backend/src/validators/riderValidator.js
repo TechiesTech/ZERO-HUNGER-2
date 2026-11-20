@@ -55,6 +55,12 @@ const registerRiderSchema = Joi.object({
     vehicleNumber: Joi.string().trim().uppercase().min(4).max(15).required(),
 });
 
+const getMySummarySchema = Joi.object({
+    month: Joi.string()
+        .pattern(/^\d{4}-(0[1-9]|1[0-2])$/)
+        .messages({ 'string.pattern.base': 'month must be in YYYY-MM format' }),
+});
+
 export {
     setAvailabilitySchema,
     updateLocationSchema,
@@ -64,5 +70,6 @@ export {
     orderNumberParamSchema,
     userIdParamSchema,
     reviewRiderSchema,
-    registerRiderSchema
+    registerRiderSchema,
+    getMySummarySchema
 };

@@ -34,5 +34,6 @@ deliverySchema.index(
 );
 deliverySchema.index({ orderId: 1, createdAt: 1 });
 deliverySchema.index({ riderId: 1, createdAt: -1 });
+deliverySchema.index({ riderId: 1, deliveredAt: -1 });
 
 export const Delivery = mongoose.model('Delivery', deliverySchema, 'deliveries');

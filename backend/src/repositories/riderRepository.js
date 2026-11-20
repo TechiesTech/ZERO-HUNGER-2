@@ -20,10 +20,6 @@ const statusFlow = {
     },
 };
 
-// The Order only stores addressId. The address itself is an element inside the customer's
-// addresses array, so it is looked up here and put on the document as deliveryAddress.
-// prefix is '' when the order is the root document, and 'order.' when it sits under $order.
-// Deleted addresses stay in the array, so old orders still find theirs.
 const addressStages = (prefix = '') => [
     {
         $lookup: {
@@ -491,6 +487,26 @@ const reviewRider = async (userId, status, reason) => {
         .lean();
 };
 
+// Delivered count for each day of the range (Indian time), plus today's count
+const getDeliverySummary = async (riderId, from, to, todayFrom, todayTo) => {
+    const [days, todayCount] = await Promise.all([
+        Delivery.aggregate([
+            { $match: { riderId, status: 'delivered', deliveredAt: { $gte: from, $lt: to } } },
+            {
+                $group: {
+                    _id: { $dateToString: { format: '%Y-%m-%d', date: '$deliveredAt', timezone: 'Asia/Kolkata' } },
+                    deliveries: { $sum: 1 },
+                },
+            },
+            { $sort: { _id: 1 } },
+            { $project: { _id: 0, date: '$_id', deliveries: 1 } },
+        ]),
+        Delivery.countDocuments({ riderId, status: 'delivered', deliveredAt: { $gte: todayFrom, $lt: todayTo } }),
+    ]);
+
+    return { days, todayCount };
+};
+
 export {
     registerRider,
     getRider,
@@ -507,4 +523,5 @@ export {
     getRiderStats,
     getAllRiders,
     reviewRider,
+    getDeliverySummary
 };
