@@ -2,16 +2,30 @@ import bcrypt from 'bcryptjs';
 import AppError from '../utils/appError.js';
 import { uploadImage, deleteImage, getPhotoUrl } from '../config/cloudinary.js';
 import * as riderRepository from '../repositories/riderRepository.js';
+import { notifyOrderStatus, notifyOrderReady, notifyOrderTaken, notifyRiderRegistered } from '../socket.js';
+
+// A failed delete must never hide the real error, so it is only logged
+const safeDeleteImage = async (photoPublicId) => {
+    if (!photoPublicId) return;
+    try {
+        await deleteImage(photoPublicId);
+    } catch (error) {
+        console.error('Could not delete delivery photo:', photoPublicId, error.message);
+    }
+};
 
 const registerRider = async ({ name, email, phone, password, vehicleType, vehicleNumber }) => {
     const passwordHash = await bcrypt.hash(password, 12);
 
-    return riderRepository
+    const rider = await riderRepository
         .registerRider({ name, email, phone, passwordHash, vehicleType, vehicleNumber })
         .catch((error) => {
             if (error.code === 11000) throw new AppError('Email, phone or vehicle number is already registered', 409);
             throw error;
         });
+
+    notifyRiderRegistered(rider); // the admin sees the pending rider at once
+    return rider;
 };
 
 const setAvailability = async (user, { isAvailable }) => {
@@ -55,7 +69,41 @@ const acceptOrder = async (user, orderNumber) => {
     });
     if (!delivery) throw new AppError('Order is no longer available', 409);
 
-    return delivery;
+    const { customerId, kitchenId, ...data } = delivery;
+
+    notifyOrderTaken(data.orderNumber); // other riders remove it from their list
+    notifyOrderStatus({
+        orderNumber: data.orderNumber,
+        status: 'readyforpickup',
+        deliveryStatus: 'accepted',
+        customerId,
+        kitchenId,
+    });
+
+    return data;
+};
+
+const releaseOrder = async (user, orderNumber) => {
+    const rider = await riderRepository.getRider(user._id);
+    if (!rider) throw new AppError('Rider profile not found', 404);
+
+    const released = await riderRepository.releaseOrder(rider._id, orderNumber);
+    if (!released) {
+        throw new AppError('Order not found, or it is already picked up and cannot be released', 404);
+    }
+
+    const { customerId, kitchenId, ...data } = released;
+
+    notifyOrderReady(data.orderNumber); // open for other riders again
+    notifyOrderStatus({
+        orderNumber: data.orderNumber,
+        status: 'readyforpickup',
+        deliveryStatus: 'released',
+        customerId,
+        kitchenId,
+    });
+
+    return data;
 };
 
 const updateStatus = async (user, orderNumber, { status }, file) => {
@@ -64,21 +112,37 @@ const updateStatus = async (user, orderNumber, { status }, file) => {
     const rider = await riderRepository.getRider(user._id);
     if (!rider) throw new AppError('Rider profile not found', 404);
 
+    // Upload first. If the status cannot be saved, the photo is deleted again
     const photoPublicId = status === 'delivered' ? await uploadImage(file.buffer) : null;
-    const order = await riderRepository.updateStatus(rider._id, orderNumber, status, photoPublicId);
+    const photoUrl = photoPublicId ? getPhotoUrl(photoPublicId) : null;
+
+    const order = await riderRepository
+        .updateStatus(rider._id, orderNumber, status, photoPublicId, photoUrl)
+        .catch(async (error) => {
+            await safeDeleteImage(photoPublicId);
+            throw error;
+        });
 
     if (!order) {
-        if (photoPublicId) await deleteImage(photoPublicId);
+        await safeDeleteImage(photoPublicId);
         throw new AppError('Order not found or not in the correct status', 404);
     }
 
-    return photoPublicId ? { ...order, photoUrl: getPhotoUrl(photoPublicId) } : order;
+    const { customerId, kitchenId, ...data } = order;
+
+    notifyOrderStatus({
+        orderNumber: data.orderNumber,
+        status: data.customerMealStatus,
+        deliveryStatus: status,
+        customerId,
+        kitchenId,
+    });
+
+    return photoUrl ? { ...data, photoUrl } : data;
 };
 
 const currentDelivery = async (user) => {
-    const delivery = await riderRepository.currentDelivery(user._id);
-    if (!delivery) throw new AppError('No delivery in progress', 404);
-    return delivery;
+    return riderRepository.currentDelivery(user._id);
 };
 
 const getMyDeliveries = async (user, { month, page, limit }) => {
@@ -103,6 +167,7 @@ const getMyDeliveries = async (user, { month, page, limit }) => {
             orderNumber: delivery.orderNumber,
             deliveredAt: delivery.deliveredAt,
             area: delivery.area,
+            // New records have the link saved. Older ones are built from the public id
             photoUrl: delivery.photoUrl || getPhotoUrl(delivery.photoPublicId) || '',
         })),
         pagination: { page, limit, total: totalDeliveries, totalPages: Math.ceil(totalDeliveries / limit) },
@@ -134,6 +199,7 @@ export {
     updateLocation,
     getAvailableOrders,
     acceptOrder,
+    releaseOrder,
     updateStatus,
     currentDelivery,
     getMyDeliveries,

@@ -5,6 +5,7 @@ import * as addressRepository from '../repositories/addressRepository.js';
 import * as geocoder from '../utils/geocoder.js';
 import { getCachedRoute } from '../utils/roadRoute.js';
 import { getPhotoUrl } from '../config/cloudinary.js';
+import { notifyNewOrder } from '../socket.js';
 
 const createOrder = async (user, body) => {
     // 1. The address must belong to this customer and not be deleted
@@ -50,7 +51,12 @@ const createOrder = async (user, body) => {
         const orderNumber = `ZH-ORD-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
         try {
             const { order, items } = await orderRepository.createOrder({ ...orderData, orderNumber }, orderItems);
-            return { ...order, items };
+            const created = { ...order, items };
+
+            // 5. Tell this order's kitchen (and admins) at once. Runs only after the order and items are saved
+            notifyNewOrder(created);
+
+            return created;
         } catch (error) {
             if (error.code !== 11000) throw error;
         }

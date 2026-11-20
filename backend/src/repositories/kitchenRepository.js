@@ -74,7 +74,7 @@ const getActiveKitchens = () =>
                 foreignField: '_id',
                 pipeline: [
                     { $match: { status: 'active', roles: 'kitchen' } },
-                    { $project: { name: 1 } },
+                    { $project: { name: 1, phone: 1 } },
                 ],
                 as: 'account',
             },
@@ -82,11 +82,13 @@ const getActiveKitchens = () =>
         {
             $addFields: {
                 name: { $ifNull: [{ $arrayElemAt: ['$account.name', 0] }, '$address'] },
+                phone: { $arrayElemAt: ['$account.phone', 0] },
             },
         },
         {
             $project: {
                 name: 1,
+                phone: 1,
                 address: 1,
                 location: 1,
             },

@@ -3,16 +3,7 @@ import * as riderService from '../services/riderService.js';
 const registerRider = async (req, res, next) => {
     try {
         const data = await riderService.registerRider(req.body);
-        return res.status(201).json({ success: true, message: 'Registration submitted, waiting for admin approval', data });
-    } catch (error) {
-        return next(error);
-    }
-};
-
-const setAvailability = async (req, res, next) => {
-    try {
-        const data = await riderService.setAvailability(req.user, req.body);
-        return res.status(200).json({ success: true, message: 'Availability updated successfully', data });
+        return res.status(201).json({ success: true, message: 'Registration received. Wait for admin approval', data });
     } catch (error) {
         return next(error);
     }
@@ -21,6 +12,15 @@ const setAvailability = async (req, res, next) => {
 const getMyProfile = async (req, res, next) => {
     try {
         const data = await riderService.getMyProfile(req.user);
+        return res.status(200).json({ success: true, data });
+    } catch (error) {
+        return next(error);
+    }
+};
+
+const setAvailability = async (req, res, next) => {
+    try {
+        const data = await riderService.setAvailability(req.user, req.body);
         return res.status(200).json({ success: true, data });
     } catch (error) {
         return next(error);
@@ -48,19 +48,21 @@ const getAvailableOrders = async (_req, res, next) => {
 const acceptOrder = async (req, res, next) => {
     try {
         const data = await riderService.acceptOrder(req.user, req.params.orderNumber);
-        return res.status(201).json({ success: true, message: 'Order accepted successfully', data });
+        return res.status(200).json({ success: true, message: 'Order accepted', data });
     } catch (error) {
         return next(error);
     }
 };
+
 const updateStatus = async (req, res, next) => {
     try {
         const data = await riderService.updateStatus(req.user, req.params.orderNumber, req.body, req.file);
-        return res.status(200).json({ success: true, message: 'Order status updated successfully', data });
+        return res.status(200).json({ success: true, message: 'Status updated', data });
     } catch (error) {
         return next(error);
     }
 };
+
 const currentDelivery = async (req, res, next) => {
     try {
         const data = await riderService.currentDelivery(req.user);
@@ -100,7 +102,16 @@ const getAllRiders = async (req, res, next) => {
 const reviewRider = async (req, res, next) => {
     try {
         const data = await riderService.reviewRider(req.params.userId, req.body);
-        return res.status(200).json({ success: true, message: 'Rider reviewed successfully', data });
+        return res.status(200).json({ success: true, message: 'Rider reviewed', data });
+    } catch (error) {
+        return next(error);
+    }
+};
+
+const releaseOrder = async (req, res, next) => {
+    try {
+        const data = await riderService.releaseOrder(req.user, req.params.orderNumber);
+        return res.status(200).json({ success: true, message: 'Order released', data });
     } catch (error) {
         return next(error);
     }
@@ -118,5 +129,6 @@ export {
     getMyDeliveries,
     getRiderStats,
     getAllRiders,
-    reviewRider
+    reviewRider,
+    releaseOrder,
 };

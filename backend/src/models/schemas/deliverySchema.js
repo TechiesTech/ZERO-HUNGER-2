@@ -4,7 +4,7 @@ const { Schema } = mongoose;
 
 const deliverySchema = new Schema(
     {
-        orderId: { type: Schema.Types.ObjectId, ref: 'Orders', required: true },
+        orderId: { type: Schema.Types.ObjectId, ref: 'Order', required: true },
         riderId: { type: Schema.Types.ObjectId, ref: 'Rider', required: true },
         status: {
             type: String,
