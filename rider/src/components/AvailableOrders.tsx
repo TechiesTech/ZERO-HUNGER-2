@@ -7,7 +7,14 @@ const addressToString = (address: any): string => {
   if (!address) return '';
   if (typeof address === 'string') return address;
   if (typeof address === 'object') {
-    const parts = [address.addressLine1, address.area, address.city, address.state].filter(Boolean);
+    const parts = [
+      address.addressLine1,
+      address.addressLine2,
+      address.area,
+      address.city,
+      address.state,
+      address.pincode,
+    ].filter(Boolean);
     return parts.join(', ');
   }
   return String(address);
@@ -102,7 +109,9 @@ export const AvailableOrders: React.FC<AvailableOrdersProps> = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold text-zinc-200">Customer Delivery</p>
-                    <p className="text-xs text-zinc-500 truncate">{addressToString(order.deliveryAddress)}</p>
+                    <p className="text-xs text-zinc-500 truncate">
+                      {order.deliveryArea || addressToString(order.deliveryAddress)}
+                    </p>
                   </div>
                 </div>
               </div>

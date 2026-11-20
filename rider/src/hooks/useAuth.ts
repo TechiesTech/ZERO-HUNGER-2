@@ -38,10 +38,10 @@ export const useAuth = () => {
     }
 
     try {
-      const res = await riderService.getMe();
-      if (hasRole(res.user, 'rider')) {
-        setUser(res.user);
-        await restoreOnlineStatus(res.user, setIsOnline);
+      const res = await riderService.getRiderProfile();
+      if (hasRole(res.rider, 'rider')) {
+        setUser(res.rider);
+        await restoreOnlineStatus(res.rider, setIsOnline);
       }
     } catch {
       clearSession();

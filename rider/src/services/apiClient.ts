@@ -54,6 +54,8 @@ export const apiClient = {
     request<T>(endpoint, { method: 'PATCH', body: body ? JSON.stringify(body) : undefined }),
   delete: <T>(endpoint: string) => request<T>(endpoint, { method: 'DELETE' }),
   postMultipart: <T>(endpoint: string, formData: FormData) =>
+    request<T>(endpoint, { method: 'POST', body: formData }),
+  patchMultipart: <T>(endpoint: string, formData: FormData) =>
     request<T>(endpoint, { method: 'PATCH', body: formData }),
 };
 

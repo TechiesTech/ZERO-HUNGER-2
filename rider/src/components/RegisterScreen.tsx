@@ -39,7 +39,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onBackToLogin })
   if (submitted) {
     return (
       <div className="min-h-screen bg-zinc-950 text-white flex flex-col justify-center p-6 text-center max-w-md mx-auto">
-        <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto mb-4">
+        <div className="w-16 h-16 rounded-full bg-[#49E619]/10 border border-[#49E619]/30 text-[#49E619] flex items-center justify-center mx-auto mb-4">
           <CheckCircle2 className="w-8 h-8" />
         </div>
         <h2 className="text-xl font-black text-white">Application Submitted!</h2>
@@ -84,7 +84,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onBackToLogin })
             placeholder="e.g. Ravi Kumar"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full h-11 bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 text-sm text-white outline-none focus:border-emerald-500"
+            className="w-full h-11 bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 text-sm text-white outline-none focus:border-[#49E619]"
           />
         </div>
 
@@ -96,7 +96,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onBackToLogin })
             placeholder="ravi@example.com"
             value={formData.email}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            className="w-full h-11 bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 text-sm text-white outline-none focus:border-emerald-500"
+            className="w-full h-11 bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 text-sm text-white outline-none focus:border-[#49E619]"
           />
         </div>
 
@@ -108,7 +108,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onBackToLogin })
             placeholder="9876543210"
             value={formData.phone}
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-            className="w-full h-11 bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 text-sm text-white outline-none focus:border-emerald-500"
+            className="w-full h-11 bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 text-sm text-white outline-none focus:border-[#49E619]"
           />
         </div>
 
@@ -120,7 +120,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onBackToLogin })
             placeholder="Create password"
             value={formData.password}
             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-            className="w-full h-11 bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 text-sm text-white outline-none focus:border-emerald-500"
+            className="w-full h-11 bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 text-sm text-white outline-none focus:border-[#49E619]"
           />
         </div>
 
@@ -130,7 +130,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onBackToLogin })
             <select
               value={formData.vehicleType}
               onChange={(e) => setFormData({ ...formData, vehicleType: e.target.value as VehicleType })}
-              className="w-full h-11 bg-zinc-900 border border-zinc-800 rounded-xl px-3 text-sm text-white outline-none focus:border-emerald-500"
+              className="w-full h-11 bg-zinc-900 border border-zinc-800 rounded-xl px-3 text-sm text-white outline-none focus:border-[#49E619]"
             >
               <option value="bike">Bike (Motorcycle)</option>
               <option value="scooty">Scooty / Scooter</option>
@@ -145,7 +145,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onBackToLogin })
               placeholder="TN09AB1234"
               value={formData.vehicleNumber}
               onChange={(e) => setFormData({ ...formData, vehicleNumber: e.target.value.toUpperCase() })}
-              className="w-full h-11 bg-zinc-900 border border-zinc-800 rounded-xl px-3 text-sm text-white outline-none focus:border-emerald-500 font-mono"
+              className="w-full h-11 bg-zinc-900 border border-zinc-800 rounded-xl px-3 text-sm text-white outline-none focus:border-[#49E619] font-mono"
             >
             </input>
           </div>
@@ -154,7 +154,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onBackToLogin })
         <button
           type="submit"
           disabled={loading}
-          className="w-full h-14 bg-emerald-500 hover:bg-emerald-600 active:scale-98 text-zinc-950 font-black text-sm rounded-xl mt-4 shadow-lg shadow-emerald-500/20"
+          className="w-full h-14 bg-[#49E619] hover:bg-[#3ED016] active:scale-98 text-zinc-950 font-black text-sm rounded-xl mt-4 shadow-lg shadow-[#49E619]/20"
         >
           {loading ? 'SUBMITTING...' : 'SUBMIT REGISTRATION'}
         </button>

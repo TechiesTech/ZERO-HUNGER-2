@@ -11,6 +11,8 @@ export interface RiderUser {
   status: RiderStatus;
   rejectionReason?: string;
   isAvailable?: boolean;
+  vehicleType?: VehicleType;
+  vehicleNumber?: string;
 }
 
 export const hasRole = (user: RiderUser | null | undefined, role: UserRole) =>
@@ -31,7 +33,13 @@ export interface AvailableOrder {
   customerMealStatus: 'readyforpickup' | 'confirmed' | 'preparing';
   kitchen: {
     name: string;
-    address: string;
+    phone?: string;
+    address: string | {
+      addressLine1?: string;
+      area?: string;
+      city?: string;
+      state?: string;
+    };
     location?: {
       latitude: number;
       longitude: number;
@@ -46,25 +54,38 @@ export interface AvailableOrder {
       latitude: number;
       longitude: number;
     };
+  };
+  deliveryArea?: string;
+  deliveryLocation?: {
+    latitude: number;
+    longitude: number;
   };
   createdAt: string;
 }
 
 export interface ActiveDelivery {
   orderNumber: string;
+  status?: string;
   customerMealStatus: 'readyforpickup' | 'outfordelivery' | 'delivered';
   customerName: string;
   customerPhone?: string;
   totalAmountInr: number;
   sponsoredMealsCount: number;
-  items: Array<{
+  acceptedAt?: string;
+  pickedUpAt?: string;
+  items?: Array<{
     productName: string;
     quantity: number;
   }>;
   kitchen: {
     name: string;
     phone?: string;
-    address: string;
+    address: string | {
+      addressLine1?: string;
+      area?: string;
+      city?: string;
+      state?: string;
+    };
     location?: {
       latitude: number;
       longitude: number;
@@ -72,10 +93,12 @@ export interface ActiveDelivery {
   };
   deliveryAddress: {
     addressLine1: string;
+    addressLine2?: string;
     area: string;
-    city: string;
-    pincode: string;
     landmark?: string;
+    city: string;
+    state?: string;
+    pincode: string;
     location?: {
       latitude: number;
       longitude: number;

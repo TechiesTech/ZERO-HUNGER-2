@@ -5,6 +5,7 @@ import type { ActiveDelivery } from '../types/rider';
 interface ActiveDeliveryPanelProps {
   delivery: ActiveDelivery;
   onMarkPickedUp: () => void;
+  onReleaseOrder?: () => void;
   onOpenDeliveryProof: () => void;
   isLoading?: boolean;
 }
@@ -14,7 +15,14 @@ const addressToString = (address: any): string => {
   if (!address) return '';
   if (typeof address === 'string') return address;
   if (typeof address === 'object') {
-    const parts = [address.addressLine1, address.area, address.city, address.state].filter(Boolean);
+    const parts = [
+      address.addressLine1,
+      address.addressLine2,
+      address.area,
+      address.city,
+      address.state,
+      address.pincode,
+    ].filter(Boolean);
     return parts.join(', ');
   }
   return String(address);
@@ -23,6 +31,7 @@ const addressToString = (address: any): string => {
 export const ActiveDeliveryPanel: React.FC<ActiveDeliveryPanelProps> = ({
   delivery,
   onMarkPickedUp,
+  onReleaseOrder,
   onOpenDeliveryProof,
   isLoading,
 }) => {
@@ -61,10 +70,8 @@ export const ActiveDeliveryPanel: React.FC<ActiveDeliveryPanelProps> = ({
     if (isPickedUp) {
       return delivery.customerPhone;
     }
-    // Try multiple possible phone fields for kitchen
-    return (
-      delivery.kitchen?.phone
-    );
+    // Kitchen phone is now properly populated from backend
+    return delivery.kitchen?.phone;
   };
 
   return (
@@ -79,7 +86,7 @@ export const ActiveDeliveryPanel: React.FC<ActiveDeliveryPanelProps> = ({
             #{delivery.orderNumber}
           </span>
           <span className="text-xs text-zinc-500">•</span>
-          <span className="text-xs text-zinc-400">{delivery.items?.length || 1} items</span>
+          <span className="text-xs text-zinc-400">{delivery.items?.length || delivery.sponsoredMealsCount || 1} items</span>
         </div>
         <span className="text-base font-black text-white">₹{delivery.totalAmountInr}</span>
       </div>
@@ -129,6 +136,17 @@ export const ActiveDeliveryPanel: React.FC<ActiveDeliveryPanelProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Release Order Button (only before pickup) */}
+      {!isPickedUp && onReleaseOrder && (
+        <button
+          onClick={onReleaseOrder}
+          disabled={isLoading}
+          className="w-full h-10 bg-zinc-800 hover:bg-zinc-700 active:scale-95 text-zinc-300 font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition-transform"
+        >
+          <span>Release Order</span>
+        </button>
+      )}
 
       {/* Compact Action Buttons */}
       {!isPickedUp ? (

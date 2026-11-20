@@ -9,7 +9,7 @@ import {
   GeoJSONSource,
 } from 'maplibre-gl';
 import type { Map as MapLibreMapType, StyleSpecification } from 'maplibre-gl';
-import { LocateFixed, Navigation } from 'lucide-react';
+import { LocateFixed } from 'lucide-react';
 import type { Coordinates } from '../types/rider';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -38,9 +38,7 @@ const ROUTE_SOURCE = 'route-line';
 const ROUTE_LAYER = 'route-layer';
 const ROUTE_CASING_LAYER = 'route-casing-layer';
 
-// Esri World Light Gray Canvas — white/light-grey tiles, free, no API key,
-// no sprites, no warnings. Clean minimal look like Zepto / Rapido.
-// Esri tile URLs use {z}/{y}/{x} order (not the standard {z}/{x}/{y}).
+// Esri World Light Gray Canvas - free, no API key required
 const MAP_STYLE: StyleSpecification = {
   version: 8,
   sources: {
@@ -58,80 +56,83 @@ const MAP_STYLE: StyleSpecification = {
 
 // ─── SVG Marker Factories ────────────────────────────────────────────────────
 
-/** Pulsing green dot for the rider — same feel as Zepto / Swiggy */
+/** "R" marker for rider (black theme) */
 function createRiderMarker(): HTMLElement {
   const wrap = document.createElement('div');
-  wrap.style.cssText = 'position:relative;width:28px;height:28px;';
+  wrap.style.cssText = 'position:relative;width:32px;height:32px;';
 
   // Outer pulse ring
   const pulse = document.createElement('div');
   pulse.style.cssText = `
     position:absolute;inset:0;border-radius:9999px;
-    background:rgba(16,185,129,0.25);
+    background:rgba(0, 0, 0, 0.15);
     animation:riderPulse 2s ease-out infinite;
   `;
 
-  // Inner filled dot
+  // Circle with "R" text
   const dot = document.createElement('div');
   dot.style.cssText = `
     position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-    width:16px;height:16px;border-radius:9999px;
-    background:#10b981;border:3px solid #ffffff;
-    box-shadow:0 2px 8px rgba(0,0,0,0.4);
+    width:28px;height:28px;border-radius:9999px;
+    background:#000000;border:3px solid #ffffff;
+    box-shadow:0 3px 12px rgba(0, 0, 0, 0.3);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:bold;font-size:16px;color:white;
   `;
+  dot.textContent = 'R';
 
   wrap.appendChild(pulse);
   wrap.appendChild(dot);
   return wrap;
 }
 
-/** Orange bag/store pin for the kitchen */
+/** Store icon marker for kitchen (black theme) */
 function createKitchenMarker(label?: string): HTMLElement {
   const wrap = document.createElement('div');
   wrap.title = label || 'Kitchen pickup';
-  wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;cursor:default;';
-
-  // Pin shape (Zepto-style rounded pill on top of triangle)
-  const pin = document.createElement('div');
-  pin.style.cssText = `
-    width:36px;height:36px;border-radius:50% 50% 50% 0;
-    transform:rotate(-45deg);
-    background:#f97316;
-    box-shadow:0 2px 10px rgba(249,115,22,0.5);
+  wrap.style.cssText = `
+    width:32px;height:32px;
     display:flex;align-items:center;justify-content:center;
   `;
 
-  // Icon inside (bag emoji as text, lightweight)
-  const icon = document.createElement('span');
-  icon.style.cssText = 'transform:rotate(45deg);font-size:16px;line-height:1;';
-  icon.textContent = '🍱';
+  // Store icon SVG
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('width', '32');
+  svg.setAttribute('height', '32');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'currentColor');
+  svg.style.cssText = 'color:#000000;width:32px;height:32px;';
 
-  pin.appendChild(icon);
-  wrap.appendChild(pin);
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', 'M20 4H4v2h16V4zm1 10v-2l-1-5H4l-1 5v2h1v6h10v-6h4v6h2v-6h1zm-9 4H6v-4h6v4z');
+  svg.appendChild(path);
+
+  wrap.appendChild(svg);
   return wrap;
 }
 
-/** Dark house pin for the customer — like Google Maps destination */
+/** Home icon marker for customer (black theme) */
 function createCustomerMarker(label?: string): HTMLElement {
   const wrap = document.createElement('div');
   wrap.title = label || 'Customer delivery';
-  wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;cursor:default;';
-
-  const pin = document.createElement('div');
-  pin.style.cssText = `
-    width:36px;height:36px;border-radius:50% 50% 50% 0;
-    transform:rotate(-45deg);
-    background:#7c3aed;
-    box-shadow:0 2px 10px rgba(124,58,237,0.5);
-    display:flex;align-items:center;justify-content:center;
+  wrap.style.cssText = `
+    width:32px;height:32px;
+    display:flex;align-items:center;justify-content-center;
   `;
 
-  const icon = document.createElement('span');
-  icon.style.cssText = 'transform:rotate(45deg);font-size:16px;line-height:1;';
-  icon.textContent = '🏠';
+  // Home icon SVG
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('width', '32');
+  svg.setAttribute('height', '32');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'currentColor');
+  svg.style.cssText = 'color:#000000;width:32px;height:32px;';
 
-  pin.appendChild(icon);
-  wrap.appendChild(pin);
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', 'M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z');
+  svg.appendChild(path);
+
+  wrap.appendChild(svg);
   return wrap;
 }
 
@@ -201,22 +202,22 @@ export const MapView: React.FC<MapViewProps> = ({
         data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } },
       });
 
-      // White casing (outer glow / border)
+      // Light casing behind for visibility (light gray) - added first
       map.addLayer({
         id: ROUTE_CASING_LAYER,
         type: 'line',
         source: ROUTE_SOURCE,
-        layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': '#ffffff', 'line-width': 10, 'line-opacity': 0.6 },
+        layout: { 'line-join': 'round', 'line-cap': 'round', 'line-dasharray': [4, 4] } as any,
+        paint: { 'line-color': '#000000', 'line-width': 5, 'line-opacity': 0.2 },
       });
 
-      // Purple main line — Zepto signature colour
+      // Dashed route line - main layer (green) - added on top
       map.addLayer({
         id: ROUTE_LAYER,
         type: 'line',
         source: ROUTE_SOURCE,
-        layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': '#7c3aed', 'line-width': 5, 'line-opacity': 0.95 },
+        layout: { 'line-join': 'round', 'line-cap': 'round', 'line-dasharray': [4, 4] } as any,
+        paint: { 'line-color': '#49E619', 'line-width': 3, 'line-opacity': 1 },
       });
 
       setIsMapReady(true);
@@ -248,15 +249,32 @@ export const MapView: React.FC<MapViewProps> = ({
     const src = map.getSource(ROUTE_SOURCE) as GeoJSONSource | undefined;
     if (!src) return;
 
+    // Generate simple route between rider and destination
+    let routeCoords: [number, number][] = [];
+    const riderPos: [number, number] | null = riderCoords ? [riderCoords.longitude, riderCoords.latitude] : null;
+
+    // Prioritize customer (after pickup), otherwise kitchen
+    const destPos: [number, number] | null = customerCoords
+      ? [customerCoords.longitude, customerCoords.latitude]
+      : kitchenCoords
+        ? [kitchenCoords.longitude, kitchenCoords.latitude]
+        : null;
+
+    if (riderPos && destPos) {
+      routeCoords = [riderPos, destPos];
+    } else if (routePath) {
+      routeCoords = routePath;
+    }
+
     src.setData({
       type: 'Feature',
       properties: {},
       geometry: {
         type: 'LineString',
-        coordinates: routePath ?? [],
+        coordinates: routeCoords,
       },
     });
-  }, [routePath, isMapReady]);
+  }, [riderCoords, kitchenCoords, customerCoords, routePath, statusText, isMapReady]);
 
   // ── Update markers + re-frame ───────────────────────────────────────────────
   useEffect(() => {
@@ -381,26 +399,7 @@ export const MapView: React.FC<MapViewProps> = ({
         </div>
       )}
 
-      {/* ── Marker legend (shown when active delivery) ── */}
-      {hasDelivery && (
-        <div className="absolute bottom-3 right-3 z-10 pointer-events-none">
-          <div className="bg-zinc-950/90 backdrop-blur-md rounded-xl px-3 py-2
-                          border border-zinc-800 shadow-lg flex flex-col gap-1.5">
-            {kitchenCoords && (
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-orange-500 border border-white/30" />
-                <span className="text-[10px] text-zinc-400">Kitchen</span>
-              </div>
-            )}
-            {customerCoords && (
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-violet-600 border border-white/30" />
-                <span className="text-[10px] text-zinc-400">Drop</span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* ── Marker legend removed ── */}
     </div>
   );
 };

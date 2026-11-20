@@ -22,8 +22,8 @@ export const riderService = {
     return apiClient.post('/auth/logout');
   },
 
-  getMe: async (): Promise<{ user: RiderUser }> => {
-    return apiClient.get('/auth/me');
+  getRiderProfile: async (): Promise<{ rider: RiderUser }> => {
+    return apiClient.get('/riders/me');
   },
 
   // Availability & GPS
@@ -45,17 +45,21 @@ export const riderService = {
     return apiClient.post(`/riders/acceptOrder/${orderNumber}`);
   },
 
+  releaseOrder: async (orderNumber: string) => {
+    return apiClient.patch(`/riders/releaseOrder/${orderNumber}`);
+  },
+
   markPickedUp: async (orderNumber: string) => {
     const formData = new FormData();
     formData.append('status', 'pickedup');
-    return apiClient.postMultipart(`/riders/updateStatus/${orderNumber}`, formData);
+    return apiClient.patchMultipart(`/riders/updateStatus/${orderNumber}`, formData);
   },
 
   markDelivered: async (orderNumber: string, photo: File) => {
     const formData = new FormData();
     formData.append('status', 'delivered');
     formData.append('file', photo); // Backend expects 'file' field, not 'photo'
-    return apiClient.postMultipart(`/riders/updateStatus/${orderNumber}`, formData);
+    return apiClient.patchMultipart(`/riders/updateStatus/${orderNumber}`, formData);
   },
 
   // The API answers 404 when the rider has no open delivery. That is a normal

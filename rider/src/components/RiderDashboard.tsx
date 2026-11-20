@@ -5,6 +5,8 @@ import { MapView } from './MapView';
 import { AvailableOrders } from './AvailableOrders';
 import { ActiveDeliveryPanel } from './ActiveDeliveryPanel';
 import { DeliveryPhotoModal } from './DeliveryPhotoModal';
+import { ProfilePage } from './ProfilePage';
+import { EditProfilePage } from './EditProfilePage';
 import { useRiderLocation } from '../hooks/useRiderLocation';
 import { useRiderContext } from '../context/RiderContext';
 import { useOnlineToggle } from '../hooks/useOnlineToggle';
@@ -24,6 +26,7 @@ export const RiderDashboard: React.FC = () => {
     isDeliveryLoading,
     fetchAvailableOrders,
     acceptOrder,
+    releaseOrder,
     markPickedUp: markOrderPickedUp,
     markDelivered,
   } = useOrders();
@@ -35,6 +38,8 @@ export const RiderDashboard: React.FC = () => {
   // Local state
   const [showPhotoModal, setShowPhotoModal] = React.useState(false);
   const [photoSubmitting, setPhotoSubmitting] = React.useState(false);
+  const [showMenu, setShowMenu] = React.useState(false);
+  const [currentView, setCurrentView] = React.useState<'dashboard' | 'profile' | 'editProfile'>('dashboard');
 
   // ============ Handlers ============
 
@@ -51,6 +56,17 @@ export const RiderDashboard: React.FC = () => {
     setBannerMessage(null);
     try {
       await markOrderPickedUp();
+    } catch (err: any) {
+      setBannerMessage({ type: 'error', message: err.message });
+    }
+  };
+
+  const handleReleaseOrder = async () => {
+    if (!activeDelivery) return;
+    setBannerMessage(null);
+    try {
+      await releaseOrder(activeDelivery.orderNumber);
+      setBannerMessage({ type: 'info', message: 'Order released successfully' });
     } catch (err: any) {
       setBannerMessage({ type: 'error', message: err.message });
     }
@@ -78,25 +94,85 @@ export const RiderDashboard: React.FC = () => {
     await logout();
   };
 
+  const handleMenuClick = () => {
+    setShowMenu(true);
+  };
+
+  const handleMenuClose = () => {
+    setShowMenu(false);
+  };
+
+  const handleProfileClick = () => {
+    setShowMenu(false);
+    setCurrentView('profile');
+  };
+
+  const handleEditProfileClick = () => {
+    setCurrentView('editProfile');
+  };
+
+  const handleBackToDashboard = () => {
+    setCurrentView('dashboard');
+  };
+
+  const handleBackToProfile = () => {
+    setCurrentView('profile');
+  };
+
+  const handleSaveProfile = async (data: any) => {
+    // TODO: Call API to update profile
+    console.log('Saving profile:', data);
+    setCurrentView('profile');
+  };
+
   // ============ Render Helpers ============
 
   const getMapStatusText = () => {
-    if (activeDelivery) return `Active Order #${activeDelivery.orderNumber}`;
+    if (activeDelivery) {
+      const isPickedUp = activeDelivery.customerMealStatus === 'outfordelivery';
+      return isPickedUp ? `Delivering #${activeDelivery.orderNumber}` : `Pickup #${activeDelivery.orderNumber}`;
+    }
     if (isOnline) return 'Waiting for nearby orders';
     return 'Offline';
   };
 
   const getKitchenCoords = () => {
-    if (!activeDelivery?.kitchen) return null;
-    return { ...activeDelivery.kitchen.location, name: activeDelivery.kitchen.name } as any;
+    if (!activeDelivery?.kitchen?.location) return null;
+    // Only show kitchen before pickup
+    if (activeDelivery.customerMealStatus === 'outfordelivery') return null;
+    return { latitude: activeDelivery.kitchen.location.latitude, longitude: activeDelivery.kitchen.location.longitude, name: activeDelivery.kitchen.name } as any;
   };
 
   const getCustomerCoords = () => {
-    if (!activeDelivery?.deliveryAddress) return null;
-    return { ...activeDelivery.deliveryAddress.location, address: activeDelivery.deliveryAddress.area } as any;
+    if (!activeDelivery?.deliveryAddress?.location) return null;
+    // Only show customer after pickup
+    if (activeDelivery.customerMealStatus !== 'outfordelivery') return null;
+    return { latitude: activeDelivery.deliveryAddress.location.latitude, longitude: activeDelivery.deliveryAddress.location.longitude, address: activeDelivery.deliveryAddress.area } as any;
   };
 
   // ============ Render ============
+
+  // Show Profile Page
+  if (currentView === 'profile') {
+    return (
+      <ProfilePage
+        user={user}
+        onBack={handleBackToDashboard}
+        onEditProfile={handleEditProfileClick}
+      />
+    );
+  }
+
+  // Show Edit Profile Page
+  if (currentView === 'editProfile') {
+    return (
+      <EditProfilePage
+        user={user}
+        onBack={handleBackToProfile}
+        onSave={handleSaveProfile}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white flex flex-col max-w-md mx-auto relative select-none">
@@ -104,6 +180,7 @@ export const RiderDashboard: React.FC = () => {
         riderName={user?.name || ''}
         isOnline={isOnline}
         onToggleOnline={toggleOnline}
+        onMenuClick={handleMenuClick}
         isLoading={toggleLoading}
         hasActiveDelivery={Boolean(activeDelivery)}
       />
@@ -121,6 +198,7 @@ export const RiderDashboard: React.FC = () => {
           kitchenCoords={getKitchenCoords()}
           customerCoords={getCustomerCoords()}
           statusText={getMapStatusText()}
+          eta={null}
         />
       </div>
 
@@ -129,6 +207,7 @@ export const RiderDashboard: React.FC = () => {
         <ActiveDeliveryPanel
           delivery={activeDelivery}
           onMarkPickedUp={handleMarkPickedUp}
+          onReleaseOrder={handleReleaseOrder}
           onOpenDeliveryProof={() => setShowPhotoModal(true)}
           isLoading={isDeliveryLoading}
         />
@@ -157,6 +236,47 @@ export const RiderDashboard: React.FC = () => {
           isSubmitting={photoSubmitting}
         />
       )}
+
+      {/* Menu Side Panel */}
+      <>
+        {/* Overlay */}
+        <div
+          className={`fixed inset-0 z-50 bg-black/50 transition-opacity duration-300 ${showMenu ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          onClick={handleMenuClose}
+        />
+        {/* Side Panel */}
+        <div className={`fixed top-0 left-0 h-full w-64 max-w-[80vw] bg-zinc-900 z-50 shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col ${showMenu ? 'translate-x-0' : '-translate-x-full'}`}>
+          <div className="p-6 border-b border-zinc-800">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white">Menu</h2>
+              <button
+                type="button"
+                onClick={handleMenuClose}
+                className="text-zinc-400 hover:text-white text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+            <button
+              onClick={handleProfileClick}
+              className="w-full p-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-left flex items-center justify-between transition-all active:scale-95"
+            >
+              <span className="text-sm font-semibold text-white">Profile</span>
+              <span className="text-zinc-400">→</span>
+            </button>
+            <button
+              onClick={handleLogout}
+              className="w-full p-4 rounded-xl bg-rose-600/10 hover:bg-rose-600/20 text-left flex items-center justify-between transition-all active:scale-95"
+            >
+              <span className="text-sm font-semibold text-rose-400">Sign Out</span>
+              <span className="text-rose-400">→</span>
+            </button>
+          </div>
+        </div>
+      </>
     </div>
   );
 };

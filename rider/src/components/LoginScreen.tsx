@@ -30,20 +30,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onSwit
     <div className="min-h-screen bg-zinc-950 text-white flex flex-col justify-between p-5 pt-safe pb-safe max-w-md mx-auto">
       {/* Top Brand */}
       <div className="pt-8 text-center space-y-3">
-        <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto shadow-xl shadow-emerald-500/10">
+        <div className="w-16 h-16 rounded-3xl bg-[#49E619]/10 border border-[#49E619]/30 text-[#49E619] flex items-center justify-center mx-auto shadow-xl shadow-[#49E619]/10">
           <Bike className="w-8 h-8" />
         </div>
         <div>
           <h1 className="text-2xl font-black tracking-tight text-white">ZERO HUNGER</h1>
-          <p className="text-xs font-bold text-emerald-400 tracking-wider uppercase mt-0.5">
+          <p className="text-xs font-bold text-[#49E619] tracking-wider uppercase mt-0.5">
             Rider Delivery Partner
           </p>
         </div>
       </div>
 
       {/* Login Card */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-2xl space-y-4 my-auto">
-        <h2 className="text-lg font-black text-white">Rider Login</h2>
+      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-2xl space-y-4 -mt-1 -mt-20">
+        <h2 className="text-lg font-black text-white text-center">Rider Login</h2>
 
         {error && (
           <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-xs font-semibold text-rose-300">
@@ -61,7 +61,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onSwit
                 placeholder="e.g. 9876543210 or email"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                className="w-full h-12 bg-zinc-950 border border-zinc-800 focus:border-emerald-500 rounded-xl px-4 text-sm font-medium text-white placeholder-zinc-500 outline-none transition-colors"
+                className="w-full h-12 bg-zinc-950 border-zinc-800 border focus:border-[#49E619] rounded-xl px-4 text-sm font-medium text-white placeholder-zinc-500 outline-none transition-colors"
               />
             </div>
           </div>
@@ -75,7 +75,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onSwit
                 placeholder="Enter password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full h-12 bg-zinc-950 border border-zinc-800 focus:border-emerald-500 rounded-xl px-4 text-sm font-medium text-white placeholder-zinc-500 outline-none transition-colors"
+                className="w-full h-12 bg-zinc-950 border-zinc-800 border focus:border-[#49E619] rounded-xl px-4 text-sm font-medium text-white placeholder-zinc-500 outline-none transition-colors"
               />
             </div>
           </div>
@@ -83,7 +83,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onSwit
           <button
             type="submit"
             disabled={loading}
-            className="w-full h-14 bg-emerald-500 hover:bg-emerald-600 active:scale-98 text-zinc-950 font-black text-sm rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 transition-transform mt-2"
+            className="w-full h-14 bg-[#49E619] hover:bg-[#3ED016] active:scale-98 text-zinc-950 font-black text-sm rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-[#49E619]/20 transition-transform mt-2"
           >
             <span>{loading ? 'LOGGING IN...' : 'SIGN IN AS RIDER'}</span>
             <ArrowRight className="w-4 h-4" />
@@ -97,7 +97,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onSwit
           Want to become a delivery partner?{' '}
           <button
             onClick={onSwitchToRegister}
-            className="text-emerald-400 font-bold underline ml-1 active:scale-95"
+            className="text-[#49E619] font-bold underline ml-1 active:scale-95"
           >
             Register as Rider
           </button>
