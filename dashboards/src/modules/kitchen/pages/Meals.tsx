@@ -343,7 +343,9 @@ export function Meals() {
                     <img
                       src={meal.imageUrl}
                       alt={meal.mealName}
-                      className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                      className={`w-full h-full object-cover transition-transform duration-300 ${
+                        meal.isAvailable ? 'hover:scale-105' : 'grayscale opacity-60'
+                      }`}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-white/20">

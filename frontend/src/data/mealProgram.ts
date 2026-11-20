@@ -38,6 +38,8 @@ export interface MealProduct {
   proteinGrams: number;
   calories: number;
   image: string;
+  isAvailable: boolean;
+  unavailableReason?: string;
   isEligibleBuyOneGiveOne: boolean;
 }
 
@@ -339,6 +341,7 @@ export const MEAL_PRODUCTS: MealProduct[] = [
     proteinGrams: 28,
     calories: 640,
     image: MEAL_IMAGES.proteinPower,
+    isAvailable: true,
     isEligibleBuyOneGiveOne: true,
   },
   {
@@ -352,6 +355,7 @@ export const MEAL_PRODUCTS: MealProduct[] = [
     proteinGrams: 19,
     calories: 590,
     image: MEAL_IMAGES.nutritiousVeg,
+    isAvailable: true,
     isEligibleBuyOneGiveOne: true,
   },
   {
@@ -365,6 +369,7 @@ export const MEAL_PRODUCTS: MealProduct[] = [
     proteinGrams: 26,
     calories: 620,
     image: MEAL_IMAGES.proteinPower,
+    isAvailable: true,
     isEligibleBuyOneGiveOne: true,
   },
   {
@@ -378,6 +383,7 @@ export const MEAL_PRODUCTS: MealProduct[] = [
     proteinGrams: 34,
     calories: 680,
     image: MEAL_IMAGES.chickenProtein,
+    isAvailable: true,
     isEligibleBuyOneGiveOne: true,
   },
   {
@@ -391,6 +397,7 @@ export const MEAL_PRODUCTS: MealProduct[] = [
     proteinGrams: 24,
     calories: 650,
     image: MEAL_IMAGES.nutritiousVeg,
+    isAvailable: true,
     isEligibleBuyOneGiveOne: true,
   },
   {
@@ -404,6 +411,7 @@ export const MEAL_PRODUCTS: MealProduct[] = [
     proteinGrams: 18,
     calories: 520,
     image: MEAL_IMAGES.kidsNutrition,
+    isAvailable: true,
     isEligibleBuyOneGiveOne: true,
   },
   {
@@ -417,6 +425,7 @@ export const MEAL_PRODUCTS: MealProduct[] = [
     proteinGrams: 22,
     calories: 670,
     image: MEAL_IMAGES.nutritiousVeg,
+    isAvailable: true,
     isEligibleBuyOneGiveOne: true,
   },
 ];

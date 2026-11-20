@@ -45,6 +45,7 @@ const initSocket = (httpServer) => {
     io.use(async (socket, next) => {
         try {
             const cookies = parseCookies(socket.handshake.headers.cookie || '');
+            if (!cookies[AUTH_COOKIE]) return next();
             const user = await verifyToken(cookies[AUTH_COOKIE]);
             if (user.mustChangePassword) return next(new Error('Change your password first'));
 
@@ -56,6 +57,8 @@ const initSocket = (httpServer) => {
     });
 
     io.on('connection', (socket) => {
+        socket.join('public:meals');
+        if (!socket.data.user) return;
         const { id, roles } = socket.data.user;
         socket.join(`user:${id}`); // customer, kitchen or rider private room
         roles.forEach((role) => socket.join(`role:${role}`)); // role:admin, role:rider ...
@@ -80,6 +83,16 @@ const emit = (room, event, payload) => {
 
 const toUser = (userId, event, payload) => emit(`user:${userId}`, event, payload);
 const toRole = (role, event, payload) => emit(`role:${role}`, event, payload);
+const toPublicMeals = (event, payload) => emit('public:meals', event, payload);
+
+const notifyMealAvailability = (meal) => {
+    toPublicMeals('meal-availability', {
+        mealId: String(meal._id),
+        isAvailable: Boolean(meal.isAvailable),
+        unavailableReason: meal.unavailableReason || '',
+        at: new Date().toISOString(),
+    });
+};
 
 // A new order: only its own kitchen, plus admins
 const notifyNewOrder = (order) => {
@@ -121,4 +134,5 @@ export {
     notifyOrderReady,
     notifyOrderTaken,
     notifyRiderRegistered,
+    notifyMealAvailability,
 };

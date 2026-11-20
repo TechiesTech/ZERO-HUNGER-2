@@ -419,6 +419,22 @@ export function Meals(): React.ReactElement {
                     <td className="px-5 py-3 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
+                          onClick={async () => {
+                            try {
+                              await updateMeal(m._id, { isAvailable: !m.isAvailable });
+                            } catch (err) {
+                              setSubmitError(err instanceof Error ? err.message : 'Failed to update availability');
+                            }
+                          }}
+                          className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                            m.isAvailable
+                              ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20'
+                              : 'bg-[#49E619]/10 text-[#49E619] hover:bg-[#49E619]/20'
+                          }`}
+                        >
+                          {m.isAvailable ? 'Mark Sold Out' : 'Mark Available'}
+                        </button>
+                        <button
                           onClick={() => openEdit(m)}
                           className="p-2 rounded-lg hover:bg-white/5 text-white/40 hover:text-[#4EDBE2] transition-colors cursor-pointer"
                           title="Edit"
