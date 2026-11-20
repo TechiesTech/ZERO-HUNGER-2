@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { kitchenApi } from '../services/kitchenApi';
-import type { KitchenOrder, KitchenProfile, Meal } from '../types';
+import {
+  isActiveKitchenOrderStatus,
+  isKitchenOrderStatus,
+  type KitchenOrder,
+  type KitchenProfile,
+  type Meal,
+} from '../types';
+import { getKitchenSocket } from '../services/kitchenSocket';
 import { useAuth } from '@core/auth/useAuth';
 import { formatDeliveryAddress } from '../components/formatDeliveryAddress';
 import {
@@ -56,6 +63,37 @@ export function Dashboard() {
   useEffect(() => {
     loadData();
   }, [user?._id]);
+
+  useEffect(() => {
+    const socket = getKitchenSocket();
+    const refreshOrders = async () => {
+      try {
+        const response = await kitchenApi.getPaidOrders();
+        if (response.data) setOrders(response.data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to refresh incoming orders');
+      }
+    };
+    const handleOrderStatus = (event: { orderNumber: string; status: string; at: string }) => {
+      const status = event.status;
+      if (!isKitchenOrderStatus(status)) return;
+      setOrders((current) => current.flatMap((order) => {
+        if (order.orderNumber !== event.orderNumber) return [order];
+        if (!isActiveKitchenOrderStatus(status)) return [];
+        return [{ ...order, customerMealStatus: status, updatedAt: event.at }];
+      }));
+    };
+
+    socket.on('new-order', refreshOrders);
+    socket.on('order-status', handleOrderStatus);
+    socket.io.on('reconnect', refreshOrders);
+
+    return () => {
+      socket.off('new-order', refreshOrders);
+      socket.off('order-status', handleOrderStatus);
+      socket.io.off('reconnect', refreshOrders);
+    };
+  }, []);
 
   const handleStartPreparing = async (orderId: string) => {
     setActionLoading(orderId);

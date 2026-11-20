@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { kitchenApi } from '../services/kitchenApi';
-import type { KitchenOrder } from '../types';
+import { isActiveKitchenOrderStatus, isKitchenOrderStatus, type KitchenOrder } from '../types';
+import { getKitchenSocket } from '../services/kitchenSocket';
 import { formatDeliveryAddress } from '../components/formatDeliveryAddress';
 import {
   PackageCheck,
@@ -53,31 +54,102 @@ export function Orders() {
   const [activeTab, setActiveTab] = useState<Tab>('ALL');
   const [search, setSearch] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [newOrderNotice, setNewOrderNotice] = useState('');
+  const seenOrderIds = useRef(new Set<string>());
+  const pendingOrderIds = useRef(new Set<string>());
+  const refreshInFlight = useRef<Promise<void> | null>(null);
 
-  const loadOrders = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await kitchenApi.getPaidOrders();
-      if (res.data) {
-        setOrders(res.data);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch incoming orders');
-    } finally {
-      setLoading(false);
+  const loadOrders = useCallback(async (showLoading = true) => {
+    if (refreshInFlight.current) {
+      return refreshInFlight.current;
     }
-  };
+
+    if (showLoading) setLoading(true);
+    setError('');
+    const refresh = (async () => {
+      try {
+        const res = await kitchenApi.getPaidOrders();
+        if (res.data) {
+          res.data.forEach((order) => seenOrderIds.current.add(order._id));
+          setOrders(res.data);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch incoming orders');
+      } finally {
+        if (showLoading) setLoading(false);
+      }
+    })();
+
+    refreshInFlight.current = refresh;
+    try {
+      await refresh;
+    } finally {
+      refreshInFlight.current = null;
+    }
+  }, []);
+
+  const applyStatus = useCallback((key: string, keyType: 'id' | 'number', status: KitchenOrder['customerMealStatus'], at: string) => {
+    setOrders((current) => current.flatMap((order) => {
+      const matches = keyType === 'id' ? order._id === key : order.orderNumber === key;
+      if (!matches) return [order];
+      if (!isActiveKitchenOrderStatus(status)) return [];
+      return [{ ...order, customerMealStatus: status, updatedAt: at }];
+    }));
+  }, []);
 
   useEffect(() => {
-    loadOrders();
-  }, []);
+    void loadOrders();
+  }, [loadOrders]);
+
+  useEffect(() => {
+    if (!newOrderNotice) return;
+    const timeout = window.setTimeout(() => setNewOrderNotice(''), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [newOrderNotice]);
+
+  useEffect(() => {
+    const socket = getKitchenSocket();
+    const handleNewOrder = async (event: { orderId: string; orderNumber: string }) => {
+      if (!event.orderId || seenOrderIds.current.has(event.orderId) || pendingOrderIds.current.has(event.orderId)) {
+        return;
+      }
+
+      pendingOrderIds.current.add(event.orderId);
+      setNewOrderNotice(`New order #${event.orderNumber} received`);
+      try {
+        await loadOrders(false);
+        if (!seenOrderIds.current.has(event.orderId)) {
+          await loadOrders(false);
+        }
+      } finally {
+        pendingOrderIds.current.delete(event.orderId);
+      }
+    };
+    const handleOrderStatus = (event: { orderNumber: string; status: string; at: string }) => {
+      if (isKitchenOrderStatus(event.status)) {
+        applyStatus(event.orderNumber, 'number', event.status, event.at);
+      }
+    };
+    const handleReconnect = () => {
+      void loadOrders(false);
+    };
+
+    socket.on('new-order', handleNewOrder);
+    socket.on('order-status', handleOrderStatus);
+    socket.io.on('reconnect', handleReconnect);
+
+    return () => {
+      socket.off('new-order', handleNewOrder);
+      socket.off('order-status', handleOrderStatus);
+      socket.io.off('reconnect', handleReconnect);
+    };
+  }, [applyStatus, loadOrders]);
 
   const handleStartPreparing = async (orderId: string) => {
     setActionLoading(orderId);
     try {
       await kitchenApi.startPreparing(orderId);
-      await loadOrders();
+      applyStatus(orderId, 'id', 'preparing', new Date().toISOString());
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to start preparing order');
     } finally {
@@ -89,7 +161,7 @@ export function Orders() {
     setActionLoading(orderId);
     try {
       await kitchenApi.markReady(orderId);
-      await loadOrders();
+      applyStatus(orderId, 'id', 'readyforpickup', new Date().toISOString());
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to mark order ready');
     } finally {
@@ -134,7 +206,7 @@ export function Orders() {
         </div>
 
         <button
-          onClick={loadOrders}
+          onClick={() => void loadOrders()}
           disabled={loading}
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/10 text-xs font-medium transition-colors cursor-pointer"
         >
@@ -147,6 +219,13 @@ export function Orders() {
         <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/25 text-red-400 text-xs flex items-center gap-2">
           <AlertCircle size={16} />
           <span>{error}</span>
+        </div>
+      )}
+
+      {newOrderNotice && (
+        <div className="flex items-center gap-2 rounded-xl border border-[#49E619]/25 bg-[#49E619]/10 px-4 py-3 text-xs font-medium text-[#49E619]" role="status" aria-live="polite">
+          <CheckCircle2 size={15} />
+          <span>{newOrderNotice}</span>
         </div>
       )}
 

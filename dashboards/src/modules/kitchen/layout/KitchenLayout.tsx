@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -18,6 +18,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { useAuth } from '@core/auth/useAuth';
+import { getKitchenSocket } from '../services/kitchenSocket';
 
 interface NavItem {
   to: string;
@@ -48,6 +49,39 @@ export function KitchenLayout(): React.ReactElement {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [socketStatus, setSocketStatus] = useState<'connecting' | 'live' | 'disconnected'>('connecting');
+  const [newOrderCount, setNewOrderCount] = useState(0);
+  const seenNewOrderIds = useRef(new Set<string>());
+
+  useEffect(() => {
+    const socket = getKitchenSocket();
+    const handleConnect = () => setSocketStatus('live');
+    const handleDisconnect = () => setSocketStatus('disconnected');
+    const handleConnectError = () => setSocketStatus('disconnected');
+    const handleNewOrder = (event: { orderId: string }) => {
+      if (!event.orderId || seenNewOrderIds.current.has(event.orderId)) return;
+      seenNewOrderIds.current.add(event.orderId);
+      setNewOrderCount((count) => count + 1);
+    };
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('connect_error', handleConnectError);
+    socket.on('new-order', handleNewOrder);
+    socket.connect();
+
+    return () => {
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('connect_error', handleConnectError);
+      socket.off('new-order', handleNewOrder);
+      socket.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (pathname.startsWith('/kitchen/orders')) setNewOrderCount(0);
+  }, [pathname]);
 
   const currentPage = KITCHEN_NAV_ITEMS.find((n) => pathname.startsWith(n.to))?.label ?? 'Dashboard';
 
@@ -262,6 +296,24 @@ export function KitchenLayout(): React.ReactElement {
           </div>
 
           <div className="flex items-center gap-3">
+            {newOrderCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#49E619]/25 bg-[#49E619]/10 px-2.5 py-1 text-[11px] font-semibold text-[#49E619]" role="status" aria-live="polite">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#49E619]" />
+                {newOrderCount === 1 ? 'New order' : `${newOrderCount} new orders`}
+              </span>
+            )}
+            <span
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-medium ${
+                socketStatus === 'live'
+                  ? 'bg-[#49E619]/10 border-[#49E619]/20 text-[#49E619]'
+                  : 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+              }`}
+              role="status"
+              aria-live="polite"
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${socketStatus === 'live' ? 'bg-[#49E619]' : 'bg-amber-300'}`} />
+              {socketStatus === 'live' ? 'Live' : socketStatus === 'connecting' ? 'Connecting' : 'Disconnected'}
+            </span>
             <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#49E619]/10 border border-[#49E619]/20 text-[11px] font-medium text-[#49E619]">
               <ChefHat size={12} />
               Kitchen Operational
