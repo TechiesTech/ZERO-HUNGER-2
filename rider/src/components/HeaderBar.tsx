@@ -1,5 +1,5 @@
 import React from 'react';
-import { Power, Menu, UserCheck, ShieldAlert } from 'lucide-react';
+import { Power, Menu } from 'lucide-react';
 
 interface HeaderBarProps {
   riderName: string;

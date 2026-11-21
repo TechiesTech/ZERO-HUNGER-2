@@ -112,7 +112,6 @@ export const riderService = {
   }> => {
     const query = month ? `?month=${month}` : '';
     const res = await apiClient.get<any>(`/riders/getMySummary${query}`);
-    console.log('[riderService] getMySummary response:', res);
     return res?.data || res;
   },
 };

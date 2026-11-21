@@ -22,13 +22,9 @@ export const connectSocket = () => {
     reconnectionDelayMax: 5000,
   });
 
-  socket.on('connect', () => {
-    console.log('[Socket] Connected');
-  });
+  socket.on('connect', () => {});
 
-  socket.on('disconnect', () => {
-    console.log('[Socket] Disconnected');
-  });
+  socket.on('disconnect', () => {});
 
   socket.on('connect_error', (error) => {
     console.error('[Socket] Connection error:', error.message);

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bike, KeyRound, User, Phone, ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react';
+import { Bike, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 interface LoginScreenProps {
   onLoginSuccess: (identifier: string, password: string) => Promise<void>;

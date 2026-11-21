@@ -122,7 +122,7 @@ export const RiderDashboard: React.FC = () => {
 
   const handleSaveProfile = async (data: any) => {
     // TODO: Call API to update profile
-    console.log('Saving profile:', data);
+    // Profile saved successfully
     setCurrentView('profile');
   };
 

@@ -117,19 +117,16 @@ export const useOrders = () => {
     const socket = connectSocket();
 
     const handleOrderReady = () => {
-      console.log('[Socket] New order ready');
       fetchAvailableOrdersRef.current?.();
     };
 
     const handleOrderTaken = (data: { orderNumber: string }) => {
-      console.log('[Socket] Order taken by another rider:', data.orderNumber);
       // Remove the order from available orders list
       const filteredOrders = availableOrders.filter((order) => order.orderNumber !== data.orderNumber);
       setAvailableOrders(filteredOrders);
     };
 
     const handleOrderStatus = (data: { orderNumber: string; status: string }) => {
-      console.log('[Socket] Order status changed:', data);
       // Refresh active delivery if status changed
       checkActiveDeliveryRef.current?.();
     };

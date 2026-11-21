@@ -21,5 +21,27 @@ export default defineConfig({
     port: 5175,
     host: '0.0.0.0',
   },
+  build: {
+    // Optimize for mobile/PWA
+    target: 'es2020',
+    minify: 'esbuild',
+    cssMinify: true,
+    sourcemap: false,
+    // Chunk size warning limit
+    chunkSizeWarningLimit: 1000,
+    // Manual chunks for better code splitting
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom')) return 'vendor-react';
+            if (id.includes('maplibre-gl')) return 'vendor-maplibre';
+            if (id.includes('socket.io-client')) return 'vendor-socket';
+            if (id.includes('lucide-react')) return 'vendor-icons';
+          }
+        },
+      },
+    },
+  },
 });
 
