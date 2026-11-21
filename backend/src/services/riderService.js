@@ -44,7 +44,20 @@ const setAvailability = async (user, { isAvailable }) => {
 const getMyProfile = async (user) => {
     const rider = await riderRepository.getRiderProfile(user._id);
     if (!rider) throw new AppError('Rider profile not found', 404);
-    return rider;
+
+    // Return flat structure with user and rider data
+    return {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        roles: user.roles,
+        status: user.status,
+        isAvailable: rider.isAvailable,
+        vehicleType: rider.vehicleType,
+        vehicleNumber: rider.vehicleNumber,
+        currentLocation: rider.currentLocation,
+    };
 };
 
 const updateLocation = async (user, { latitude, longitude, heading }) => {

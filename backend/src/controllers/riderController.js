@@ -11,8 +11,8 @@ const registerRider = async (req, res, next) => {
 
 const getMyProfile = async (req, res, next) => {
     try {
-        const data = await riderService.getMyProfile(req.user);
-        return res.status(200).json({ success: true, data });
+        const rider = await riderService.getMyProfile(req.user);
+        return res.status(200).json({ success: true, data: { rider } });
     } catch (error) {
         return next(error);
     }

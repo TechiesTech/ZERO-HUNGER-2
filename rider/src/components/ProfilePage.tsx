@@ -95,12 +95,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack, onEditPr
             </div>
           </div>
         </div>
-
-        {/* Settings Link */}
-        <button className="w-full p-4 rounded-2xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition-all flex items-center justify-between">
-          <span className="text-sm font-semibold text-white">Settings</span>
-          <span className="text-zinc-400">→</span>
-        </button>
       </div>
     </div>
   );

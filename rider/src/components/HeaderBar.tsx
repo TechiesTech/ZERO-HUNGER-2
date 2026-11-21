@@ -45,13 +45,13 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         <button
           onClick={onToggleOnline}
           disabled={isLoading || hasActiveDelivery}
-          className={`h-10 px-4 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95 shadow-md ${
+          className={`h-8 px-3 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all active:scale-95 shadow-sm ${
             isOnline
               ? 'bg-[#49E619] hover:bg-[#3ED016] text-zinc-950 shadow-[#49E619]/20'
               : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700'
           } ${hasActiveDelivery ? 'opacity-60 cursor-not-allowed' : ''}`}
         >
-          <Power className="w-4 h-4 shrink-0" />
+          <Power className="w-3.5 h-3.5 shrink-0" />
           <span>{isOnline ? 'OFFLINE' : 'ONLINE'}</span>
         </button>
       </div>

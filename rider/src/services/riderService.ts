@@ -26,6 +26,27 @@ export const riderService = {
     return apiClient.get('/riders/me');
   },
 
+  // Auth - Email & Password
+  verifyEmail: async (email: string, code: string) => {
+    return apiClient.post('/auth/verifyEmail', { email, code });
+  },
+
+  resendCode: async (email: string) => {
+    return apiClient.post('/auth/resendCode', { email });
+  },
+
+  forgotPassword: async (email: string) => {
+    return apiClient.post('/auth/forgotPassword', { email });
+  },
+
+  resetPassword: async (email: string, code: string, newPassword: string) => {
+    return apiClient.post('/auth/resetPassword', { email, code, newPassword });
+  },
+
+  changePassword: async (currentPassword: string, newPassword: string) => {
+    return apiClient.post('/auth/changePassword', { currentPassword, newPassword });
+  },
+
   // Availability & GPS
   setAvailability: async (isAvailable: boolean): Promise<{ isAvailable: boolean }> => {
     return apiClient.patch('/riders/setAvailability', { isAvailable });

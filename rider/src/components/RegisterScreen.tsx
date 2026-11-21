@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Bike, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Bike, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { riderService } from '../services/riderService';
 import type { VehicleType } from '../types/rider';
+import { useSwipeGesture } from '../hooks/useSwipeGesture';
 
 interface RegisterScreenProps {
   onBackToLogin: () => void;
+  onRegisterSuccess: (email: string) => void;
 }
 
-export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onBackToLogin }) => {
+export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onBackToLogin, onRegisterSuccess }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -17,9 +19,12 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onBackToLogin })
     vehicleNumber: '',
   });
 
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [submitted, setSubmitted] = useState(false);
+
+  // Swipe right to go back
+  useSwipeGesture({ onSwipeRight: onBackToLogin });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,33 +33,13 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onBackToLogin })
 
     try {
       await riderService.registerRider(formData);
-      setSubmitted(true);
+      onRegisterSuccess(formData.email);
     } catch (err: any) {
       setError(err.message || 'Registration failed. Please check your details.');
     } finally {
       setLoading(false);
     }
   };
-
-  if (submitted) {
-    return (
-      <div className="min-h-screen bg-zinc-950 text-white flex flex-col justify-center p-6 text-center max-w-md mx-auto">
-        <div className="w-16 h-16 rounded-full bg-[#49E619]/10 border border-[#49E619]/30 text-[#49E619] flex items-center justify-center mx-auto mb-4">
-          <CheckCircle2 className="w-8 h-8" />
-        </div>
-        <h2 className="text-xl font-black text-white">Application Submitted!</h2>
-        <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
-          Your rider application has been received and is waiting for administrator approval. You will receive an update once activated.
-        </p>
-        <button
-          onClick={onBackToLogin}
-          className="w-full h-14 bg-zinc-800 text-white font-bold text-sm rounded-xl mt-6 active:scale-95"
-        >
-          BACK TO LOGIN
-        </button>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white flex flex-col p-5 pt-safe pb-safe max-w-md mx-auto">
@@ -114,14 +99,23 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onBackToLogin })
 
         <div className="space-y-1">
           <label className="text-xs font-bold text-zinc-300">Password (min 8 chars)</label>
-          <input
-            type="password"
-            required
-            placeholder="Create password"
-            value={formData.password}
-            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-            className="w-full h-11 bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 text-sm text-white outline-none focus:border-[#49E619]"
-          />
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              required
+              placeholder="Create password"
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              className="w-full h-11 bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 pr-12 text-sm text-white outline-none focus:border-[#49E619]"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
+            >
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2.5">
@@ -156,7 +150,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onBackToLogin })
           disabled={loading}
           className="w-full h-14 bg-[#49E619] hover:bg-[#3ED016] active:scale-98 text-zinc-950 font-black text-sm rounded-xl mt-4 shadow-lg shadow-[#49E619]/20"
         >
-          {loading ? 'SUBMITTING...' : 'SUBMIT REGISTRATION'}
+          {loading ? 'Submitting...' : 'Submit Registration'}
         </button>
       </form>
     </div>
