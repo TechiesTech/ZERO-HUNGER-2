@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Edit3, User, Phone, Mail, Bike, Star, MapPin } from 'lucide-react';
+import { ArrowLeft, Edit3, User, Phone, Mail, Bike, MapPin } from 'lucide-react';
 import type { RiderUser } from '../types/rider';
 
 interface ProfilePageProps {
@@ -35,10 +35,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack, onEditPr
             <div className="flex-1">
               <h2 className="text-xl font-bold text-white">{user?.name}</h2>
               <p className="text-sm text-zinc-400">{user?.vehicleType || 'N/A'} - {user?.vehicleNumber || 'N/A'}</p>
-              <div className="flex items-center gap-1 mt-1">
-                <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                <span className="text-sm text-zinc-300">4.8 (156 reviews)</span>
-              </div>
             </div>
             <button
               onClick={onEditProfile}
@@ -49,21 +45,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ user, onBack, onEditPr
             </button>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-zinc-800 rounded-xl p-3 text-center">
-              <p className="text-2xl font-bold text-[#49E619]">156</p>
-              <p className="text-xs text-zinc-400">Deliveries</p>
-            </div>
-            <div className="bg-zinc-800 rounded-xl p-3 text-center">
-              <p className="text-2xl font-bold text-[#49E619]">₹12,450</p>
-              <p className="text-xs text-zinc-400">Earnings</p>
-            </div>
-            <div className="bg-zinc-800 rounded-xl p-3 text-center">
-              <p className="text-2xl font-bold text-[#49E619]">98%</p>
-              <p className="text-xs text-zinc-400">Rating</p>
-            </div>
-          </div>
         </div>
 
         {/* Contact Info */}

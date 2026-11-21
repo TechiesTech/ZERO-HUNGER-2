@@ -7,6 +7,7 @@ import { ActiveDeliveryPanel } from './ActiveDeliveryPanel';
 import { DeliveryPhotoModal } from './DeliveryPhotoModal';
 import { ProfilePage } from './ProfilePage';
 import { EditProfilePage } from './EditProfilePage';
+import { SummaryPage } from './SummaryPage';
 import { useRiderLocation } from '../hooks/useRiderLocation';
 import { useRiderContext } from '../context/RiderContext';
 import { useOnlineToggle } from '../hooks/useOnlineToggle';
@@ -39,7 +40,7 @@ export const RiderDashboard: React.FC = () => {
   const [showPhotoModal, setShowPhotoModal] = React.useState(false);
   const [photoSubmitting, setPhotoSubmitting] = React.useState(false);
   const [showMenu, setShowMenu] = React.useState(false);
-  const [currentView, setCurrentView] = React.useState<'dashboard' | 'profile' | 'editProfile'>('dashboard');
+  const [currentView, setCurrentView] = React.useState<'dashboard' | 'profile' | 'editProfile' | 'summary'>('dashboard');
 
   // ============ Handlers ============
 
@@ -125,6 +126,11 @@ export const RiderDashboard: React.FC = () => {
     setCurrentView('profile');
   };
 
+  const handleSummaryClick = () => {
+    setShowMenu(false);
+    setCurrentView('summary');
+  };
+
   // ============ Render Helpers ============
 
   const getMapStatusText = () => {
@@ -170,6 +176,16 @@ export const RiderDashboard: React.FC = () => {
         user={user}
         onBack={handleBackToProfile}
         onSave={handleSaveProfile}
+      />
+    );
+  }
+
+  // Show Summary Page
+  if (currentView === 'summary') {
+    return (
+      <SummaryPage
+        user={user}
+        onBack={handleBackToDashboard}
       />
     );
   }
@@ -265,6 +281,13 @@ export const RiderDashboard: React.FC = () => {
               className="w-full p-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-left flex items-center justify-between transition-all active:scale-95"
             >
               <span className="text-sm font-semibold text-white">Profile</span>
+              <span className="text-zinc-400">→</span>
+            </button>
+            <button
+              onClick={handleSummaryClick}
+              className="w-full p-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-left flex items-center justify-between transition-all active:scale-95"
+            >
+              <span className="text-sm font-semibold text-white">Delivery Summary</span>
               <span className="text-zinc-400">→</span>
             </button>
             <button

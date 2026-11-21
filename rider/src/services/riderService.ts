@@ -79,5 +79,20 @@ export const riderService = {
     if (month) query.set('month', month);
     return apiClient.get(`/riders/getMyDeliveries?${query.toString()}`);
   },
+
+  getMySummary: async (month?: string): Promise<{
+    today: { date: string; deliveries: number };
+    month: {
+      month: string;
+      totalDeliveries: number;
+      daysWorked: number;
+      days: Array<{ date: string; deliveries: number }>;
+    };
+  }> => {
+    const query = month ? `?month=${month}` : '';
+    const res = await apiClient.get<any>(`/riders/getMySummary${query}`);
+    console.log('[riderService] getMySummary response:', res);
+    return res?.data || res;
+  },
 };
 
