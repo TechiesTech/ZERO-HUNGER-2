@@ -4,50 +4,72 @@
  */
 
 import React, { lazy, Suspense, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { MealProgramProvider } from './context/MealProgramContext';
-import { Navbar } from './components/Navbar';
-import { Footer } from './components/Footer';
-import { PageTransition } from './components/PageTransition';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { Navbar } from './components/layout/Navbar';
+import { Footer } from './components/layout/Footer';
+import { PageTransition } from './components/layout/PageTransition';
 import type { SupportTab } from './components/SupportModal';
 import { useMealProgram } from './context/MealProgramContext';
 
 const Home = lazy(() => import('./pages/Home').then(({ Home }) => ({ default: Home })));
 const About = lazy(() => import('./pages/About').then(({ About }) => ({ default: About })));
 const Projects = lazy(() => import('./pages/Projects').then(({ Projects }) => ({ default: Projects })));
+const CSRTaxBenefits = lazy(() => import('./pages/CSRTaxBenefits').then(({ CSRTaxBenefits }) => ({ default: CSRTaxBenefits })));
 const ProjectDetail = lazy(() => import('./pages/ProjectDetail').then(({ ProjectDetail }) => ({ default: ProjectDetail })));
-const Impact = lazy(() => import('./pages/Impact').then(({ Impact }) => ({ default: Impact })));
 const Contact = lazy(() => import('./pages/Contact').then(({ Contact }) => ({ default: Contact })));
 const MealBox = lazy(() => import('./pages/MealBox').then(({ MealBox }) => ({ default: MealBox })));
 const TrackMeal = lazy(() => import('./pages/TrackMeal').then(({ TrackMeal }) => ({ default: TrackMeal })));
+const OrderLookup = lazy(() => import('./pages/OrderLookup').then(({ OrderLookup }) => ({ default: OrderLookup })));
 const LiveTracking = lazy(() => import('./pages/LiveTracking').then(({ LiveTracking }) => ({ default: LiveTracking })));
+const RiderDashboard = lazy(() => import('./pages/RiderDashboard').then(({ RiderDashboard }) => ({ default: RiderDashboard })));
 const ZeptoTracking = lazy(() => import('./pages/ZeptoTracking').then(({ ZeptoTracking }) => ({ default: ZeptoTracking })));
 const CelebrateAndGive = lazy(() => import('./pages/CelebrateAndGive').then(({ CelebrateAndGive }) => ({ default: CelebrateAndGive })));
-const CSRTaxBenefits = lazy(() => import('./pages/CSRTaxBenefits').then(({ CSRTaxBenefits }) => ({ default: CSRTaxBenefits })));
 const SupportModal = lazy(() => import('./components/SupportModal').then(({ SupportModal }) => ({ default: SupportModal })));
-const NotificationToast = lazy(() => import('./components/NotificationToast').then(({ NotificationToast }) => ({ default: NotificationToast })));
+const AuthModal = lazy(() => import('./components/AuthModal').then(({ AuthModal }) => ({ default: AuthModal })));
+const CartModal = lazy(() => import('./components/CartModal').then(({ CartModal }) => ({ default: CartModal })));
+const NotificationToast = lazy(() => import('./components/layout/NotificationToast').then(({ NotificationToast }) => ({ default: NotificationToast })));
 
 function AppContent() {
+  const [authModalOpen, setAuthModalOpen] = useState(false);
   const [supportModalOpen, setSupportModalOpen] = useState(false);
   const [supportModalLoaded, setSupportModalLoaded] = useState(false);
   const [supportModalTab, setSupportModalTab] = useState<SupportTab>('donate');
   const [preselectedProject, setPreselectedProject] = useState<string>('all');
-  const { pathname, search } = useLocation();
+  const [cartModalOpen, setCartModalOpen] = useState(false);
+  const [cartModalLoaded, setCartModalLoaded] = useState(false);
   const { activeToast } = useMealProgram();
+  const {
+    signIn,
+    signUp,
+    verifyEmail,
+    resendVerificationCode,
+    sendPasswordResetCode,
+    resetPassword,
+  } = useAuth();
 
   const handleOpenSupport = (
     tab: SupportTab = 'donate',
     projectSlug: string = 'all'
   ) => {
-    setSupportModalTab(tab);
-    setPreselectedProject(projectSlug);
-    setSupportModalLoaded(true);
-    setSupportModalOpen(true);
+    if (tab === 'cart') {
+      setCartModalLoaded(true);
+      setCartModalOpen(true);
+    } else {
+      setSupportModalTab(tab);
+      setPreselectedProject(projectSlug);
+      setSupportModalLoaded(true);
+      setSupportModalOpen(true);
+    }
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-white text-[#080808] selection:bg-[#D7262F] selection:text-white">
-      <Navbar onOpenSupport={(tab) => handleOpenSupport(tab, 'all')} />
+      <Navbar
+        onOpenSupport={(tab) => handleOpenSupport(tab, 'all')}
+        onOpenSignIn={() => setAuthModalOpen(true)}
+      />
 
       <Suspense
         fallback={
@@ -69,12 +91,13 @@ function AppContent() {
                   element={<Home onOpenSupport={handleOpenSupport} />}
                 />
                 <Route path="/meal-box" element={<MealBox />} />
-                <Route path="/track-order" element={<Navigate to={`/track-meal${search}`} replace />} />
+                <Route path="/track-order" element={<OrderLookup />} />
                 <Route path="/track-meal" element={<TrackMeal />} />
                 <Route
                   path="/live-tracking/:orderNumber"
                   element={<LiveTracking />}
                 />
+                <Route path="/rider" element={<RiderDashboard />} />
                 <Route
                   path="/zepto-tracking/:orderId"
                   element={<ZeptoTracking />}
@@ -83,7 +106,6 @@ function AppContent() {
                   path="/celebrate-and-give"
                   element={<CelebrateAndGive />}
                 />
-                <Route path="/csr-tax-benefits" element={<CSRTaxBenefits />} />
                 <Route
                   path="/about"
                   element={<About onOpenSupport={handleOpenSupport} />}
@@ -97,8 +119,8 @@ function AppContent() {
                   element={<ProjectDetail onOpenSupport={handleOpenSupport} />}
                 />
                 <Route
-                  path="/impact"
-                  element={<Impact onOpenSupport={handleOpenSupport} />}
+                  path="/csr-tax-benefits"
+                  element={<CSRTaxBenefits onOpenSupport={handleOpenSupport} />}
                 />
                 <Route path="/contact" element={<Contact />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
@@ -119,6 +141,30 @@ function AppContent() {
           />
         </Suspense>
       )}
+      {authModalOpen && (
+        <Suspense fallback={null}>
+          <AuthModal
+            isOpen={authModalOpen}
+            onClose={() => setAuthModalOpen(false)}
+            onAuthenticated={() => undefined}
+            onSignIn={signIn}
+            onSignUp={signUp}
+            onVerifyEmail={verifyEmail}
+            onResendVerificationCode={resendVerificationCode}
+            onForgotPassword={sendPasswordResetCode}
+            onResetPassword={resetPassword}
+          />
+        </Suspense>
+      )}
+      {cartModalLoaded && (
+        <Suspense fallback={null}>
+          <CartModal
+            isOpen={cartModalOpen}
+            onClose={() => setCartModalOpen(false)}
+            onRequestSignIn={() => setAuthModalOpen(true)}
+          />
+        </Suspense>
+      )}
       {activeToast && (
         <Suspense fallback={null}>
           <NotificationToast />
@@ -132,7 +178,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <MealProgramProvider>
-        <AppContent />
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
       </MealProgramProvider>
     </BrowserRouter>
   );

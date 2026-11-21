@@ -4,6 +4,8 @@ import * as orderRepository from '../repositories/orderRepository.js';
 import * as addressRepository from '../repositories/addressRepository.js';
 import * as geocoder from '../utils/geocoder.js';
 import { getCachedRoute } from '../utils/roadRoute.js';
+import { getPhotoUrl } from '../config/cloudinary.js';
+import { notifyNewOrder } from '../socket.js';
 
 const createOrder = async (user, body) => {
     // 1. The address must belong to this customer and not be deleted
@@ -34,10 +36,12 @@ const createOrder = async (user, body) => {
         throw new AppError('All meals in one order must be from the same kitchen', 400);
     }
 
+    // The delivery OTP is not created here. It is created when the rider marks the order picked up
     const orderData = {
         customerId: user._id,
         addressId: address._id,
         paymentMethod: body.paymentMethod,
+        paymentStatus: 'success',
         kitchenId,
         totalAmountInr: orderItems.reduce((sum, item) => sum + item.totalPriceInr, 0),
         sponsoredMealsCount: orderItems.reduce((sum, item) => sum + item.sponsoredChildMeals, 0),
@@ -48,7 +52,15 @@ const createOrder = async (user, body) => {
         const orderNumber = `ZH-ORD-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
         try {
             const { order, items } = await orderRepository.createOrder({ ...orderData, orderNumber }, orderItems);
-            return { ...order, items };
+
+            // The delivery code never leaves the server at this stage
+            const { deliveryOtp, deliveryOtpAttempts, ...safeOrder } = order;
+            const created = { ...safeOrder, items };
+
+            // 5. Tell this order's kitchen (and admins) at once. Runs only after the order and items are saved
+            notifyNewOrder(created);
+
+            return created;
         } catch (error) {
             if (error.code !== 11000) throw error;
         }
@@ -94,62 +106,67 @@ const trackLiveOrder = async (user, orderNumber) => {
                 { status: 'delivered', at: times.deliveredAt || null },
             ];
 
-    // Map data is only needed while the order is still active
-    let destination = null;
-    let kitchen = null;
+    const destination = order.deliveryLocation?.latitude != null ? order.deliveryLocation : null;
+    const kitchenPoint = order.kitchen?.location?.latitude != null ? order.kitchen.location : null;
+    const kitchen = order.kitchen
+        ? { name: order.kitchen.name, address: order.kitchen.address, location: kitchenPoint }
+        : null;
     let rider = null;
     let toKitchen = null;
     let toCustomer = null;
+    let toCustomerIsFallback = false;
     let estimatedDeliveryAt = null;
 
-    if (!isFinished) {
-        destination = order.deliveryLocation?.latitude != null ? order.deliveryLocation : null;
+    const riderInfo = order.delivery?.rider;
+    const riderLocation = riderInfo?.currentLocation || {};
+    const updatedAt = riderLocation.updatedAt ? new Date(riderLocation.updatedAt) : null;
+    const isLocationStale = !updatedAt || Date.now() - updatedAt.getTime() > 2 * 60 * 1000;
 
-        const kitchenPoint = order.kitchen?.location?.latitude != null ? order.kitchen.location : null;
-        if (order.kitchen) {
-            kitchen = { name: order.kitchen.name, address: order.kitchen.address, location: kitchenPoint };
-        }
+    // An old position is never used for a live route, ETA or marker.
+    const riderPoint = riderLocation.latitude != null && !isLocationStale ? riderLocation : null;
 
-        const riderInfo = order.delivery?.rider;
-        const riderLocation = riderInfo?.currentLocation || {};
-        const riderPoint = riderLocation.latitude != null ? riderLocation : null;
-        const updatedAt = riderLocation.updatedAt ? new Date(riderLocation.updatedAt) : null;
+    if (riderInfo) {
+        rider = {
+            name: riderInfo.name,
+            phone: riderInfo.phone,
+            vehicleType: riderInfo.vehicleType,
+            vehicleNumber: riderInfo.vehicleNumber,
+            status: order.delivery.status,
+            acceptedAt: order.delivery.acceptedAt || null,
+            pickedUpAt: order.delivery.pickedUpAt || null,
+            currentLocation: {
+                latitude: riderPoint ? riderLocation.latitude : null,
+                longitude: riderPoint ? riderLocation.longitude : null,
+                heading: riderPoint ? (riderLocation.heading ?? null) : null,
+                updatedAt,
+            },
+            isLocationStale,
+        };
+    }
 
-        if (riderInfo) {
-            rider = {
-                name: riderInfo.name,
-                vehicleType: riderInfo.vehicleType,
-                status: order.delivery.status,
-                acceptedAt: order.delivery.acceptedAt || null,
-                pickedUpAt: order.delivery.pickedUpAt || null,
-                currentLocation: {
-                    latitude: riderLocation.latitude ?? null,
-                    longitude: riderLocation.longitude ?? null,
-                    heading: riderLocation.heading ?? null,
-                    updatedAt,
-                },
-                isLocationStale: !updatedAt || Date.now() - updatedAt.getTime() > 2 * 60 * 1000,
-            };
-        }
-
-        // Routes and estimated delivery time
-        if (destination && status === 'outfordelivery' && riderPoint) {
+    // Keep a kitchen-to-customer route visible while the rider's GPS is unavailable.
+    if (destination && status === 'outfordelivery') {
+        if (riderPoint) {
             toCustomer = await getCachedRoute(order.orderNumber, 'rider-to-customer', riderPoint, destination);
-            estimatedDeliveryAt = new Date(Date.now() + toCustomer.durationSeconds * 1000);
-        } else if (destination && status !== 'outfordelivery' && kitchenPoint) {
-            if (riderPoint) {
-                toKitchen = await getCachedRoute(order.orderNumber, 'rider-to-kitchen', riderPoint, kitchenPoint);
-            }
+        } else if (kitchenPoint) {
             toCustomer = await getCachedRoute(order.orderNumber, 'kitchen-to-customer', kitchenPoint, destination);
-
-            if (status === 'readyforpickup' && toKitchen) {
-                const seconds = toKitchen.durationSeconds + toCustomer.durationSeconds;
-                estimatedDeliveryAt = new Date(Date.now() + seconds * 1000);
-            }
+            toCustomerIsFallback = Boolean(toCustomer);
         }
+    } else if (destination && status !== 'outfordelivery' && status !== 'cancelled' && kitchenPoint) {
+        if (!isFinished && riderPoint) {
+            toKitchen = await getCachedRoute(order.orderNumber, 'rider-to-kitchen', riderPoint, kitchenPoint);
+        }
+        toCustomer = await getCachedRoute(order.orderNumber, 'kitchen-to-customer', kitchenPoint, destination);
+    }
 
-        // No live route available, use the saved estimate
-        if (!estimatedDeliveryAt && status === 'outfordelivery') {
+    if (!isFinished) {
+        // Estimated delivery time
+        if (status === 'outfordelivery' && toCustomer && !toCustomerIsFallback) {
+            estimatedDeliveryAt = new Date(Date.now() + toCustomer.durationSeconds * 1000);
+        } else if (status === 'readyforpickup' && toKitchen && toCustomer) {
+            estimatedDeliveryAt = new Date(Date.now() + (toKitchen.durationSeconds + toCustomer.durationSeconds) * 1000);
+        } else if (status === 'outfordelivery') {
+            // No live route, use the saved estimate
             estimatedDeliveryAt = order.estimatedDeliveryAt || null;
         }
     }
@@ -167,10 +184,13 @@ const trackLiveOrder = async (user, orderNumber) => {
         destination,
         kitchen,
         rider,
+        deliveryPhotoUrl: order.delivery?.photoUrl || getPhotoUrl(order.delivery?.photoPublicId) || null,
         routes: { toKitchen, toCustomer },
         items: order.items,
         canEditDetails: status === 'confirmed' || status === 'preparing',
         canCancel: status === 'confirmed' && order.paymentStatus !== 'success',
+        // The code exists only after pickup, and is shown only while the order is out for delivery
+        deliveryOtp: status === 'outfordelivery' ? order.deliveryOtp || null : null,
     };
 };
 
@@ -205,7 +225,16 @@ const getAllOrders = async ({ customerMealStatus, paymentStatus, search, from, t
 const getOrderById = async (orderId) => {
     const order = await orderRepository.getOrderById(orderId);
     if (!order) throw new AppError('Order not found', 404);
-    return order;
+    return {
+        ...order,
+        deliveries: order.deliveries.map((delivery) => {
+            const { photoPublicId, ...deliveryDetails } = delivery;
+            return {
+                ...deliveryDetails,
+                photoUrl: delivery.photoUrl || getPhotoUrl(photoPublicId) || '',
+            };
+        }),
+    };
 };
 
 const getOrderStats = async () => {

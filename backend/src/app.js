@@ -12,6 +12,7 @@ import AppError from './utils/appError.js';
 import kitchenRoutes from './routes/kitchenRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import addressRoutes from './routes/addressRoutes.js'
+import { isAllowedOrigin } from './config/origins.js';
 
 const app = express();
 
@@ -20,26 +21,14 @@ app.set('trust proxy', 1);
 // Security Headers
 app.use(helmet());
 
-// CORS Configuration with credentials enabled
-const allowedOrigins = [
-  'https://zero-hunger-2-wgmf.vercel.app',
-  process.env.CLIENT_URL,
-  process.env.ADMIN_URL,
-]
-  .filter(Boolean)
-  .flatMap((url) => url.split(',').map((origin) => origin.trim()));
-
-if (process.env.NODE_ENV !== 'production') {
-  allowedOrigins.push('http://localhost:5173', 'http://localhost:5174');
-}
 app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-      return callback(new AppError('Blocked by CORS', 403));
-    },
-    credentials: true,
-  })
+    cors({
+        origin: (origin, callback) => {
+            if (!origin || isAllowedOrigin(origin)) return callback(null, true);
+            return callback(new AppError('Blocked by CORS', 403));
+        },
+        credentials: true,
+    })
 );
 
 app.use(cookieParser());

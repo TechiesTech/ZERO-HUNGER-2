@@ -8,6 +8,7 @@ import {
   Send,
   Upload,
 } from 'lucide-react';
+import { ApiError } from '../services/apiClient';
 import {
   BENEFICIARIES,
   CONSENTED_DELIVERY_PHOTOS,
@@ -16,6 +17,7 @@ import {
 import type { Order } from '../services/orderService';
 import { trackLiveOrder, type TrackingData } from '../services/trackingService';
 import { useMealProgram } from '../context/MealProgramContext';
+import { useAuth } from '../context/AuthContext';
 import { EditorialImage } from '../components/EditorialImage';
 import { DeliveryRouteMap } from '../components/DeliveryRouteMap';
 import { OrderLookupResults } from '../components/trackMeal/OrderLookupResults';
@@ -32,6 +34,7 @@ import {
 } from './trackMeal/trackMealUtils';
 
 export const TrackMeal: React.FC = () => {
+  const { user, loading: authLoading } = useAuth();
   const {
     markTokenDelivered,
     uploadDeliveryPhoto,
@@ -108,25 +111,20 @@ export const TrackMeal: React.FC = () => {
     if (identifiers.length === 0) return;
 
     setSearchPerformed(true);
-    if (!email.trim() || identifiers.length !== 1) {
-      setOrderError(!email.trim()
-        ? 'Enter the checkout email used for this meal.'
-        : 'Enter a single order number.');
+    if (identifiers.length !== 1) {
+      setOrderError('Enter a single order number.');
       return;
     }
 
     setLoading(true);
     try {
       const response = await trackLiveOrder(identifiers[0]);
-      console.log('[TrackMeal] trackLiveOrder response:', response.data);
-      console.log('[TrackMeal] kitchen details:', response.data.kitchen);
       setLiveTracking(response.data);
-      setTrackingEmail(email.trim().toLowerCase());
+      setTrackingEmail('authenticated');
       setTrackingRefreshError('');
       setViewMode('CUSTOMER_TRACKER');
       setLookupMode('tracking');
     } catch (lookupError) {
-      console.log('[TrackMeal] lookup error:', lookupError);
       setOrderError(lookupError instanceof Error ? lookupError.message : 'Could not find these orders.');
     } finally {
       setLoading(false);
@@ -138,44 +136,32 @@ export const TrackMeal: React.FC = () => {
     if (!orderNumber || !trackingEmail || lookupMode !== 'tracking') return;
 
     let disposed = false;
-    let requestInFlight = false;
+    let timer: number | null = null;
     const refreshTracking = async () => {
-      if (requestInFlight) return;
-      requestInFlight = true;
       try {
         const response = await trackLiveOrder(orderNumber);
         if (disposed) return;
 
         setTrackingRefreshError('');
-        setLiveTracking((current) => {
-          if (!current) return response.data;
-          const timelineChanged =
-            current.timeline.length !== response.data.timeline.length ||
-            current.timeline.some(
-              (step, index) =>
-                step.status !== response.data.timeline[index]?.status ||
-                step.at !== response.data.timeline[index]?.at,
-            );
-          return current.customerMealStatus !== response.data.customerMealStatus ||
-            timelineChanged
-            ? response.data
-            : current;
-        });
+        setLiveTracking(response.data);
+        if (response.data.customerMealStatus === 'delivered' || response.data.customerMealStatus === 'cancelled') return;
+        timer = window.setTimeout(refreshTracking, 5000);
       } catch (refreshError) {
         if (disposed) return;
-        console.error('[TrackMeal] status refresh error:', refreshError);
+        const delay = refreshError instanceof ApiError && refreshError.status === 429 ? 30000 : 10000;
         setTrackingRefreshError(
-          'Live updates are temporarily unavailable. Showing the last received status.',
+          refreshError instanceof ApiError && refreshError.status === 429
+            ? 'Tracking is rate-limited. Updates will resume shortly.'
+            : 'Live updates are temporarily unavailable. Showing the last received status.',
         );
-      } finally {
-        requestInFlight = false;
+        timer = window.setTimeout(refreshTracking, delay);
       }
     };
 
-    const interval = window.setInterval(refreshTracking, 5000);
+    timer = window.setTimeout(refreshTracking, 5000);
     return () => {
       disposed = true;
-      window.clearInterval(interval);
+      if (timer != null) window.clearTimeout(timer);
     };
   }, [liveTracking?.orderNumber, trackingEmail, lookupMode]);
 
@@ -220,6 +206,7 @@ export const TrackMeal: React.FC = () => {
         setOrderNumberInput={setOrderNumberInput}
         email={email}
         setEmail={setEmail}
+        hideEmail={authLoading || Boolean(user)}
         loading={loading}
         onSubmit={handleSearchSubmit}
         clearResult={clearTrackingResult}
@@ -322,16 +309,11 @@ export const TrackMeal: React.FC = () => {
                   </p>
                 </section>
               ) : (
-                <>
-              {/* INTERACTIVE LEAFLET GEOSPATIAL MAP: COMMUNITY KITCHENS & DELIVERY PATHS */}
-              <DeliveryRouteMap token={activeToken} liveTracking={liveTracking || undefined} />
-                </>
+                <DeliveryRouteMap token={activeToken} liveTracking={liveTracking || undefined} />
               )}
 
               {/* Status-specific impact and delivery details */}
-              {!isCancelled && <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                {/* RIGHT 7 COLUMNS: YOUR IMPACT + DELIVERY PHOTO + PRIVACY PROTECTION */}
-                <div className="lg:col-span-12 space-y-6">
+              {!isCancelled && <div className="space-y-6">
                   {isDelivered ? (
                     <div className="rounded-[18px] bg-brand-black border border-white/15 p-6 sm:p-9 shadow-2xl">
                       <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-white/12">
@@ -392,7 +374,9 @@ export const TrackMeal: React.FC = () => {
                             <span>PHOTO OF MEAL DELIVERY</span>
                           </span>
                           <span className="font-mono-tabular text-[11px] text-brand-green font-bold">
-                            {trackedOrder ? 'Photo not provided' : 'Safeguarding Consent Verified ✓'}
+                            {trackedOrder
+                              ? activeToken.deliveryPhoto ? 'Photo uploaded ✓' : 'Photo not provided'
+                              : 'Safeguarding Consent Verified ✓'}
                           </span>
                         </div>
 
@@ -552,7 +536,6 @@ export const TrackMeal: React.FC = () => {
                       met.
                     </p>
                   </div>
-                </div>
               </div>}
             </div>
           ) : (

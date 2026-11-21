@@ -185,7 +185,8 @@ export function createTrackingToken(order: Order): CharityToken {
     preparedAt: formatTrackingDate(order.statusTimestamps?.preparingAt),
     assignedAt: formatTrackingDate(order.statusTimestamps?.readyAt),
     deliveredAt: formatTrackingDate(order.statusTimestamps?.deliveredAt),
-    photoUploaded: false,
+    deliveryPhoto: order.deliveryPhotoUrl || undefined,
+    photoUploaded: Boolean(order.deliveryPhotoUrl),
     notificationSent: false,
   };
 }
@@ -221,6 +222,7 @@ export function createOrderFromLiveTracking(
       deliveredAt: timestampFor("delivered"),
       cancelledAt: timestampFor("cancelled"),
     },
+    deliveryPhotoUrl: tracking.deliveryPhotoUrl,
     createdAt: tracking.placedAt,
     updatedAt: tracking.placedAt,
   };

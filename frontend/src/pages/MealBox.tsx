@@ -14,6 +14,7 @@ import {
   Ticket,
   Trash2,
   Utensils,
+  X,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
@@ -23,13 +24,23 @@ import {
   MealProduct,
 } from '../data/mealProgram';
 import { useMealProgram } from '../context/MealProgramContext';
+import { useAuth } from '../context/AuthContext';
 import { useMeals } from '../hooks';
-import { getActiveKitchens, type Kitchen } from '../services/kitchenService';
+import { formatKitchenAddress, getActiveKitchens, type Kitchen } from '../services/kitchenService';
+import {
+  createAddress,
+  deleteAddress,
+  type SavedAddress,
+  updateAddress,
+} from '../services/addressService';
+import { AuthModal } from '../components/AuthModal';
+import { SavedAddressPicker } from '../components/SavedAddressPicker';
 import { EditorialImage } from '../components/EditorialImage';
 import { ScrollReveal } from '../components/ScrollReveal';
 import { PlateToHandsSteps } from '../components/PlateToHandsSteps';
 import AddressSection from '../components/AddressSection';
-import type { DeliveryPoint } from '../services/orderService';
+import LocationPicker from '../components/LocationPicker';
+import { getCheckoutDetails, type DeliveryAddress, type DeliveryPoint } from '../services/orderService';
 
 const CATEGORIES: MealCategory[] = [
   'ALL',
@@ -40,13 +51,37 @@ const CATEGORIES: MealCategory[] = [
   'FAMILY MEALS',
 ];
 
+const EMPTY_ADDRESS: DeliveryAddress = {
+  addressLine1: '',
+  addressLine2: '',
+  area: '',
+  landmark: '',
+  city: '',
+  state: '',
+  pincode: '',
+};
+
 export const MealBox: React.FC = () => {
   const navigate = useNavigate();
+  const {
+    user,
+    loading: authLoading,
+    authError,
+    refreshUser,
+    signIn,
+    signUp,
+    verifyEmail,
+    resendVerificationCode,
+    sendPasswordResetCode,
+    resetPassword,
+  } = useAuth();
   const {
     cart,
     cartCount,
     cartTotalInr,
     sponsoredMealsCount,
+    isCartOpen,
+    setIsCartOpen,
     addToCart,
     updateQuantity,
     removeFromCart,
@@ -63,20 +98,18 @@ export const MealBox: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<MealCategory>('ALL');
   const [checkoutStep, setCheckoutStep] = useState<'CART' | 'CHECKOUT' | 'CONFIRMED'>('CART');
   const [submitting, setSubmitting] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [isAddingNewAddress, setIsAddingNewAddress] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [addressActionLoading, setAddressActionLoading] = useState(false);
 
   // Customer checkout fields
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [deliveryAddress, setDeliveryAddress] = useState({
-    addressLine1: '',
-    addressLine2: '',
-    area: '',
-    landmark: '',
-    city: '',
-    state: '',
-    pincode: '',
-  });
+  const [deliveryAddress, setDeliveryAddress] = useState<DeliveryAddress>(EMPTY_ADDRESS);
   const [deliveryLocation, setDeliveryLocation] = useState<DeliveryPoint | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'CARD' | 'NET_BANKING'>('UPI');
   const [formError, setFormError] = useState('');
@@ -87,12 +120,34 @@ export const MealBox: React.FC = () => {
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!isCartOpen && checkoutStep !== 'CHECKOUT') return;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || submitting) return;
+      if (checkoutStep === 'CHECKOUT') {
+        setCheckoutStep('CART');
+        setIsCartOpen(true);
+      } else {
+        setIsCartOpen(false);
+      }
+    };
+
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [checkoutStep, isCartOpen, setIsCartOpen, submitting]);
+
+  useEffect(() => {
     let active = true;
     getActiveKitchens()
       .then((activeKitchens) => {
         if (!active) return;
         setKitchens(activeKitchens);
-        if (activeKitchens.length === 1) setSelectedKitchenId(activeKitchens[0]._id);
+        if (activeKitchens.length > 0) setSelectedKitchenId(activeKitchens[0]._id);
       })
       .catch((error: unknown) => {
         if (active) setKitchensError(error instanceof Error ? error.message : 'Failed to load kitchens');
@@ -108,7 +163,11 @@ export const MealBox: React.FC = () => {
   const filteredProducts =
     activeCategory === 'ALL'
       ? backendMeals
-      : backendMeals.filter((p) => p.categories.includes(activeCategory));
+      : backendMeals.filter((meal) =>
+          meal.categories.some(
+            (category) => category.trim().toUpperCase() === activeCategory
+          )
+        );
 
   const scrollToMeals = () => {
     const el = document.getElementById('meal-box-catalog');
@@ -117,15 +176,202 @@ export const MealBox: React.FC = () => {
     }
   };
 
-  const scrollToCart = () => {
-    const el = document.getElementById('your-cart-module');
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
+  const prepareCheckout = async (authenticatedUser = user) => {
+    if (!authenticatedUser) return;
+    if (!authenticatedUser.roles.includes('customer')) {
+      throw new Error('A customer account is required to place a meal order.');
+    }
+    const checkout = await getCheckoutDetails();
+    const addresses: SavedAddress[] = (checkout.addresses ?? [])
+      .filter((address) => Boolean(address._id))
+      .map((address) => ({
+        _id: address._id!,
+        addressLine1: address.addressLine1 || '',
+        addressLine2: address.addressLine2 || '',
+        area: address.area || '',
+        landmark: address.landmark || '',
+        city: address.city || '',
+        state: address.state || '',
+        pincode: address.pincode || '',
+        customerName: address.customerName || checkout.customer.name || authenticatedUser.name,
+        customerPhone: address.customerPhone || checkout.customer.phone || authenticatedUser.phone || '',
+        label: 'home',
+        location: address.location || null,
+        isDefault: Boolean(address.isDefault),
+      }));
+    setSavedAddresses(addresses);
+    const defaultAddressId = checkout.defaultAddress?._id;
+    const defaultAddress = addresses.find((address) => address._id === defaultAddressId)
+      || addresses.find((address) => address.isDefault)
+      || addresses[0];
+    setCustomerEmail(checkout.customer.email || authenticatedUser.email || '');
+    setSelectedAddressId(defaultAddress?._id || null);
+    setIsAddingNewAddress(!defaultAddress);
+    if (defaultAddress) {
+      setCustomerName(defaultAddress.customerName);
+      setCustomerPhone(defaultAddress.customerPhone || authenticatedUser.phone || '');
+      setDeliveryAddress({
+        addressLine1: defaultAddress.addressLine1,
+        addressLine2: defaultAddress.addressLine2 || '',
+        area: defaultAddress.area,
+        landmark: defaultAddress.landmark || '',
+        city: defaultAddress.city,
+        state: defaultAddress.state,
+        pincode: defaultAddress.pincode,
+      });
+      setDeliveryLocation(defaultAddress.location || null);
+    } else {
+      setCustomerName(checkout.customer.name || authenticatedUser.name);
+      setCustomerPhone(checkout.customer.phone || authenticatedUser.phone || '');
+      setDeliveryAddress(EMPTY_ADDRESS);
+      setDeliveryLocation(null);
+    }
+    setFormError('');
+    setCheckoutStep('CHECKOUT');
+    setIsCartOpen(false);
+  };
+
+  const selectSavedAddress = (address: SavedAddress) => {
+    setSelectedAddressId(address._id);
+    setIsAddingNewAddress(false);
+    setEditingAddressId(null);
+    setCustomerName(address.customerName);
+    setCustomerPhone(address.customerPhone || '');
+    setDeliveryAddress({
+      addressLine1: address.addressLine1,
+      addressLine2: address.addressLine2 || '',
+      area: address.area,
+      landmark: address.landmark || '',
+      city: address.city,
+      state: address.state,
+      pincode: address.pincode,
+    });
+    setDeliveryLocation(address.location || null);
+    setFormError('');
+  };
+
+  const addNewAddress = () => {
+    setSelectedAddressId(null);
+    setIsAddingNewAddress(true);
+    setEditingAddressId(null);
+    setCustomerName(user?.name || '');
+    setCustomerPhone(user?.phone || '');
+    setDeliveryAddress(EMPTY_ADDRESS);
+    setDeliveryLocation(null);
+    setFormError('');
+  };
+
+  const editSavedAddress = (address: SavedAddress) => {
+    setSelectedAddressId(address._id);
+    setIsAddingNewAddress(false);
+    setEditingAddressId(address._id);
+    setCustomerName(address.customerName);
+    setCustomerPhone(address.customerPhone || '');
+    setDeliveryAddress({
+      addressLine1: address.addressLine1,
+      addressLine2: address.addressLine2 || '',
+      area: address.area,
+      landmark: address.landmark || '',
+      city: address.city,
+      state: address.state,
+      pincode: address.pincode,
+    });
+    setDeliveryLocation(address.location || null);
+    setFormError('');
+  };
+
+  const saveEditedAddress = async () => {
+    if (!editingAddressId) return;
+    if (
+      !customerName.trim() ||
+      !deliveryAddress.addressLine1.trim() ||
+      !deliveryAddress.area.trim() ||
+      !deliveryAddress.city.trim() ||
+      !deliveryAddress.state.trim() ||
+      !deliveryAddress.pincode.trim() ||
+      !deliveryLocation
+    ) {
+      setFormError('Complete the required address fields and confirm its delivery pin.');
+      return;
+    }
+
+    setAddressActionLoading(true);
+    setFormError('');
+    try {
+      const currentAddress = savedAddresses.find((address) => address._id === editingAddressId);
+      if (!currentAddress) throw new Error('The address could not be found. Refresh and try again.');
+      const updatedAddress = await updateAddress(editingAddressId, {
+        ...deliveryAddress,
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim(),
+        label: currentAddress.label || 'home',
+        location: deliveryLocation,
+      });
+      setSavedAddresses((previous) => previous.map((address) =>
+        address._id === updatedAddress._id ? updatedAddress : address
+      ));
+      selectSavedAddress(updatedAddress);
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Could not update this address.');
+    } finally {
+      setAddressActionLoading(false);
+    }
+  };
+
+  const removeSavedAddress = async (address: SavedAddress) => {
+    if (!window.confirm('Delete this saved delivery address?')) return;
+    setAddressActionLoading(true);
+    setFormError('');
+    try {
+      await deleteAddress(address._id);
+      const remaining = savedAddresses.filter((saved) => saved._id !== address._id);
+      const nextAddress = remaining.find((saved) => saved.isDefault) || remaining[0];
+      const updatedAddresses = address.isDefault && nextAddress
+        ? remaining.map((saved) => ({ ...saved, isDefault: saved._id === nextAddress._id }))
+        : remaining;
+      setSavedAddresses(updatedAddresses);
+      if (selectedAddressId === address._id || editingAddressId === address._id) {
+        if (nextAddress) {
+          const nextSavedAddress = updatedAddresses.find((saved) => saved._id === nextAddress._id);
+          if (nextSavedAddress) selectSavedAddress(nextSavedAddress);
+        } else {
+          setSelectedAddressId(null);
+          setEditingAddressId(null);
+          setIsAddingNewAddress(true);
+          setCustomerName(user?.name || '');
+          setCustomerPhone(user?.phone || '');
+          setDeliveryAddress(EMPTY_ADDRESS);
+          setDeliveryLocation(null);
+        }
+      }
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Could not delete this address.');
+    } finally {
+      setAddressActionLoading(false);
+    }
+  };
+
+  const handleProceedToCheckout = async () => {
+    setFormError('');
+    try {
+      const currentUser = user || await refreshUser();
+      if (!currentUser) {
+        setIsCartOpen(false);
+        setAuthModalOpen(true);
+        return;
+      }
+      await prepareCheckout(currentUser);
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Could not verify your account.');
     }
   };
 
   const handleCompletePayment = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (editingAddressId) {
+      setFormError('Save the address changes or choose another address before placing your order.');
+      return;
+    }
     if (
       !customerName.trim() ||
       !customerEmail.trim() ||
@@ -145,17 +391,40 @@ export const MealBox: React.FC = () => {
     setFormError('');
     setSubmitting(true);
     try {
+      const selectedAddress = savedAddresses.find((address) => address._id === selectedAddressId);
+      if (selectedAddressId && !selectedAddress) {
+        throw new Error('The selected delivery address is no longer available. Choose another address.');
+      }
+      if (!selectedAddress && savedAddresses.length >= 3) {
+        throw new Error('You can save up to 3 addresses. Select one of your saved addresses to continue.');
+      }
+      const createdAddress = selectedAddress ? null : await createAddress({
+        ...deliveryAddress,
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim(),
+        label: 'home',
+        isDefault: savedAddresses.length === 0,
+        location: deliveryLocation,
+      });
+      if (createdAddress) {
+        setSavedAddresses((previous) => [...previous, createdAddress]);
+        setSelectedAddressId(createdAddress._id);
+        setIsAddingNewAddress(false);
+      }
+      const addressId = selectedAddress?._id || createdAddress?._id;
+      if (!addressId) throw new Error('Could not save your delivery address. Please try again.');
       const result = await placeOrder({
+        addressId,
         customerName,
         customerEmail,
         customerPhone,
         deliveryAddress,
-        deliveryLocation,
         paymentMethod,
       });
       setConfirmedOrder(result.order);
       setConfirmedTokens(result.tokens);
       setCheckoutStep('CONFIRMED');
+      setIsCartOpen(true);
     } catch (error: any) {
       setFormError(error.message || 'Failed to place order. Please try again.');
     } finally {
@@ -300,37 +569,44 @@ export const MealBox: React.FC = () => {
             <label htmlFor="kitchen-picker" className="block text-xs font-mono-tabular font-bold uppercase tracking-widest text-[#49E619] mb-2">
               Choose a kitchen
             </label>
-            {kitchensLoading ? (
-              <p className="text-sm text-white/60">Loading available kitchens…</p>
-            ) : kitchensError ? (
-              <p role="alert" className="text-sm text-red-300">{kitchensError}</p>
+            <select
+              id="kitchen-picker"
+              value={selectedKitchenId}
+              disabled={kitchensLoading || Boolean(kitchensError) || kitchens.length === 0}
+              onChange={(event) => {
+                if (event.target.value === selectedKitchenId) return;
+                clearCart();
+                setCheckoutStep('CART');
+                setSelectedKitchenId(event.target.value);
+              }}
+              className="w-full max-w-xl rounded-[8px] bg-[#080808] border border-white/20 px-3 py-3 text-sm text-white focus:outline-none focus:border-[#49E619] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">
+                {kitchensLoading
+                  ? 'Loading available kitchens…'
+                  : kitchensError
+                    ? 'Kitchens unavailable'
+                    : kitchens.length === 0
+                      ? 'No active kitchens available'
+                      : 'Select a kitchen to see its menu'}
+              </option>
+              {kitchens.map((kitchen) => (
+                <option key={kitchen._id} value={kitchen._id}>{kitchen.name}</option>
+              ))}
+            </select>
+            {kitchensError ? (
+              <p role="alert" className="mt-2 text-sm text-red-300">{kitchensError}</p>
+            ) : kitchensLoading ? (
+              <p role="status" className="mt-2 text-sm text-white/60">Loading available kitchens…</p>
             ) : kitchens.length === 0 ? (
-              <p className="text-sm text-white/60">There are no active kitchens available right now.</p>
-            ) : (
-              <>
-                <select
-                  id="kitchen-picker"
-                  value={selectedKitchenId}
-                  onChange={(event) => {
-                    if (event.target.value === selectedKitchenId) return;
-                    clearCart();
-                    setCheckoutStep('CART');
-                    setSelectedKitchenId(event.target.value);
-                  }}
-                  className="w-full max-w-xl rounded-[8px] bg-[#080808] border border-white/20 px-3 py-3 text-sm text-white focus:outline-none focus:border-[#49E619]"
-                >
-                  <option value="">Select a kitchen to see its menu</option>
-                  {kitchens.map((kitchen) => (
-                    <option key={kitchen._id} value={kitchen._id}>{kitchen.name}</option>
-                  ))}
-                </select>
-                {selectedKitchenId && (
-                  <p className="mt-2 text-xs text-white/50">
-                    {kitchens.find((kitchen) => kitchen._id === selectedKitchenId)?.address}
-                  </p>
+              <p className="mt-2 text-sm text-white/60">There are no active kitchens available right now.</p>
+            ) : selectedKitchenId ? (
+              <p className="mt-2 text-xs text-white/50">
+                {formatKitchenAddress(
+                  kitchens.find((kitchen) => kitchen._id === selectedKitchenId)?.address
                 )}
-              </>
-            )}
+              </p>
+            ) : null}
           </div>
 
           {/* Category Filter Tabs */}
@@ -371,9 +647,9 @@ export const MealBox: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
-            {/* LEFT 8 COLUMNS: Meal Box Product Grid */}
-            <div className="lg:col-span-8">
+          <div className="grid grid-cols-1 gap-10 items-start">
+            {/* Meal Box Product Grid */}
+            <div>
               {!selectedKitchenId && !kitchensLoading && kitchens.length > 0 && (
                 <div className="mb-5 rounded-xl border border-white/10 bg-[#080808]/40 p-5 text-sm text-white/60">
                   Select a kitchen above to browse its available meals.
@@ -381,156 +657,177 @@ export const MealBox: React.FC = () => {
               )}
               {mealsError && (
                 <div role="alert" className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
-                  Could not load this kitchen’s meals: {mealsError}
+                  Could not load this kitchen's meals: {mealsError}
                 </div>
               )}
               <motion.div
-                layout
-                className="grid grid-cols-1 sm:grid-cols-2 gap-6"
-              >
-                <AnimatePresence mode="popLayout">
-                  {filteredProducts.map((meal) => {
-                    const inCartItem = cart.find(
-                      (item) => item.product.id === meal.id
-                    );
-                    return (
-                      <motion.div
-                        key={meal.id}
-                        layout
-                        initial={{ opacity: 0, y: 16 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.96 }}
-                        transition={{ duration: 0.3 }}
-                        className="rounded-[18px] bg-[#080808] border border-white/12 flex flex-col justify-between group hover:border-[#49E619]/60 transition-all duration-300 overflow-hidden shadow-xl"
-                      >
-                        <div>
-                          {/* Food Image */}
-                          <div className="relative aspect-[4/3] overflow-hidden border-b border-white/10 bg-[#141414]">
-                            <EditorialImage
-                              src={meal.image}
-                              alt={meal.name}
-                              className="w-full h-full"
-                              imgClassName="group-hover:scale-105 transition-transform duration-700"
-                            />
-                            <div className="absolute top-3 left-3 rounded-[6px] bg-[#080808]/90 backdrop-blur-xs text-[#49E619] px-2.5 py-1 text-[10px] font-mono-tabular font-bold uppercase tracking-widest">
-                              {meal.categories.join(' · ')}
-                            </div>
-                            <div className="absolute bottom-3 right-3 rounded-[6px] bg-[#B9FF2C] text-[#122023] px-2.5 py-1 text-[11px] font-mono-tabular font-bold">
-                              {meal.proteinGrams}g Protein · {meal.calories} kcal
-                            </div>
-                          </div>
-
-                          {/* Product Body */}
-                          <div className="p-6">
-                            <div className="flex items-start justify-between gap-3">
-                              <h3 className="font-display-sans uppercase text-2xl font-black text-white group-hover:text-[#49E619] transition-colors">
-                                {meal.name}
-                              </h3>
-                              <span className="font-mono-tabular text-xl font-bold text-[#49E619] shrink-0">
-                                ₹{meal.priceInr}
-                              </span>
-                            </div>
-
-                            {/* Ingredients with middle dot separators */}
-                            <p className="mt-2 text-xs font-mono-tabular text-[#4EDBE2] font-semibold">
-                              {meal.ingredients.join(' • ')}
-                            </p>
-
-                            <p className="mt-2 text-sm text-white/70 leading-relaxed">
-                              {meal.shortDescription}
-                            </p>
-
-                            {/* 3 Verification Checkmarks */}
-                            <ul className="mt-5 pt-4 border-t border-white/10 space-y-2 text-xs text-white/85">
-                              <li className="flex items-center gap-2">
-                                <Check className="w-3.5 h-3.5 text-[#49E619] shrink-0" />
-                                <span>Freshly prepared</span>
-                              </li>
-                              <li className="flex items-center gap-2">
-                                <Check className="w-3.5 h-3.5 text-[#49E619] shrink-0" />
-                                <span>Nutritionally balanced</span>
-                              </li>
-                              <li className="flex items-center gap-2 font-bold text-[#B9FF2C]">
-                                <Check className="w-3.5 h-3.5 text-[#49E619] shrink-0" />
-                                <span>Supports a child in need (1-for-1)</span>
-                              </li>
-                            </ul>
-                          </div>
-                        </div>
-
-                        {/* Add to Cart Button */}
-                        <div className="px-6 pb-6">
-                          {inCartItem ? (
-                            <div className="flex items-center justify-between rounded-[10px] bg-[#122023] border border-[#49E619]/40 px-4 py-2.5">
-                              <span className="text-xs font-mono-tabular font-bold uppercase text-[#49E619]">
-                                In Cart ({inCartItem.quantity})
-                              </span>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    updateQuantity(
-                                      meal.id,
-                                      inCartItem.quantity - 1
-                                    )
-                                  }
-                                  aria-label="Decrease quantity"
-                                  className="w-7 h-7 rounded-[6px] bg-[#080808] border border-white/20 text-white flex items-center justify-center hover:bg-[#49E619] hover:text-[#080808] transition-colors cursor-pointer"
-                                >
-                                  <Minus className="w-3.5 h-3.5" />
-                                </button>
-                                <span className="font-mono-tabular text-sm font-bold w-5 text-center text-white">
-                                  {inCartItem.quantity}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    updateQuantity(
-                                      meal.id,
-                                      inCartItem.quantity + 1
-                                    )
-                                  }
-                                  aria-label="Increase quantity"
-                                  className="w-7 h-7 rounded-[6px] bg-[#080808] border border-white/20 text-white flex items-center justify-center hover:bg-[#49E619] hover:text-[#080808] transition-colors cursor-pointer"
-                                >
-                                  <Plus className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                addToCart(meal);
-                                if (checkoutStep === 'CONFIRMED') {
-                                  setCheckoutStep('CART');
-                                }
-                              }}
-                              className="w-full py-3.5 px-5 rounded-[10px] bg-[#49E619] hover:bg-[#B9FF2C] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-widest inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                            >
-                              <span>ADD TO CART</span>
-                              <Plus className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-                {!mealsLoading && selectedKitchenId && filteredProducts.length === 0 && !mealsError && (
-                  <p className="col-span-full rounded-xl border border-white/10 bg-[#080808]/40 p-8 text-center text-sm text-white/55">
-                    No available meals in this kitchen match the selected category.
-                  </p>
-                )}
-              </motion.div>
+  layout
+  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+>
+  <AnimatePresence mode="popLayout">
+    {filteredProducts.map((meal) => {
+      const inCartItem = cart.find(
+        (item) => item.product.id === meal.id
+      );
+      return (
+        <motion.div
+          key={meal.id}
+          layout
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.96 }}
+          transition={{ duration: 0.3 }}
+          className="rounded-[14px] bg-[#080808] border border-white/12 flex flex-col justify-between group hover:border-[#49E619]/60 transition-all duration-300 overflow-hidden shadow-xl"
+        >
+          <div>
+            {/* Food Image (Shorter aspect ratio for compact height) */}
+            <div className="relative aspect-[16/10] overflow-hidden border-b border-white/10 bg-[#141414]">
+              <EditorialImage
+                src={meal.image}
+                alt={meal.name}
+                className="w-full h-full"
+                imgClassName="group-hover:scale-105 transition-transform duration-700"
+              />
+              <div className="absolute top-2 left-2 rounded-[5px] bg-[#080808]/90 backdrop-blur-xs text-[#49E619] px-2 py-0.5 text-[9px] font-mono-tabular font-bold uppercase tracking-wider">
+                {meal.categories.join(' · ')}
+              </div>
+              <div className="absolute bottom-2 right-2 rounded-[5px] bg-[#B9FF2C] text-[#122023] px-2 py-0.5 text-[10px] font-mono-tabular font-bold">
+                {meal.proteinGrams}g Protein · {meal.calories} kcal
+              </div>
             </div>
 
-            {/* RIGHT 4 COLUMNS: Sticky Cart, Transparent Dual Breakdown, Checkout & Token Confirmation */}
-            <div
-              id="your-cart-module"
-              className="lg:col-span-4 lg:sticky lg:top-24"
-            >
-              <div className="rounded-[18px] bg-[#F2F4F3] text-[#122023] border border-white/20 shadow-2xl p-6 sm:p-7">
+            {/* Product Body (Tighter padding & smaller text) */}
+            <div className="p-3.5">
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="font-display-sans uppercase text-base font-black text-white group-hover:text-[#49E619] transition-colors leading-tight">
+                  {meal.name}
+                </h3>
+                <span className="font-mono-tabular text-base font-bold text-[#49E619] shrink-0">
+                  ₹{meal.priceInr}
+                </span>
+              </div>
+
+              {/* Ingredients */}
+              <p className="mt-1.5 text-[11px] font-mono-tabular text-[#4EDBE2] font-semibold line-clamp-1">
+                {meal.ingredients.join(' • ')}
+              </p>
+
+              {/* Short Description (Capped at 2 lines so card heights stay even) */}
+              <p className="mt-1.5 text-xs text-white/70 leading-snug line-clamp-2">
+                {meal.shortDescription}
+              </p>
+
+              {/* 3 Verification Checkmarks */}
+              <ul className="mt-3 pt-2.5 border-t border-white/10 space-y-1 text-[11px] text-white/85">
+                <li className="flex items-center gap-1.5">
+                  <Check className="w-3 h-3 text-[#49E619] shrink-0" />
+                  <span>Freshly prepared</span>
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <Check className="w-3 h-3 text-[#49E619] shrink-0" />
+                  <span>Nutritionally balanced</span>
+                </li>
+                <li className="flex items-center gap-1.5 font-bold text-[#B9FF2C]">
+                  <Check className="w-3 h-3 text-[#49E619] shrink-0" />
+                  <span>Supports a child in need (1-for-1)</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Add to Cart Button */}
+          <div className="px-3.5 pb-3.5">
+            {inCartItem ? (
+              <div className="flex items-center justify-between rounded-[8px] bg-[#122023] border border-[#49E619]/40 px-3 py-1.5">
+                <span className="text-[11px] font-mono-tabular font-bold uppercase text-[#49E619]">
+                  In Cart ({inCartItem.quantity})
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateQuantity(
+                        meal.id,
+                        inCartItem.quantity - 1
+                      )
+                    }
+                    aria-label="Decrease quantity"
+                    className="w-6 h-6 rounded-[5px] bg-[#080808] border border-white/20 text-white flex items-center justify-center hover:bg-[#49E619] hover:text-[#080808] transition-colors cursor-pointer"
+                  >
+                    <Minus className="w-3 h-3" />
+                  </button>
+                  <span className="font-mono-tabular text-xs font-bold w-4 text-center text-white">
+                    {inCartItem.quantity}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateQuantity(
+                        meal.id,
+                        inCartItem.quantity + 1
+                      )
+                    }
+                    aria-label="Increase quantity"
+                    className="w-6 h-6 rounded-[5px] bg-[#080808] border border-white/20 text-white flex items-center justify-center hover:bg-[#49E619] hover:text-[#080808] transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  addToCart(meal);
+                  if (checkoutStep === 'CONFIRMED') {
+                    setCheckoutStep('CART');
+                  }
+                }}
+                className="w-full py-2.5 px-4 rounded-[8px] bg-[#49E619] hover:bg-[#B9FF2C] text-[#080808] font-mono-tabular text-[11px] font-bold uppercase tracking-wider inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <span>ADD TO CART</span>
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </motion.div>
+      );
+    })}
+  </AnimatePresence>
+  {!mealsLoading && selectedKitchenId && filteredProducts.length === 0 && !mealsError && (
+    <p className="col-span-full rounded-xl border border-white/10 bg-[#080808]/40 p-8 text-center text-sm text-white/55">
+      No available meals in this kitchen match the selected category.
+    </p>
+  )}
+</motion.div>
+
+            </div>
+
+            <AnimatePresence>
+              {isCartOpen && (
+                <motion.div
+                  className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-6"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onMouseDown={(event) => {
+                    if (event.target === event.currentTarget) setIsCartOpen(false);
+                  }}
+                >
+                  <motion.div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="cart-dialog-title"
+                    className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-[18px] shadow-2xl"
+                    initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 12, scale: 0.98 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                  <div
+                    id="your-cart-module"
+                    className="rounded-[18px] bg-[#F2F4F3] text-[#122023] border border-white/20 shadow-2xl p-6 sm:p-7"
+                  >
                 {/* =========================================================
                     STATE 3: ORDER CREATED
                 ========================================================== */}
@@ -541,14 +838,14 @@ export const MealBox: React.FC = () => {
                       <span>ORDER SUBMITTED</span>
                     </div>
 
-                    <h3 className="font-display-sans uppercase text-2xl font-black text-[#122023]">
+                    <h3 id="cart-dialog-title" className="font-display-sans uppercase text-2xl font-black text-[#122023]">
                       Your order request has been submitted.
                     </h3>
                     <p className="mt-2 text-sm text-[#122023]/75">
                       Order <strong>{confirmedOrder.orderNumber}</strong> is awaiting payment. No payment has been processed.
                     </p>
                     <Link
-                      to={`/track-meal?orderNumber=${encodeURIComponent(confirmedOrder.orderNumber || '')}&email=${encodeURIComponent(confirmedOrder.customerEmail)}`}
+                      to={`/track-order?orderNumber=${encodeURIComponent(confirmedOrder.orderNumber || '')}`}
                       className="mt-3 inline-flex text-sm font-bold text-[#188D44] underline"
                     >
                       View your order status
@@ -650,13 +947,23 @@ export const MealBox: React.FC = () => {
                     <div className="flex items-center justify-between pb-4 border-b border-[#122023]/15">
                       <div className="flex items-center gap-2">
                         <ShoppingBag className="w-4 h-4 text-[#188D44]" />
-                        <h3 className="font-mono-tabular text-xs font-bold uppercase tracking-[0.2em] text-[#122023]">
+                      <h3 id="cart-dialog-title" className="font-mono-tabular text-xs font-bold uppercase tracking-[0.2em] text-[#122023]">
                           YOUR CART
                         </h3>
                       </div>
+                    <div className="flex items-center gap-3">
                       <span className="font-mono-tabular text-xs font-bold text-[#122023]/70">
                         {cartCount} {cartCount === 1 ? 'Meal' : 'Meals'}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsCartOpen(false)}
+                        aria-label="Close cart"
+                        className="flex h-8 w-8 items-center justify-center rounded-full border border-[#122023]/20 bg-white text-[#122023] transition-colors hover:bg-[#122023] hover:text-white"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
                     </div>
 
                     {cart.length === 0 ? (
@@ -799,136 +1106,236 @@ export const MealBox: React.FC = () => {
                           </p>
                         </div>
 
-                        {/* Checkout Step Toggle or Form */}
-                        {checkoutStep === 'CART' ? (
-                          <button
-                            type="button"
-                            onClick={() => setCheckoutStep('CHECKOUT')}
-                            className="mt-5 w-full py-4 px-5 rounded-[10px] bg-[#49E619] hover:bg-[#3cd110] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-widest inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                          >
-                            <span>PROCEED TO ₹{cartTotalInr} CHECKOUT</span>
-                            <ArrowRight className="w-4 h-4" />
-                          </button>
-                        ) : (
-                          <form
-                            onSubmit={handleCompletePayment}
-                            className="mt-5 pt-5 border-t border-[#122023]/15 space-y-3.5"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="font-mono-tabular text-[11px] font-bold uppercase tracking-wider text-[#122023]">
-                                DELIVERY & PAYMENT DETAILS
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => setCheckoutStep('CART')}
-                                className="text-[11px] font-mono-tabular text-[#122023]/70 hover:text-[#122023] cursor-pointer"
-                              >
-                                ← Back
-                              </button>
-                            </div>
-
-                            <div>
-                              <label className="block text-[11px] font-mono-tabular uppercase text-[#122023]/70 mb-1">
-                                Your Name
-                              </label>
-                              <input
-                                type="text"
-                                value={customerName}
-                                onChange={(e) => setCustomerName(e.target.value)}
-                                className="w-full rounded-[8px] bg-white border border-[#122023]/20 px-3 py-2 text-xs text-[#122023] focus:outline-none focus:border-[#122023]"
-                                required
-                              />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2.5">
-                              <div>
-                                <label className="block text-[11px] font-mono-tabular uppercase text-[#122023]/70 mb-1">
-                                  Email
-                                </label>
-                                <input
-                                  type="email"
-                                  value={customerEmail}
-                                  onChange={(e) => setCustomerEmail(e.target.value)}
-                                  className="w-full rounded-[8px] bg-white border border-[#122023]/20 px-3 py-2 text-xs text-[#122023] focus:outline-none focus:border-[#122023]"
-                                  required
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[11px] font-mono-tabular uppercase text-[#122023]/70 mb-1">
-                                  Phone (SMS/WhatsApp)
-                                </label>
-                                <input
-                                  type="tel"
-                                  value={customerPhone}
-                                  onChange={(e) => setCustomerPhone(e.target.value)}
-                                  className="w-full rounded-[8px] bg-white border border-[#122023]/20 px-3 py-2 text-xs text-[#122023] focus:outline-none focus:border-[#122023]"
-                                />
-                              </div>
-                            </div>
-
-                            <AddressSection
-                              requestLocationOnMount
-                              value={{ address: deliveryAddress, location: deliveryLocation }}
-                              onChange={({ address, location }) => {
-                                setDeliveryAddress({
-                                  ...address,
-                                  addressLine2: address.addressLine2 || '',
-                                  landmark: address.landmark || '',
-                                });
-                                setDeliveryLocation(location);
-                              }}
-                            />
-
-                            <div>
-                              <label className="block text-[11px] font-mono-tabular uppercase text-[#122023]/70 mb-1">
-                                Payment Method
-                              </label>
-                              <p className="mb-2 text-[11px] text-[#122023]/60">
-                                Payments are not processed yet; this selection is saved as a preference and the order remains pending payment.
-                              </p>
-                              <div className="grid grid-cols-3 gap-2">
-                                {(['UPI', 'CARD', 'NET_BANKING'] as const).map(
-                                  (method) => (
-                                    <button
-                                      key={method}
-                                      type="button"
-                                      onClick={() => setPaymentMethod(method)}
-                                      className={`py-2 rounded-[6px] text-[11px] font-mono-tabular font-bold border cursor-pointer ${
-                                        paymentMethod === method
-                                          ? 'bg-[#122023] text-white border-[#122023]'
-                                          : 'bg-white text-[#122023]/70 border-[#122023]/20'
-                                      }`}
-                                    >
-                                      {method.replace('_', ' ')}
-                                    </button>
-                                  )
-                                )}
-                              </div>
-                            </div>
-
-                            {formError && (
-                              <p className="text-xs text-red-600 font-semibold">{formError}</p>
-                            )}
-
-                            <button
-                              type="submit"
-                              disabled={submitting || !deliveryLocation}
-                              className="w-full py-4 px-5 rounded-[10px] bg-[#49E619] hover:bg-[#3cd110] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-widest inline-flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              <ShieldCheck className="w-4 h-4" />
-                              <span>PLACE ORDER · ₹{cartTotalInr}</span>
-                            </button>
-                          </form>
+                        {(formError || authError) && (
+                          <p role="alert" className="mt-3 text-xs font-semibold text-red-600">
+                            {formError || authError}
+                          </p>
                         )}
+
+                        <button
+                          type="button"
+                          onClick={() => void handleProceedToCheckout()}
+                          disabled={authLoading}
+                          className="mt-5 w-full py-4 px-5 rounded-[10px] bg-[#49E619] hover:bg-[#3cd110] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-widest inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                        >
+                          <span>{authLoading ? 'CHECKING ACCOUNT…' : `PROCEED TO ₹${cartTotalInr} CHECKOUT`}</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
                       </>
                     )}
                   </div>
                 )}
               </div>
-            </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </section>
+
+      <AnimatePresence>
+        {checkoutStep === 'CHECKOUT' && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget && !submitting) {
+                setCheckoutStep('CART');
+                setIsCartOpen(true);
+              }
+            }}
+          >
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="checkout-dialog-title"
+              className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-[18px] bg-[#F2F4F3] text-[#122023] shadow-2xl"
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-[#122023]/15 bg-[#F2F4F3] px-5 py-4 sm:px-7">
+                <div>
+                  <h2
+                    id="checkout-dialog-title"
+                    className="font-display-sans uppercase text-xl font-black"
+                  >
+                    Delivery & Payment Details
+                  </h2>
+                  <p className="mt-1 text-xs text-[#122023]/65">
+                    Complete your details to place your ₹{cartTotalInr} order.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCheckoutStep('CART');
+                    setIsCartOpen(true);
+                  }}
+                  disabled={submitting}
+                  aria-label="Close checkout"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#122023]/20 bg-white text-[#122023] transition-colors hover:bg-[#122023] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <form
+                onSubmit={handleCompletePayment}
+                className="space-y-4 p-5 sm:p-7"
+              >
+                <div>
+                  <label className="mb-1 block text-[11px] font-mono-tabular uppercase text-[#122023]/70">
+                    Your Name
+                  </label>
+                  <input
+                    type="text"
+                    value={customerName}
+                    onChange={(event) => setCustomerName(event.target.value)}
+                    className="w-full rounded-[8px] border border-[#122023]/20 bg-white px-3 py-2.5 text-sm text-[#122023] focus:border-[#122023] focus:outline-none"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-[11px] font-mono-tabular uppercase text-[#122023]/70">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      value={customerEmail}
+                      onChange={(event) => setCustomerEmail(event.target.value)}
+                      className="w-full rounded-[8px] border border-[#122023]/20 bg-white px-3 py-2.5 text-sm text-[#122023] focus:border-[#122023] focus:outline-none"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-mono-tabular uppercase text-[#122023]/70">
+                      Phone (SMS/WhatsApp)
+                    </label>
+                    <input
+                      type="tel"
+                      value={customerPhone}
+                      onChange={(event) => setCustomerPhone(event.target.value)}
+                      className="w-full rounded-[8px] border border-[#122023]/20 bg-white px-3 py-2.5 text-sm text-[#122023] focus:border-[#122023] focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <SavedAddressPicker
+                  addresses={savedAddresses}
+                  selectedAddressId={selectedAddressId}
+                  isAddingNewAddress={isAddingNewAddress}
+                  editingAddressId={editingAddressId}
+                  isBusy={addressActionLoading}
+                  onSelect={selectSavedAddress}
+                  onEdit={editSavedAddress}
+                  onDelete={(address) => void removeSavedAddress(address)}
+                  onAddNew={addNewAddress}
+                />
+                {!isAddingNewAddress && !editingAddressId && (
+                  <LocationPicker
+                    value={deliveryLocation}
+                    onChange={() => {}}
+                    interactive={false}
+                  />
+                )}
+                {(isAddingNewAddress || editingAddressId) && (
+                  <AddressSection
+                    value={{ address: deliveryAddress, location: deliveryLocation }}
+                    onChange={({ address, location }) => {
+                      setDeliveryAddress({
+                        ...address,
+                        addressLine2: address.addressLine2 || '',
+                        landmark: address.landmark || '',
+                      });
+                      setDeliveryLocation(location);
+                    }}
+                  />
+                )}
+                {editingAddressId && (
+                  <button
+                    type="button"
+                    onClick={() => void saveEditedAddress()}
+                    disabled={addressActionLoading || submitting}
+                    className="w-full rounded-[8px] border border-[#122023]/20 bg-white px-4 py-3 text-sm font-bold text-[#122023] hover:border-[#188D44] disabled:opacity-50"
+                  >
+                    {addressActionLoading ? 'Saving address…' : 'Save address changes'}
+                  </button>
+                )}
+                {editingAddressId && (
+                  <p className="text-xs text-[#122023]/65">
+                    Save the address changes or select another saved address before placing your order.
+                  </p>
+                )}
+
+                <div>
+                  <label className="mb-1 block text-[11px] font-mono-tabular uppercase text-[#122023]/70">
+                    Payment Method
+                  </label>
+                  <p className="mb-2 text-[11px] text-[#122023]/60">
+                    Payments are not processed yet; this selection is saved as a preference and the order remains pending payment.
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['UPI', 'CARD', 'NET_BANKING'] as const).map((method) => (
+                      <button
+                        key={method}
+                        type="button"
+                        onClick={() => setPaymentMethod(method)}
+                        className={`rounded-[6px] border py-2 text-[11px] font-mono-tabular font-bold cursor-pointer ${
+                          paymentMethod === method
+                            ? 'border-[#122023] bg-[#122023] text-white'
+                            : 'border-[#122023]/20 bg-white text-[#122023]/70'
+                        }`}
+                      >
+                        {method.replace('_', ' ')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {formError && (
+                  <p role="alert" className="text-xs font-semibold text-red-600">
+                    {formError}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={submitting || addressActionLoading || Boolean(editingAddressId) || !deliveryLocation}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-[10px] bg-[#49E619] px-5 py-4 text-xs font-mono-tabular font-bold uppercase tracking-widest text-[#080808] transition-colors hover:bg-[#3cd110] cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  <span>{submitting ? 'PLACING ORDER…' : `PLACE ORDER · ₹${cartTotalInr}`}</span>
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => {
+          setAuthModalOpen(false);
+        }}
+        onAuthenticated={async () => {
+          const authenticatedUser = await refreshUser();
+          if (!authenticatedUser) throw new Error('Sign in is required to continue checkout.');
+          await prepareCheckout(authenticatedUser);
+        }}
+        onSignIn={signIn}
+        onSignUp={signUp}
+        onVerifyEmail={verifyEmail}
+        onResendVerificationCode={resendVerificationCode}
+        onForgotPassword={sendPasswordResetCode}
+        onResetPassword={resetPassword}
+      />
 
       {/* =====================================================================
           6-STEP PIPELINE: FROM YOUR PLATE TO A CHILD'S HANDS
@@ -944,7 +1351,7 @@ export const MealBox: React.FC = () => {
         <div className="fixed bottom-4 left-4 right-4 z-30 lg:hidden">
           <button
             type="button"
-            onClick={scrollToCart}
+            onClick={() => setIsCartOpen(true)}
             className="w-full rounded-[12px] bg-[#49E619] text-[#080808] py-4 px-5 shadow-2xl flex items-center justify-between font-mono-tabular text-xs font-bold uppercase tracking-widest cursor-pointer"
           >
             <span>

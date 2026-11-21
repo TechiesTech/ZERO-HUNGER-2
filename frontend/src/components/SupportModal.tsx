@@ -1,9 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { X, ArrowRight, CheckCircle2, HeartHandshake, Users, ShieldCheck } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { X, ArrowRight, CheckCircle2, HeartHandshake, Users, ShieldCheck, ShoppingBag, Plus, Minus, Trash2, Heart, Utensils } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PROJECTS } from '../data/projects';
+import { useMealProgram } from '../context/MealProgramContext';
+import { useMeals } from '../hooks';
+import { getActiveKitchens, type Kitchen } from '../services/kitchenService';
 
-export type SupportTab = 'donate' | 'volunteer';
+export type SupportTab = 'donate' | 'volunteer' | 'cart';
 
 interface SupportModalProps {
   isOpen: boolean;
@@ -37,6 +41,40 @@ export const SupportModal: React.FC<SupportModalProps> = ({
   const [volunteerCity, setVolunteerCity] = useState('Hyderabad');
   const [submitted, setSubmitted] = useState(false);
 
+  // Cart state
+  const {
+    cart,
+    cartCount,
+    cartTotalInr,
+    sponsoredMealsCount,
+    addToCart,
+    updateQuantity,
+    removeFromCart,
+    clearCart,
+    placeOrder,
+  } = useMealProgram();
+  const [kitchens, setKitchens] = useState<Kitchen[]>([]);
+  const [kitchensLoading, setKitchensLoading] = useState(true);
+  const [selectedKitchenId, setSelectedKitchenId] = useState('');
+  const { meals: backendMeals, loading: mealsLoading } = useMeals(selectedKitchenId || null);
+  const [checkoutStep, setCheckoutStep] = useState<'CART' | 'CHECKOUT' | 'CONFIRMED'>('CART');
+  const [submitting, setSubmitting] = useState(false);
+  const [customerName, setCustomerName] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState({
+    addressLine1: '',
+    addressLine2: '',
+    area: '',
+    landmark: '',
+    city: '',
+    state: '',
+    pincode: '',
+  });
+  const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'CARD' | 'NET_BANKING'>('UPI');
+  const [confirmedOrder, setConfirmedOrder] = useState<any>(null);
+  const [confirmedTokens, setConfirmedTokens] = useState<any[]>([]);
+
   useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
@@ -46,6 +84,28 @@ export const SupportModal: React.FC<SupportModalProps> = ({
       setSelectedProject(preselectedProjectSlug);
     }
   }, [preselectedProjectSlug]);
+
+  // Load kitchens when cart tab is opened
+  useEffect(() => {
+    if (activeTab === 'cart' && kitchens.length === 0 && !kitchensLoading) {
+      let active = true;
+      getActiveKitchens()
+        .then((activeKitchens) => {
+          if (!active) return;
+          setKitchens(activeKitchens);
+          if (activeKitchens.length === 1) setSelectedKitchenId(activeKitchens[0]._id);
+        })
+        .catch((error: unknown) => {
+          console.error('Failed to load kitchens:', error);
+        })
+        .finally(() => {
+          if (active) setKitchensLoading(false);
+        });
+      return () => {
+        active = false;
+      };
+    }
+  }, [activeTab, kitchens.length, kitchensLoading]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -345,13 +405,13 @@ export const SupportModal: React.FC<SupportModalProps> = ({
                       <span className="font-bold text-[#080808] block">Celebrating a Birthday, Anniversary or Memorial?</span>
                       <span className="text-[#6F6F6F]">Have beneficiaries hold a personalized placard with your message.</span>
                     </div>
-                    <a
-                      href="/celebrate-and-give"
+                    <Link
+                      to="/celebrate-and-give"
                       onClick={() => handleResetAndClose()}
                       className="px-3.5 py-1.5 rounded-[6px] bg-[#122023] text-white font-bold text-[11px] whitespace-nowrap hover:bg-[#080808] text-center"
                     >
                       Personalize Placard →
-                    </a>
+                    </Link>
                   </div>
 
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">

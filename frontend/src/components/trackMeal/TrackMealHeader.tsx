@@ -7,6 +7,7 @@ interface TrackMealHeaderProps {
   setOrderNumberInput: (value: string) => void;
   email: string;
   setEmail: (value: string) => void;
+  hideEmail: boolean;
   loading: boolean;
   onSubmit: (event: React.FormEvent) => void;
   clearResult: () => void;
@@ -17,6 +18,7 @@ export const TrackMealHeader: React.FC<TrackMealHeaderProps> = ({
   setOrderNumberInput,
   email,
   setEmail,
+  hideEmail,
   loading,
   onSubmit,
   clearResult,
@@ -36,7 +38,7 @@ export const TrackMealHeader: React.FC<TrackMealHeaderProps> = ({
         <form
           onSubmit={onSubmit}
           autoComplete="off"
-          className="mt-8 mx-auto grid max-w-4xl gap-3 text-left sm:grid-cols-[1.2fr_1fr_auto] sm:items-end"
+          className={`mt-8 mx-auto grid max-w-4xl gap-3 text-left sm:items-end ${hideEmail ? 'sm:grid-cols-[1.2fr_auto]' : 'sm:grid-cols-[1.2fr_1fr_auto]'}`}
         >
           <label htmlFor="order-number-input" className="block font-mono-tabular text-[10px] font-bold uppercase tracking-widest text-white/75">
             Order number
@@ -56,21 +58,23 @@ export const TrackMealHeader: React.FC<TrackMealHeaderProps> = ({
               />
             </span>
           </label>
-          <label htmlFor="order-checkout-email" className="block font-mono-tabular text-[10px] font-bold uppercase tracking-widest text-white/75">
-            Checkout email
-            <input
-              id="order-checkout-email"
-              type="email"
-              autoComplete="off"
-              value={email}
-              onChange={(event) => {
-                setEmail(event.target.value);
-                clearResult();
-              }}
-              placeholder="you@example.com"
-              className="mt-2 w-full rounded-[10px] border border-white/20 bg-[#122023] px-4 py-4 text-sm font-sans font-normal normal-case tracking-normal text-white placeholder:text-white/35 focus:border-[#49E619] focus:outline-none"
-            />
-          </label>
+          {!hideEmail && (
+            <label htmlFor="order-checkout-email" className="block font-mono-tabular text-[10px] font-bold uppercase tracking-widest text-white/75">
+              Checkout email
+              <input
+                id="order-checkout-email"
+                type="email"
+                autoComplete="off"
+                value={email}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  clearResult();
+                }}
+                placeholder="you@example.com"
+                className="mt-2 w-full rounded-[10px] border border-white/20 bg-[#122023] px-4 py-4 text-sm font-sans font-normal normal-case tracking-normal text-white placeholder:text-white/35 focus:border-[#49E619] focus:outline-none"
+              />
+            </label>
+          )}
           <button
             type="submit"
             disabled={loading}

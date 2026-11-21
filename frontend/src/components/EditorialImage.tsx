@@ -8,6 +8,8 @@ interface EditorialImageProps {
   className?: string;
   imgClassName?: string;
   priority?: boolean;
+  srcSet?: string;
+  sizes?: string;
   overlayGradient?: boolean;
 }
 
@@ -17,6 +19,8 @@ export const EditorialImage: React.FC<EditorialImageProps> = ({
   className = '',
   imgClassName = '',
   priority = false,
+  srcSet,
+  sizes,
   overlayGradient = false,
 }) => {
   const [hasError, setHasError] = useState(false);

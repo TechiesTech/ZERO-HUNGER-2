@@ -150,6 +150,8 @@ export const Hero: React.FC<HeroProps> = ({ onOpenSupport }) => {
               <div className="relative rounded-[14px] sm:rounded-2xl overflow-hidden border border-white/15 shadow-2xl aspect-4/3 w-full">
                 <EditorialImage
                   src={IMAGES.heroMeals}
+                  srcSet="/images/hero_community_meals_1790672974684-480.webp 480w, /images/hero_community_meals_1790672974684-768.webp 768w, /images/hero_community_meals_1790672974684.webp 1200w"
+                  sizes="(max-width: 767px) calc(100vw - 2rem), (max-width: 1199px) 48vw, 530px"
                   alt="Compassionate volunteers serving fresh steaming nutritious meals to children and families in Hyderabad"
                   priority
                   className="w-full h-full"

@@ -5,6 +5,13 @@
 
 import { API_URL } from '../config';
 
+export class ApiError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = {};
   if (body) headers['Content-Type'] = 'application/json';
@@ -30,7 +37,28 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
       ?.map((item) => [item.field, item.message].filter(Boolean).join(': '))
       .filter(Boolean)
       .join('; ');
-    throw new Error(details ? `${message}: ${details}` : message);
+    throw new ApiError(details ? `${message}: ${details}` : message, res.status);
+  }
+  return json as T;
+}
+
+async function requestForm<T>(method: string, path: string, formData: FormData): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`, {
+    method,
+    body: formData,
+    credentials: 'include',
+  });
+  const responseText = await res.text();
+  let json: { message?: string } = {};
+  if (responseText) {
+    try {
+      json = JSON.parse(responseText);
+    } catch {
+      if (res.ok) throw new Error('The server returned an invalid response.');
+    }
+  }
+  if (!res.ok) {
+    throw new ApiError(json.message ?? `Request failed (${res.status})`, res.status);
   }
   return json as T;
 }
@@ -40,4 +68,6 @@ export const api = {
   post: <T>(path: string, body: unknown) => request<T>('POST', path, body),
   patch: <T>(path: string, body: unknown) => request<T>('PATCH', path, body),
   delete: <T>(path: string) => request<T>('DELETE', path),
+  form: <T>(method: 'POST' | 'PATCH', path: string, formData: FormData) =>
+    requestForm<T>(method, path, formData),
 };

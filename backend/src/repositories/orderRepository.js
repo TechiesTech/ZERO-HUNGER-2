@@ -5,14 +5,14 @@ import { OrderItem } from '../models/schemas/orderItemSchema.js';
 
 const toId = (id) => new mongoose.Types.ObjectId(String(id));
 
-// Adds customer name and phone from users
+// Adds customer details from users
 const customerStages = [
     {
         $lookup: {
             from: 'users',
             localField: 'customerId',
             foreignField: '_id',
-            pipeline: [{ $project: { _id: 0, name: 1, phone: 1 } }],
+            pipeline: [{ $project: { _id: 0, name: 1, email: 1, phone: 1 } }],
             as: 'customer',
         },
     },
@@ -73,8 +73,6 @@ const createOrder = async (orderData, orderItems) => {
         // Items failed, so remove the order to avoid an order with no items
         await Order.deleteOne({ _id: order._id });
         throw error;
-    } finally {
-        await session.endSession();
     }
 };
 
@@ -99,6 +97,8 @@ const getMyOrders = async (customerId, skip, limit) => {
                             'isDeleted',
                             'deletedAt',
                             'items.orderId',
+                            'deliveryOtp',
+                            'deliveryOtpAttempts',
                         ],
                     },
                 ],
@@ -110,7 +110,6 @@ const getMyOrders = async (customerId, skip, limit) => {
     return { orders: result.orders, total: result.total[0]?.count || 0 };
 };
 
-// One order with items, customer name, delivery location, kitchen and the rider on the open delivery
 const trackLiveOrder = async (orderNumber, customerId) => {
     const [order] = await Order.aggregate([
         {
@@ -120,13 +119,26 @@ const trackLiveOrder = async (orderNumber, customerId) => {
                 isDeleted: false,
             },
         },
-        { $lookup: { from: 'orderItems', localField: '_id', foreignField: 'orderId', as: 'items' } },
+        ...customerStages,
+        ...addressStages,
+        itemStage,
         {
             $lookup: {
-                from: 'meals',
-                localField: 'items.mealId',
+                from: 'kitchens',
+                localField: 'kitchenId',
                 foreignField: '_id',
-                pipeline: [{ $project: { _id: 0, name: 1, address: 1, location: 1 } }],
+                pipeline: [
+                    {
+                        $lookup: {
+                            from: 'users',
+                            localField: 'user',
+                            foreignField: '_id',
+                            pipeline: [{ $project: { _id: 0, name: 1 } }],
+                            as: 'account',
+                        },
+                    },
+                    { $project: { _id: 0, name: { $arrayElemAt: ['$account.name', 0] }, address: 1, location: 1 } },
+                ],
                 as: 'kitchen',
             },
         },
@@ -136,14 +148,33 @@ const trackLiveOrder = async (orderNumber, customerId) => {
                 localField: '_id',
                 foreignField: 'orderId',
                 pipeline: [
-                    { $match: { isOpen: true } },
+                    { $sort: { createdAt: -1 } },
+                    { $limit: 1 },
                     {
                         $lookup: {
                             from: 'riders',
                             localField: 'riderId',
                             foreignField: '_id',
                             pipeline: [
-                                { $project: { _id: 0, name: 1, vehicleType: 1, currentLocation: 1 } },
+                                {
+                                    $lookup: {
+                                        from: 'users',
+                                        localField: 'userId',
+                                        foreignField: '_id',
+                                        pipeline: [{ $project: { _id: 0, name: 1, phone: 1 } }],
+                                        as: 'account',
+                                    },
+                                },
+                                {
+                                    $project: {
+                                        _id: 0,
+                                        name: { $arrayElemAt: ['$account.name', 0] },
+                                        phone: { $arrayElemAt: ['$account.phone', 0] },
+                                        vehicleType: 1,
+                                        vehicleNumber: 1,
+                                        currentLocation: 1,
+                                    },
+                                },
                             ],
                             as: 'rider',
                         },
@@ -154,6 +185,8 @@ const trackLiveOrder = async (orderNumber, customerId) => {
                             status: 1,
                             acceptedAt: 1,
                             pickedUpAt: 1,
+                            photoUrl: 1,
+                            photoPublicId: 1,
                             rider: { $arrayElemAt: ['$rider', 0] },
                         },
                     },
@@ -172,8 +205,9 @@ const trackLiveOrder = async (orderNumber, customerId) => {
                 sponsoredMealsCount: 1,
                 createdAt: 1,
                 estimatedDeliveryAt: 1,
+                deliveryOtp: 1,
                 statusTimestamps: 1,
-                deliveryLocation: 1,
+                deliveryLocation: '$deliveryAddress.location',
                 kitchen: { $arrayElemAt: ['$kitchen', 0] },
                 delivery: { $arrayElemAt: ['$deliveries', 0] },
                 items: {
@@ -234,7 +268,7 @@ const getAllOrders = async (filter, skip, limit) => {
         { $sort: { createdAt: -1 } },
         {
             $facet: {
-                orders: [{ $skip: skip }, { $limit: limit }, ...customerStages, ...addressStages],
+                orders: [{ $skip: skip }, { $limit: limit }, ...customerStages, ...addressStages, { $unset: ['deliveryOtp'] }],
                 total: [{ $count: 'count' }],
             },
         },
@@ -249,6 +283,7 @@ const getOrderById = async (orderId) => {
         itemStage,
         ...customerStages,
         ...addressStages,
+        { $unset: ['deliveryOtp'] },
         {
             $lookup: {
                 from: 'deliveries',
@@ -261,12 +296,28 @@ const getOrderById = async (orderId) => {
                             from: 'riders',
                             localField: 'riderId',
                             foreignField: '_id',
-                            pipeline: [{ $project: { name: 1, phone: 1 } }],
+                            pipeline: [
+                                {
+                                    $lookup: {
+                                        from: 'users',
+                                        localField: 'userId',
+                                        foreignField: '_id',
+                                        pipeline: [{ $project: { _id: 0, name: 1, phone: 1 } }],
+                                        as: 'account',
+                                    },
+                                },
+                                {
+                                    $project: {
+                                        _id: 0,
+                                        name: { $arrayElemAt: ['$account.name', 0] },
+                                        phone: { $arrayElemAt: ['$account.phone', 0] },
+                                    },
+                                },
+                            ],
                             as: 'rider',
                         },
                     },
                     { $set: { rider: { $arrayElemAt: ['$rider', 0] } } },
-                    { $project: { photoPublicId: 0 } },
                 ],
                 as: 'deliveries',
             },
