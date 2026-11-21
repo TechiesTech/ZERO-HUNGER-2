@@ -11,7 +11,9 @@ import {
     getMyDeliveries,
     getRiderStats,
     getAllRiders,
-    reviewRider
+    reviewRider,
+    releaseOrder,
+    getMySummary
 } from '../controllers/riderController.js';
 import {
     registerRiderSchema,
@@ -22,7 +24,8 @@ import {
     getAllRidersSchema,
     orderNumberParamSchema,
     userIdParamSchema,
-    reviewRiderSchema
+    reviewRiderSchema,
+    getMySummarySchema
 } from '../validators/riderValidator.js';
 import validate from '../middleware/validate.js';
 import authenticate from '../middleware/authenticate.js';
@@ -41,6 +44,8 @@ router.post('/acceptOrder/:orderNumber', authenticate, requireRoles('rider'), va
 router.patch('/updateStatus/:orderNumber', authenticate, requireRoles('rider'), validate(orderNumberParamSchema, 'params'), uploadImage, validate(updateStatusSchema), updateStatus);
 router.get('/currentDelivery', authenticate, requireRoles('rider'), currentDelivery);
 router.get('/getMyDeliveries', authenticate, requireRoles('rider'), validate(getMyDeliveriesSchema, 'query'), getMyDeliveries);
+router.patch('/releaseOrder/:orderNumber', authenticate, requireRoles('rider'), validate(orderNumberParamSchema, 'params'), releaseOrder);
+router.get('/getMySummary', authenticate, requireRoles('rider'), validate(getMySummarySchema, 'query'), getMySummary);
 
 router.get('/getRiderStats', authenticate, requireRoles('admin'), getRiderStats);
 router.get('/getAllRiders', authenticate, requireRoles('admin'), validate(getAllRidersSchema, 'query'), getAllRiders);

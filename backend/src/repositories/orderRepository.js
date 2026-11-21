@@ -97,6 +97,8 @@ const getMyOrders = async (customerId, skip, limit) => {
                             'isDeleted',
                             'deletedAt',
                             'items.orderId',
+                            'deliveryOtp',
+                            'deliveryOtpAttempts',
                         ],
                     },
                 ],
@@ -203,6 +205,7 @@ const trackLiveOrder = async (orderNumber, customerId) => {
                 sponsoredMealsCount: 1,
                 createdAt: 1,
                 estimatedDeliveryAt: 1,
+                deliveryOtp: 1,
                 statusTimestamps: 1,
                 deliveryLocation: '$deliveryAddress.location',
                 kitchen: { $arrayElemAt: ['$kitchen', 0] },
@@ -265,7 +268,7 @@ const getAllOrders = async (filter, skip, limit) => {
         { $sort: { createdAt: -1 } },
         {
             $facet: {
-                orders: [{ $skip: skip }, { $limit: limit }, ...customerStages, ...addressStages],
+                orders: [{ $skip: skip }, { $limit: limit }, ...customerStages, ...addressStages, { $unset: ['deliveryOtp'] }],
                 total: [{ $count: 'count' }],
             },
         },
@@ -280,6 +283,7 @@ const getOrderById = async (orderId) => {
         itemStage,
         ...customerStages,
         ...addressStages,
+        { $unset: ['deliveryOtp'] },
         {
             $lookup: {
                 from: 'deliveries',

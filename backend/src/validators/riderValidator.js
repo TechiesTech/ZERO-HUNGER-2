@@ -12,6 +12,14 @@ const updateLocationSchema = Joi.object({
 
 const updateStatusSchema = Joi.object({
     status: Joi.string().trim().lowercase().valid('pickedup', 'delivered').required(),
+    otp: Joi.string().trim().pattern(/^\d{4}$/).when('status', {
+        is: 'delivered',
+        then: Joi.required(),
+        otherwise: Joi.forbidden(),
+    }).messages({
+        'string.pattern.base': 'otp must be 4 digits',
+        'any.required': 'Delivery OTP is required',
+    }),
 });
 
 const getMyDeliveriesSchema = Joi.object({
@@ -55,6 +63,12 @@ const registerRiderSchema = Joi.object({
     vehicleNumber: Joi.string().trim().uppercase().min(4).max(15).required(),
 });
 
+const getMySummarySchema = Joi.object({
+    month: Joi.string()
+        .pattern(/^\d{4}-(0[1-9]|1[0-2])$/)
+        .messages({ 'string.pattern.base': 'month must be in YYYY-MM format' }),
+});
+
 export {
     setAvailabilitySchema,
     updateLocationSchema,
@@ -64,5 +78,6 @@ export {
     orderNumberParamSchema,
     userIdParamSchema,
     reviewRiderSchema,
-    registerRiderSchema
+    registerRiderSchema,
+    getMySummarySchema
 };

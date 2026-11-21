@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { maplibregl } from '../services/mapLibre';
 import type { Map as MapLibreMap, Marker as MapLibreMarker, MapMouseEvent } from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
 import type { DeliveryPoint } from '../services/orderService';
 
 interface LocationPickerProps {
