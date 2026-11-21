@@ -119,11 +119,19 @@ const releaseOrder = async (user, orderNumber) => {
     return data;
 };
 
-const updateStatus = async (user, orderNumber, { status }, file) => {
+const updateStatus = async (user, orderNumber, { status, otp }, file) => {
     if (status === 'delivered' && !file) throw new AppError('Delivery photo is required', 400);
 
     const rider = await riderRepository.getRider(user._id);
     if (!rider) throw new AppError('Rider profile not found', 404);
+
+    // The customer's code is checked before the photo is uploaded, so a wrong code wastes nothing
+    if (status === 'delivered') {
+        const check = await riderRepository.checkDeliveryOtp(rider._id, orderNumber, otp);
+        if (check.result === 'not_found') throw new AppError('Order not found or not in the correct status', 404);
+        if (check.result === 'locked') throw new AppError('Too many wrong OTP attempts. Contact support', 423);
+        if (check.result === 'wrong') throw new AppError(`Wrong OTP. ${check.attemptsLeft} attempt(s) left`, 400);
+    }
 
     // Upload first. If the status cannot be saved, the photo is deleted again
     const photoPublicId = status === 'delivered' ? await uploadImage(file.buffer) : null;

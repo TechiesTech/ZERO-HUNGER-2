@@ -36,6 +36,7 @@ const createOrder = async (user, body) => {
         throw new AppError('All meals in one order must be from the same kitchen', 400);
     }
 
+    // The delivery OTP is not created here. It is created when the rider marks the order picked up
     const orderData = {
         customerId: user._id,
         addressId: address._id,
@@ -51,7 +52,10 @@ const createOrder = async (user, body) => {
         const orderNumber = `ZH-ORD-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
         try {
             const { order, items } = await orderRepository.createOrder({ ...orderData, orderNumber }, orderItems);
-            const created = { ...order, items };
+
+            // The delivery code never leaves the server at this stage
+            const { deliveryOtp, deliveryOtpAttempts, ...safeOrder } = order;
+            const created = { ...safeOrder, items };
 
             // 5. Tell this order's kitchen (and admins) at once. Runs only after the order and items are saved
             notifyNewOrder(created);
@@ -183,6 +187,8 @@ const trackLiveOrder = async (user, orderNumber) => {
         items: order.items,
         canEditDetails: status === 'confirmed' || status === 'preparing',
         canCancel: status === 'confirmed' && order.paymentStatus !== 'success',
+        // The code exists only after pickup, and is shown only while the order is out for delivery
+        deliveryOtp: status === 'outfordelivery' ? order.deliveryOtp || null : null,
     };
 };
 

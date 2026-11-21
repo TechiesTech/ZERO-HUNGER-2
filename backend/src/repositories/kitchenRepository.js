@@ -115,6 +115,7 @@ const getPaidOrders = (kitchenId) =>
                 as: 'items',
             },
         },
+        { $unset: ['deliveryOtp', 'deliveryOtpAttempts'] },
     ]);
 
 const moveOrderStatus = (orderId, kitchenId, from, to, stampField) =>
@@ -122,6 +123,6 @@ const moveOrderStatus = (orderId, kitchenId, from, to, stampField) =>
         { _id: orderId, kitchenId, isDeleted: false, paymentStatus: 'success', customerMealStatus: from },
         { $set: { customerMealStatus: to, [`statusTimestamps.${stampField}`]: new Date() } },
         { new: true, runValidators: true }
-    ).lean();
+    ).select('-deliveryOtp -deliveryOtpAttempts').lean();
 
 export { getMyKitchen, saveMyKitchen, getAllKitchens, getActiveKitchens, getPaidOrders, moveOrderStatus };

@@ -24,6 +24,8 @@ const orderSchema = new mongoose.Schema(
       cancelledAt: { type: Date, default: null },
     },
     estimatedDeliveryAt: { type: Date, default: null },
+    deliveryOtp: { type: String, select: false, default: null },
+    deliveryOtpAttempts: { type: Number, default: 0, min: 0 },
 
     kitchenId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     assignedRiderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Rider', default: null },

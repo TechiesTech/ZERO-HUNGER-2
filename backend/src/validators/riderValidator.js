@@ -12,6 +12,14 @@ const updateLocationSchema = Joi.object({
 
 const updateStatusSchema = Joi.object({
     status: Joi.string().trim().lowercase().valid('pickedup', 'delivered').required(),
+    otp: Joi.string().trim().pattern(/^\d{4}$/).when('status', {
+        is: 'delivered',
+        then: Joi.required(),
+        otherwise: Joi.forbidden(),
+    }).messages({
+        'string.pattern.base': 'otp must be 4 digits',
+        'any.required': 'Delivery OTP is required',
+    }),
 });
 
 const getMyDeliveriesSchema = Joi.object({

@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import mongoose from 'mongoose';
 import AppError from '../utils/appError.js';
 import { User } from '../models/schemas/userSchema.js';
@@ -19,6 +20,8 @@ const statusFlow = {
         deliveryTimeField: 'deliveredAt',
     },
 };
+
+const MAX_OTP_ATTEMPTS = 5;
 
 const addressStages = (prefix = '') => [
     {
@@ -181,19 +184,54 @@ const acceptOrder = async (riderId, orderNumber) => {
     return result;
 };
 
+// Checks the customer's code. The attempt is counted in the same step as the read,
+// so parallel guesses cannot get past the limit
+const checkDeliveryOtp = async (riderId, orderNumber, otp) => {
+    const match = { orderNumber, assignedRiderId: riderId, isDeleted: false, customerMealStatus: 'outfordelivery' };
+
+    const order = await Order.findOneAndUpdate(
+        { ...match, deliveryOtpAttempts: { $not: { $gte: MAX_OTP_ATTEMPTS } } },
+        { $inc: { deliveryOtpAttempts: 1 } },
+        { new: true }
+    )
+        .select('+deliveryOtp deliveryOtpAttempts')
+        .lean();
+
+    if (!order) {
+        const locked = await Order.exists({ ...match, deliveryOtpAttempts: { $gte: MAX_OTP_ATTEMPTS } });
+        return { result: locked ? 'locked' : 'not_found' };
+    }
+
+    // Orders picked up before this feature have no code, so they can still be delivered
+    if (!order.deliveryOtp || order.deliveryOtp === otp) return { result: 'ok' };
+
+    return { result: 'wrong', attemptsLeft: Math.max(MAX_OTP_ATTEMPTS - order.deliveryOtpAttempts, 0) };
+};
+
+// Order, delivery and the rider's counter change together, or not at all.
+// At pickup, a fresh delivery code is created in the same step.
 const updateStatus = async (riderId, orderNumber, status, photoPublicId, photoUrl) => {
     const flow = statusFlow[status];
     const updatedAt = new Date();
     let result = null;
+
+    // A fresh 4-digit code, made once when the food leaves the kitchen
+    const pickupOtp = status === 'pickedup' ? String(crypto.randomInt(1000, 10000)) : null;
 
     const session = await mongoose.startSession();
     try {
         await session.withTransaction(async () => {
             result = null; // reset, because this function can run more than once
 
+            const orderChanges = { customerMealStatus: flow.to, [flow.orderTimeField]: updatedAt };
+            if (pickupOtp) {
+                orderChanges.deliveryOtp = pickupOtp;
+                orderChanges.deliveryOtpAttempts = 0;
+            }
+
             const order = await Order.findOneAndUpdate(
                 { orderNumber, assignedRiderId: riderId, isDeleted: false, customerMealStatus: flow.from },
-                { $set: { customerMealStatus: flow.to, [flow.orderTimeField]: updatedAt } },
+                { $set: orderChanges },
                 { new: true, session }
             )
                 .select('orderNumber customerMealStatus customerId kitchenId')
@@ -516,6 +554,7 @@ export {
     hasOpenDelivery,
     getAvailableOrders,
     acceptOrder,
+    checkDeliveryOtp,
     updateStatus,
     releaseOrder,
     currentDelivery,
