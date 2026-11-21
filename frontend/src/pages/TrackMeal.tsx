@@ -313,9 +313,7 @@ export const TrackMeal: React.FC = () => {
               )}
 
               {/* Status-specific impact and delivery details */}
-              {!isCancelled && <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                {/* RIGHT 7 COLUMNS: YOUR IMPACT + DELIVERY PHOTO + PRIVACY PROTECTION */}
-                <div className="lg:col-span-12 space-y-6">
+              {!isCancelled && <div className="space-y-6">
                   {isDelivered ? (
                     <div className="rounded-[18px] bg-brand-black border border-white/15 p-6 sm:p-9 shadow-2xl">
                       <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-white/12">
@@ -538,7 +536,6 @@ export const TrackMeal: React.FC = () => {
                       met.
                     </p>
                   </div>
-                </div>
               </div>}
             </div>
           ) : (
