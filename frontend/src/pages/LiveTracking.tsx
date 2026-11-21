@@ -85,7 +85,7 @@ export function LiveTracking({ orderNumber: propOrderNumber }: LiveTrackingProps
   const riderHasLocation = !tracking.rider?.isLocationStale &&
     tracking.rider?.currentLocation?.latitude != null &&
     tracking.rider.currentLocation.longitude != null;
-  const route = currentStatus === 'outfordelivery'
+  const route = currentStatus === 'outfordelivery' || currentStatus === 'delivered'
     ? tracking.routes?.toCustomer
     : tracking.routes?.toKitchen || tracking.routes?.toCustomer;
 

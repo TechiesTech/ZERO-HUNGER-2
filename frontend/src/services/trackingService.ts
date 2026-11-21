@@ -96,6 +96,7 @@ export interface TrackingData {
   sponsoredMealsCount: number;
   placedAt: string;
   estimatedDeliveryAt: string | null;
+  deliveryPhotoUrl?: string | null;
   timeline: TimelineStep[];
   destination: TrackingCoordinates | null;
   kitchen?: TrackingKitchen | null;

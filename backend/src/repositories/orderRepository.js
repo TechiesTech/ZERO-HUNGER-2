@@ -146,7 +146,8 @@ const trackLiveOrder = async (orderNumber, customerId) => {
                 localField: '_id',
                 foreignField: 'orderId',
                 pipeline: [
-                    { $match: { isOpen: true } },
+                    { $sort: { createdAt: -1 } },
+                    { $limit: 1 },
                     {
                         $lookup: {
                             from: 'riders',
@@ -182,6 +183,8 @@ const trackLiveOrder = async (orderNumber, customerId) => {
                             status: 1,
                             acceptedAt: 1,
                             pickedUpAt: 1,
+                            photoUrl: 1,
+                            photoPublicId: 1,
                             rider: { $arrayElemAt: ['$rider', 0] },
                         },
                     },

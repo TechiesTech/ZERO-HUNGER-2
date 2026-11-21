@@ -376,7 +376,9 @@ export const TrackMeal: React.FC = () => {
                             <span>PHOTO OF MEAL DELIVERY</span>
                           </span>
                           <span className="font-mono-tabular text-[11px] text-brand-green font-bold">
-                            {trackedOrder ? 'Photo not provided' : 'Safeguarding Consent Verified ✓'}
+                            {trackedOrder
+                              ? activeToken.deliveryPhoto ? 'Photo uploaded ✓' : 'Photo not provided'
+                              : 'Safeguarding Consent Verified ✓'}
                           </span>
                         </div>
 
