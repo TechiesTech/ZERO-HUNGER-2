@@ -94,12 +94,12 @@ export const useOrders = () => {
     }
   };
 
-  // Mark order as delivered with photo
-  const markDelivered = async (photoFile: File) => {
+  // Mark order as delivered with photo and OTP
+  const markDelivered = async (photoFile: File, otp: string) => {
     if (!activeDelivery) return;
 
     try {
-      await riderService.markDelivered(activeDelivery.orderNumber, photoFile);
+      await riderService.markDelivered(activeDelivery.orderNumber, photoFile, otp);
       setActiveDelivery(null);
       await fetchAvailableOrders();
     } catch (err: any) {

@@ -89,6 +89,17 @@ const getMyOrders = async (customerId, skip, limit) => {
                     itemStage,
                     ...addressStages,
                     {
+                        $set: {
+                            deliveryOtp: {
+                                $cond: {
+                                    if: { $eq: ['$customerMealStatus', 'outfordelivery'] },
+                                    then: '$deliveryOtp',
+                                    else: null,
+                                },
+                            },
+                        },
+                    },
+                    {
                         $unset: [
                             'customerId',
                             'paymentId',
@@ -97,7 +108,6 @@ const getMyOrders = async (customerId, skip, limit) => {
                             'isDeleted',
                             'deletedAt',
                             'items.orderId',
-                            'deliveryOtp',
                             'deliveryOtpAttempts',
                         ],
                     },

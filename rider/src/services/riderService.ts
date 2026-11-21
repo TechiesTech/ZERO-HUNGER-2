@@ -76,10 +76,11 @@ export const riderService = {
     return apiClient.patchMultipart(`/riders/updateStatus/${orderNumber}`, formData);
   },
 
-  markDelivered: async (orderNumber: string, photo: File) => {
+  markDelivered: async (orderNumber: string, photo: File, otp: string) => {
     const formData = new FormData();
     formData.append('status', 'delivered');
     formData.append('file', photo); // Backend expects 'file' field, not 'photo'
+    formData.append('otp', otp); // 4-digit delivery OTP
     return apiClient.patchMultipart(`/riders/updateStatus/${orderNumber}`, formData);
   },
 
