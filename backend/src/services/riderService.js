@@ -2,16 +2,30 @@ import bcrypt from 'bcryptjs';
 import AppError from '../utils/appError.js';
 import { uploadImage, deleteImage, getPhotoUrl } from '../config/cloudinary.js';
 import * as riderRepository from '../repositories/riderRepository.js';
+import { notifyOrderStatus, notifyOrderReady, notifyOrderTaken, notifyRiderRegistered } from '../socket.js';
+
+// A failed delete must never hide the real error, so it is only logged
+const safeDeleteImage = async (photoPublicId) => {
+    if (!photoPublicId) return;
+    try {
+        await deleteImage(photoPublicId);
+    } catch (error) {
+        console.error('Could not delete delivery photo:', photoPublicId, error.message);
+    }
+};
 
 const registerRider = async ({ name, email, phone, password, vehicleType, vehicleNumber }) => {
     const passwordHash = await bcrypt.hash(password, 12);
 
-    return riderRepository
+    const rider = await riderRepository
         .registerRider({ name, email, phone, passwordHash, vehicleType, vehicleNumber })
         .catch((error) => {
             if (error.code === 11000) throw new AppError('Email, phone or vehicle number is already registered', 409);
             throw error;
         });
+
+    notifyRiderRegistered(rider); // the admin sees the pending rider at once
+    return rider;
 };
 
 const setAvailability = async (user, { isAvailable }) => {
@@ -30,7 +44,20 @@ const setAvailability = async (user, { isAvailable }) => {
 const getMyProfile = async (user) => {
     const rider = await riderRepository.getRiderProfile(user._id);
     if (!rider) throw new AppError('Rider profile not found', 404);
-    return rider;
+
+    // Return flat structure with user and rider data
+    return {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        roles: user.roles,
+        status: user.status,
+        isAvailable: rider.isAvailable,
+        vehicleType: rider.vehicleType,
+        vehicleNumber: rider.vehicleNumber,
+        currentLocation: rider.currentLocation,
+    };
 };
 
 const updateLocation = async (user, { latitude, longitude, heading }) => {
@@ -55,30 +82,88 @@ const acceptOrder = async (user, orderNumber) => {
     });
     if (!delivery) throw new AppError('Order is no longer available', 409);
 
-    return delivery;
+    const { customerId, kitchenId, ...data } = delivery;
+
+    notifyOrderTaken(data.orderNumber); // other riders remove it from their list
+    notifyOrderStatus({
+        orderNumber: data.orderNumber,
+        status: 'readyforpickup',
+        deliveryStatus: 'accepted',
+        customerId,
+        kitchenId,
+    });
+
+    return data;
 };
 
-const updateStatus = async (user, orderNumber, { status }, file) => {
+const releaseOrder = async (user, orderNumber) => {
+    const rider = await riderRepository.getRider(user._id);
+    if (!rider) throw new AppError('Rider profile not found', 404);
+
+    const released = await riderRepository.releaseOrder(rider._id, orderNumber);
+    if (!released) {
+        throw new AppError('Order not found, or it is already picked up and cannot be released', 404);
+    }
+
+    const { customerId, kitchenId, ...data } = released;
+
+    notifyOrderReady(data.orderNumber); // open for other riders again
+    notifyOrderStatus({
+        orderNumber: data.orderNumber,
+        status: 'readyforpickup',
+        deliveryStatus: 'released',
+        customerId,
+        kitchenId,
+    });
+
+    return data;
+};
+
+const updateStatus = async (user, orderNumber, { status, otp }, file) => {
     if (status === 'delivered' && !file) throw new AppError('Delivery photo is required', 400);
 
     const rider = await riderRepository.getRider(user._id);
     if (!rider) throw new AppError('Rider profile not found', 404);
 
+    // The customer's code is checked before the photo is uploaded, so a wrong code wastes nothing
+    if (status === 'delivered') {
+        const check = await riderRepository.checkDeliveryOtp(rider._id, orderNumber, otp);
+        if (check.result === 'not_found') throw new AppError('Order not found or not in the correct status', 404);
+        if (check.result === 'locked') throw new AppError('Too many wrong OTP attempts. Contact support', 423);
+        if (check.result === 'wrong') throw new AppError(`Wrong OTP. ${check.attemptsLeft} attempt(s) left`, 400);
+    }
+
+    // Upload first. If the status cannot be saved, the photo is deleted again
     const photoPublicId = status === 'delivered' ? await uploadImage(file.buffer) : null;
-    const order = await riderRepository.updateStatus(rider._id, orderNumber, status, photoPublicId);
+    const photoUrl = photoPublicId ? getPhotoUrl(photoPublicId) : null;
+
+    const order = await riderRepository
+        .updateStatus(rider._id, orderNumber, status, photoPublicId, photoUrl)
+        .catch(async (error) => {
+            await safeDeleteImage(photoPublicId);
+            throw error;
+        });
 
     if (!order) {
-        if (photoPublicId) await deleteImage(photoPublicId);
+        await safeDeleteImage(photoPublicId);
         throw new AppError('Order not found or not in the correct status', 404);
     }
 
-    return photoPublicId ? { ...order, photoUrl: getPhotoUrl(photoPublicId) } : order;
+    const { customerId, kitchenId, ...data } = order;
+
+    notifyOrderStatus({
+        orderNumber: data.orderNumber,
+        status: data.customerMealStatus,
+        deliveryStatus: status,
+        customerId,
+        kitchenId,
+    });
+
+    return photoUrl ? { ...data, photoUrl } : data;
 };
 
 const currentDelivery = async (user) => {
-    const delivery = await riderRepository.currentDelivery(user._id);
-    if (!delivery) throw new AppError('No delivery in progress', 404);
-    return delivery;
+    return riderRepository.currentDelivery(user._id);
 };
 
 const getMyDeliveries = async (user, { month, page, limit }) => {
@@ -103,6 +188,7 @@ const getMyDeliveries = async (user, { month, page, limit }) => {
             orderNumber: delivery.orderNumber,
             deliveredAt: delivery.deliveredAt,
             area: delivery.area,
+            // New records have the link saved. Older ones are built from the public id
             photoUrl: delivery.photoUrl || getPhotoUrl(delivery.photoPublicId) || '',
         })),
         pagination: { page, limit, total: totalDeliveries, totalPages: Math.ceil(totalDeliveries / limit) },
@@ -127,6 +213,48 @@ const reviewRider = async (userId, { status, reason }) => {
     return rider;
 };
 
+const getMySummary = async (user, { month }) => {
+    const rider = await riderRepository.getRider(user._id);
+    if (!rider) throw new AppError('Rider profile not found', 404);
+
+    // Month range in Indian time
+    const currentMonth = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 7);
+    const selectedMonth = month || currentMonth;
+    if (selectedMonth > currentMonth) throw new AppError('Month cannot be in the future', 400);
+
+    const [year, monthNumber] = selectedMonth.split('-').map(Number);
+    const nextYear = monthNumber === 12 ? year + 1 : year;
+    const nextMonthNumber = monthNumber === 12 ? 1 : monthNumber + 1;
+    const from = new Date(`${selectedMonth}-01T00:00:00+05:30`);
+    const to = new Date(`${nextYear}-${String(nextMonthNumber).padStart(2, '0')}-01T00:00:00+05:30`);
+
+    // Today in Indian time. India has no daylight saving, so a day is always 24 hours
+    const today = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const todayFrom = new Date(`${today}T00:00:00+05:30`);
+    const todayTo = new Date(todayFrom.getTime() + 24 * 60 * 60 * 1000);
+
+    const { days, todayCount } = await riderRepository.getDeliverySummary(rider._id, from, to, todayFrom, todayTo);
+
+    // One row for every day, so the app can draw a calendar (days with no deliveries show 0)
+    const counts = new Map(days.map((day) => [day.date, day.deliveries]));
+    const daysInMonth = new Date(year, monthNumber, 0).getDate();
+    const lastDay = selectedMonth === currentMonth ? Number(today.slice(8, 10)) : daysInMonth;
+    const calendar = Array.from({ length: lastDay }, (_, index) => {
+        const date = `${selectedMonth}-${String(index + 1).padStart(2, '0')}`;
+        return { date, deliveries: counts.get(date) || 0 };
+    });
+
+    return {
+        today: { date: today, deliveries: todayCount },
+        month: {
+            month: selectedMonth,
+            totalDeliveries: days.reduce((sum, day) => sum + day.deliveries, 0),
+            daysWorked: days.length,
+            days: calendar,
+        },
+    };
+};
+
 export {
     registerRider,
     getMyProfile,
@@ -134,10 +262,12 @@ export {
     updateLocation,
     getAvailableOrders,
     acceptOrder,
+    releaseOrder,
     updateStatus,
     currentDelivery,
     getMyDeliveries,
     getRiderStats,
     getAllRiders,
-    reviewRider
+    reviewRider,
+    getMySummary
 };

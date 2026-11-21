@@ -74,7 +74,7 @@ const getActiveKitchens = () =>
                 foreignField: '_id',
                 pipeline: [
                     { $match: { status: 'active', roles: 'kitchen' } },
-                    { $project: { name: 1 } },
+                    { $project: { name: 1, phone: 1 } },
                 ],
                 as: 'account',
             },
@@ -82,11 +82,13 @@ const getActiveKitchens = () =>
         {
             $addFields: {
                 name: { $ifNull: [{ $arrayElemAt: ['$account.name', 0] }, '$address'] },
+                phone: { $arrayElemAt: ['$account.phone', 0] },
             },
         },
         {
             $project: {
                 name: 1,
+                phone: 1,
                 address: 1,
                 location: 1,
             },
@@ -113,6 +115,7 @@ const getPaidOrders = (kitchenId) =>
                 as: 'items',
             },
         },
+        { $unset: ['deliveryOtp', 'deliveryOtpAttempts'] },
     ]);
 
 const moveOrderStatus = (orderId, kitchenId, from, to, stampField) =>
@@ -120,6 +123,6 @@ const moveOrderStatus = (orderId, kitchenId, from, to, stampField) =>
         { _id: orderId, kitchenId, isDeleted: false, paymentStatus: 'success', customerMealStatus: from },
         { $set: { customerMealStatus: to, [`statusTimestamps.${stampField}`]: new Date() } },
         { new: true, runValidators: true }
-    ).lean();
+    ).select('-deliveryOtp -deliveryOtpAttempts').lean();
 
 export { getMyKitchen, saveMyKitchen, getAllKitchens, getActiveKitchens, getPaidOrders, moveOrderStatus };

@@ -1,3 +1,6 @@
+import crypto from 'crypto';
+import mongoose from 'mongoose';
+import AppError from '../utils/appError.js';
 import { User } from '../models/schemas/userSchema.js';
 import { Rider } from '../models/schemas/riderSchema.js';
 import { Order } from '../models/schemas/orderSchema.js';
@@ -17,6 +20,70 @@ const statusFlow = {
         deliveryTimeField: 'deliveredAt',
     },
 };
+
+const MAX_OTP_ATTEMPTS = 5;
+
+const addressStages = (prefix = '') => [
+    {
+        $lookup: {
+            from: 'addresses',
+            localField: `${prefix}customerId`,
+            foreignField: 'userId',
+            let: { orderAddressId: `$${prefix}addressId` },
+            pipeline: [
+                {
+                    $project: {
+                        _id: 0,
+                        address: {
+                            $arrayElemAt: [
+                                {
+                                    $filter: {
+                                        input: '$addresses',
+                                        as: 'saved',
+                                        cond: { $eq: ['$$saved._id', '$$orderAddressId'] },
+                                    },
+                                },
+                                0,
+                            ],
+                        },
+                    },
+                },
+            ],
+            as: 'savedAddress',
+        },
+    },
+    { $set: { deliveryAddress: { $arrayElemAt: ['$savedAddress.address', 0] } } },
+];
+
+// Kitchen name, phone, address and location. localField is the path of the kitchen id.
+const kitchenLookup = (localField) => ({
+    $lookup: {
+        from: 'kitchens',
+        localField,
+        foreignField: '_id',
+        pipeline: [
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'user',
+                    foreignField: '_id',
+                    pipeline: [{ $project: { _id: 0, name: 1, phone: 1 } }],
+                    as: 'account',
+                },
+            },
+            {
+                $project: {
+                    _id: 0,
+                    name: { $arrayElemAt: ['$account.name', 0] },
+                    phone: { $arrayElemAt: ['$account.phone', 0] },
+                    address: 1,
+                    location: 1,
+                },
+            },
+        ],
+        as: 'kitchen',
+    },
+});
 
 const registerRider = async ({ name, email, phone, passwordHash, vehicleType, vehicleNumber }) => {
     const user = await User.create({ name, email, phone, passwordHash, roles: ['rider'], status: 'pending' });
@@ -63,70 +130,16 @@ const getAvailableOrders = async () => {
         { $match: { customerMealStatus: 'readyforpickup', assignedRiderId: null, isDeleted: false } },
         { $sort: { createdAt: 1 } },
         { $limit: 20 },
-        {
-            $lookup: {
-                from: 'addresses',
-                localField: 'customerId',
-                foreignField: 'userId',
-                let: { orderAddressId: '$addressId' },
-                pipeline: [
-                    {
-                        $project: {
-                            _id: 0,
-                            address: {
-                                $arrayElemAt: [
-                                    {
-                                        $filter: {
-                                            input: '$addresses',
-                                            as: 'saved',
-                                            cond: { $eq: ['$$saved._id', '$$orderAddressId'] },
-                                        },
-                                    },
-                                    0,
-                                ],
-                            },
-                        },
-                    },
-                ],
-                as: 'savedAddress',
-            },
-        },
-        {
-            $lookup: {
-                from: 'kitchens',
-                localField: 'kitchenId',
-                foreignField: '_id',
-                pipeline: [
-                    {
-                        $lookup: {
-                            from: 'users',
-                            localField: 'user',
-                            foreignField: '_id',
-                            pipeline: [{ $project: { _id: 0, name: 1, phone: 1 } }],
-                            as: 'account',
-                        },
-                    },
-                    {
-                        $project: {
-                            _id: 0,
-                            name: { $arrayElemAt: ['$account.name', 0] },
-                            phone: { $arrayElemAt: ['$account.phone', 0] },
-                            address: 1,
-                            location: 1,
-                        },
-                    },
-                ],
-                as: 'kitchen',
-            },
-        },
+        ...addressStages(),
+        kitchenLookup('kitchenId'),
         {
             $project: {
                 _id: 0,
                 orderNumber: 1,
                 totalAmountInr: 1,
                 createdAt: 1,
-                deliveryArea: { $arrayElemAt: ['$savedAddress.address.area', 0] },
-                deliveryLocation: { $arrayElemAt: ['$savedAddress.address.location', 0] },
+                deliveryArea: '$deliveryAddress.area',
+                deliveryLocation: '$deliveryAddress.location',
                 kitchen: { $arrayElemAt: ['$kitchen', 0] },
             },
         },
@@ -134,62 +147,173 @@ const getAvailableOrders = async () => {
 };
 
 const acceptOrder = async (riderId, orderNumber) => {
-    const order = await Order.findOneAndUpdate(
-        { orderNumber, isDeleted: false, customerMealStatus: 'readyforpickup', assignedRiderId: null },
-        { $set: { assignedRiderId: riderId } },
-        { new: true }
-    )
-        .select('orderNumber')
-        .lean();
+    let result = null;
 
-    if (!order) return null;
-
+    const session = await mongoose.startSession();
     try {
-        await Delivery.create({ orderId: order._id, riderId });
-    } catch (error) {
-        await Order.updateOne({ _id: order._id }, { $set: { assignedRiderId: null } });
-        throw error;
+        await session.withTransaction(async () => {
+            result = null; // reset, because this function can run more than once
+
+            const order = await Order.findOneAndUpdate(
+                { orderNumber, isDeleted: false, customerMealStatus: 'readyforpickup', assignedRiderId: null },
+                { $set: { assignedRiderId: riderId } },
+                { new: true, session }
+            )
+                .select('orderNumber customerId kitchenId')
+                .lean();
+
+            if (!order) return;
+
+            // A rider with an open delivery fails here with code 11000 and the assignment is rolled back
+            await Delivery.create(
+                [{ orderId: order._id, riderId, status: 'accepted', acceptedAt: new Date() }],
+                { session }
+            );
+
+            result = {
+                orderNumber: order.orderNumber,
+                status: 'accepted',
+                customerId: order.customerId,
+                kitchenId: order.kitchenId,
+            };
+        });
+    } finally {
+        await session.endSession();
     }
 
-    return { orderNumber: order.orderNumber, status: 'accepted' };
+    return result;
 };
 
-const updateStatus = async (riderId, orderNumber, status, photoPublicId) => {
-    const flow = statusFlow[status];
-    const updatedAt = new Date();
+// Checks the customer's code. The attempt is counted in the same step as the read,
+// so parallel guesses cannot get past the limit
+const checkDeliveryOtp = async (riderId, orderNumber, otp) => {
+    const match = { orderNumber, assignedRiderId: riderId, isDeleted: false, customerMealStatus: 'outfordelivery' };
 
     const order = await Order.findOneAndUpdate(
-        { orderNumber, assignedRiderId: riderId, isDeleted: false, customerMealStatus: flow.from },
-        { $set: { customerMealStatus: flow.to, [flow.orderTimeField]: updatedAt } },
+        { ...match, deliveryOtpAttempts: { $not: { $gte: MAX_OTP_ATTEMPTS } } },
+        { $inc: { deliveryOtpAttempts: 1 } },
         { new: true }
     )
-        .select('orderNumber customerMealStatus')
+        .select('+deliveryOtp deliveryOtpAttempts')
         .lean();
 
-    if (!order) return null;
-
-    if (status === 'pickedup') {
-        await Delivery.updateOne(
-            { orderId: order._id, riderId, isOpen: true },
-            { $set: { status, [flow.deliveryTimeField]: updatedAt } }
-        );
-        return { ...order, updatedAt };
+    if (!order) {
+        const locked = await Order.exists({ ...match, deliveryOtpAttempts: { $gte: MAX_OTP_ATTEMPTS } });
+        return { result: locked ? 'locked' : 'not_found' };
     }
 
-    await Promise.all([
-        Delivery.updateOne(
-            { orderId: order._id, riderId, isOpen: true },
-            { $set: { status, isOpen: false, [flow.deliveryTimeField]: updatedAt, photoPublicId } }
-        ),
-        Rider.updateOne({ _id: riderId }, { $inc: { totalDeliveries: 1 } }),
-    ]);
+    // Orders picked up before this feature have no code, so they can still be delivered
+    if (!order.deliveryOtp || order.deliveryOtp === otp) return { result: 'ok' };
 
-    return { ...order, updatedAt };
+    return { result: 'wrong', attemptsLeft: Math.max(MAX_OTP_ATTEMPTS - order.deliveryOtpAttempts, 0) };
+};
+
+// Order, delivery and the rider's counter change together, or not at all.
+// At pickup, a fresh delivery code is created in the same step.
+const updateStatus = async (riderId, orderNumber, status, photoPublicId, photoUrl) => {
+    const flow = statusFlow[status];
+    const updatedAt = new Date();
+    let result = null;
+
+    // A fresh 4-digit code, made once when the food leaves the kitchen
+    const pickupOtp = status === 'pickedup' ? String(crypto.randomInt(1000, 10000)) : null;
+
+    const session = await mongoose.startSession();
+    try {
+        await session.withTransaction(async () => {
+            result = null; // reset, because this function can run more than once
+
+            const orderChanges = { customerMealStatus: flow.to, [flow.orderTimeField]: updatedAt };
+            if (pickupOtp) {
+                orderChanges.deliveryOtp = pickupOtp;
+                orderChanges.deliveryOtpAttempts = 0;
+            }
+
+            const order = await Order.findOneAndUpdate(
+                { orderNumber, assignedRiderId: riderId, isDeleted: false, customerMealStatus: flow.from },
+                { $set: orderChanges },
+                { new: true, session }
+            )
+                .select('orderNumber customerMealStatus customerId kitchenId')
+                .lean();
+
+            if (!order) return;
+
+            const deliveryChanges = { status, [flow.deliveryTimeField]: updatedAt };
+            if (status === 'delivered') {
+                Object.assign(deliveryChanges, { isOpen: false, photoPublicId, photoUrl });
+            }
+
+            const delivery = await Delivery.updateOne(
+                { orderId: order._id, riderId, isOpen: true },
+                { $set: deliveryChanges },
+                { session }
+            );
+
+            // Without a delivery record the order must not move, so everything is rolled back
+            if (delivery.matchedCount === 0) {
+                throw new AppError('Open delivery not found for this order', 409);
+            }
+
+            if (status === 'delivered') {
+                await Rider.updateOne({ _id: riderId }, { $inc: { totalDeliveries: 1 } }, { session });
+            }
+
+            result = { ...order, updatedAt };
+        });
+    } finally {
+        await session.endSession();
+    }
+
+    return result;
+};
+
+const releaseOrder = async (riderId, orderNumber) => {
+    let result = null;
+
+    const session = await mongoose.startSession();
+    try {
+        await session.withTransaction(async () => {
+            result = null;
+
+            const order = await Order.findOneAndUpdate(
+                { orderNumber, assignedRiderId: riderId, isDeleted: false, customerMealStatus: 'readyforpickup' },
+                { $set: { assignedRiderId: null } },
+                { new: true, session }
+            )
+                .select('orderNumber customerId kitchenId')
+                .lean();
+
+            if (!order) return;
+
+            const delivery = await Delivery.updateOne(
+                { orderId: order._id, riderId, isOpen: true, status: 'accepted' },
+                { $set: { status: 'cancelled', isOpen: false, releasedAt: new Date(), releasedBy: 'rider' } },
+                { session }
+            );
+
+            if (delivery.matchedCount === 0) {
+                throw new AppError('Open delivery not found for this order', 409);
+            }
+
+            result = {
+                orderNumber: order.orderNumber,
+                status: 'released',
+                customerId: order.customerId,
+                kitchenId: order.kitchenId,
+            };
+        });
+    } finally {
+        await session.endSession();
+    }
+
+    return result;
 };
 
 const currentDelivery = async (userId) => {
     const [delivery] = await Rider.aggregate([
-        { $match: { userId } },
+        // aggregate does not cast ids, so convert to ObjectId
+        { $match: { userId: new mongoose.Types.ObjectId(userId) } },
         {
             $lookup: {
                 from: 'deliveries',
@@ -203,63 +327,8 @@ const currentDelivery = async (userId) => {
         { $match: { delivery: { $exists: true } } },
         { $lookup: { from: 'orders', localField: 'delivery.orderId', foreignField: '_id', as: 'order' } },
         { $set: { order: { $arrayElemAt: ['$order', 0] } } },
-        {
-            $lookup: {
-                from: 'addresses',
-                localField: 'order.customerId',
-                foreignField: 'userId',
-                let: { orderAddressId: '$order.addressId' },
-                pipeline: [
-                    {
-                        $project: {
-                            _id: 0,
-                            address: {
-                                $arrayElemAt: [
-                                    {
-                                        $filter: {
-                                            input: '$addresses',
-                                            as: 'saved',
-                                            cond: { $eq: ['$$saved._id', '$$orderAddressId'] },
-                                        },
-                                    },
-                                    0,
-                                ],
-                            },
-                        },
-                    },
-                ],
-                as: 'savedAddress',
-            },
-        },
-        { $set: { deliveryAddress: { $arrayElemAt: ['$savedAddress.address', 0] } } },
-        {
-            $lookup: {
-                from: 'kitchens',
-                localField: 'order.kitchenId',
-                foreignField: '_id',
-                pipeline: [
-                    {
-                        $lookup: {
-                            from: 'users',
-                            localField: 'user',
-                            foreignField: '_id',
-                            pipeline: [{ $project: { _id: 0, name: 1, phone: 1 } }],
-                            as: 'account',
-                        },
-                    },
-                    {
-                        $project: {
-                            _id: 0,
-                            name: { $arrayElemAt: ['$account.name', 0] },
-                            phone: { $arrayElemAt: ['$account.phone', 0] },
-                            address: 1,
-                            location: 1,
-                        },
-                    },
-                ],
-                as: 'kitchen',
-            },
-        },
+        ...addressStages('order.'),
+        kitchenLookup('order.kitchenId'),
         {
             $project: {
                 _id: 0,
@@ -277,6 +346,7 @@ const currentDelivery = async (userId) => {
                     area: '$deliveryAddress.area',
                     landmark: '$deliveryAddress.landmark',
                     city: '$deliveryAddress.city',
+                    state: '$deliveryAddress.state',
                     pincode: '$deliveryAddress.pincode',
                     location: '$deliveryAddress.location',
                 },
@@ -290,7 +360,7 @@ const currentDelivery = async (userId) => {
 
 const getMyDeliveries = async (userId, from, to, skip, limit) => {
     const [rider] = await Rider.aggregate([
-        { $match: { userId } },
+        { $match: { userId: new mongoose.Types.ObjectId(userId) } },
         {
             $lookup: {
                 from: 'deliveries',
@@ -307,40 +377,14 @@ const getMyDeliveries = async (userId, from, to, skip, limit) => {
                                 { $limit: limit },
                                 { $lookup: { from: 'orders', localField: 'orderId', foreignField: '_id', as: 'order' } },
                                 { $set: { order: { $arrayElemAt: ['$order', 0] } } },
-                                {
-                                    $lookup: {
-                                        from: 'addresses',
-                                        localField: 'order.customerId',
-                                        foreignField: 'userId',
-                                        let: { orderAddressId: '$order.addressId' },
-                                        pipeline: [
-                                            {
-                                                $project: {
-                                                    _id: 0,
-                                                    address: {
-                                                        $arrayElemAt: [
-                                                            {
-                                                                $filter: {
-                                                                    input: '$addresses',
-                                                                    as: 'saved',
-                                                                    cond: { $eq: ['$$saved._id', '$$orderAddressId'] },
-                                                                },
-                                                            },
-                                                            0,
-                                                        ],
-                                                    },
-                                                },
-                                            },
-                                        ],
-                                        as: 'savedAddress',
-                                    },
-                                },
+                                ...addressStages('order.'),
                                 {
                                     $project: {
                                         _id: 0,
                                         orderNumber: '$order.orderNumber',
                                         deliveredAt: 1,
-                                        area: { $arrayElemAt: ['$savedAddress.address.area', 0] },
+                                        area: '$deliveryAddress.area',
+                                        photoUrl: 1,
                                         photoPublicId: 1,
                                     },
                                 },
@@ -481,6 +525,26 @@ const reviewRider = async (userId, status, reason) => {
         .lean();
 };
 
+// Delivered count for each day of the range (Indian time), plus today's count
+const getDeliverySummary = async (riderId, from, to, todayFrom, todayTo) => {
+    const [days, todayCount] = await Promise.all([
+        Delivery.aggregate([
+            { $match: { riderId, status: 'delivered', deliveredAt: { $gte: from, $lt: to } } },
+            {
+                $group: {
+                    _id: { $dateToString: { format: '%Y-%m-%d', date: '$deliveredAt', timezone: 'Asia/Kolkata' } },
+                    deliveries: { $sum: 1 },
+                },
+            },
+            { $sort: { _id: 1 } },
+            { $project: { _id: 0, date: '$_id', deliveries: 1 } },
+        ]),
+        Delivery.countDocuments({ riderId, status: 'delivered', deliveredAt: { $gte: todayFrom, $lt: todayTo } }),
+    ]);
+
+    return { days, todayCount };
+};
+
 export {
     registerRider,
     getRider,
@@ -490,10 +554,13 @@ export {
     hasOpenDelivery,
     getAvailableOrders,
     acceptOrder,
+    checkDeliveryOtp,
     updateStatus,
+    releaseOrder,
     currentDelivery,
     getMyDeliveries,
     getRiderStats,
     getAllRiders,
     reviewRider,
+    getDeliverySummary
 };

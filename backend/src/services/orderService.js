@@ -5,6 +5,7 @@ import * as addressRepository from '../repositories/addressRepository.js';
 import * as geocoder from '../utils/geocoder.js';
 import { getCachedRoute } from '../utils/roadRoute.js';
 import { getPhotoUrl } from '../config/cloudinary.js';
+import { notifyNewOrder } from '../socket.js';
 
 const createOrder = async (user, body) => {
     // 1. The address must belong to this customer and not be deleted
@@ -35,6 +36,7 @@ const createOrder = async (user, body) => {
         throw new AppError('All meals in one order must be from the same kitchen', 400);
     }
 
+    // The delivery OTP is not created here. It is created when the rider marks the order picked up
     const orderData = {
         customerId: user._id,
         addressId: address._id,
@@ -50,7 +52,15 @@ const createOrder = async (user, body) => {
         const orderNumber = `ZH-ORD-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
         try {
             const { order, items } = await orderRepository.createOrder({ ...orderData, orderNumber }, orderItems);
-            return { ...order, items };
+
+            // The delivery code never leaves the server at this stage
+            const { deliveryOtp, deliveryOtpAttempts, ...safeOrder } = order;
+            const created = { ...safeOrder, items };
+
+            // 5. Tell this order's kitchen (and admins) at once. Runs only after the order and items are saved
+            notifyNewOrder(created);
+
+            return created;
         } catch (error) {
             if (error.code !== 11000) throw error;
         }
@@ -104,6 +114,7 @@ const trackLiveOrder = async (user, orderNumber) => {
     let rider = null;
     let toKitchen = null;
     let toCustomer = null;
+    let toCustomerIsFallback = false;
     let estimatedDeliveryAt = null;
 
     const riderInfo = order.delivery?.rider;
@@ -133,9 +144,14 @@ const trackLiveOrder = async (user, orderNumber) => {
         };
     }
 
-    // Completed orders retain their kitchen-to-customer route for the tracking map.
-    if (destination && status === 'outfordelivery' && riderPoint) {
-        toCustomer = await getCachedRoute(order.orderNumber, 'rider-to-customer', riderPoint, destination);
+    // Keep a kitchen-to-customer route visible while the rider's GPS is unavailable.
+    if (destination && status === 'outfordelivery') {
+        if (riderPoint) {
+            toCustomer = await getCachedRoute(order.orderNumber, 'rider-to-customer', riderPoint, destination);
+        } else if (kitchenPoint) {
+            toCustomer = await getCachedRoute(order.orderNumber, 'kitchen-to-customer', kitchenPoint, destination);
+            toCustomerIsFallback = Boolean(toCustomer);
+        }
     } else if (destination && status !== 'outfordelivery' && status !== 'cancelled' && kitchenPoint) {
         if (!isFinished && riderPoint) {
             toKitchen = await getCachedRoute(order.orderNumber, 'rider-to-kitchen', riderPoint, kitchenPoint);
@@ -145,7 +161,7 @@ const trackLiveOrder = async (user, orderNumber) => {
 
     if (!isFinished) {
         // Estimated delivery time
-        if (status === 'outfordelivery' && toCustomer) {
+        if (status === 'outfordelivery' && toCustomer && !toCustomerIsFallback) {
             estimatedDeliveryAt = new Date(Date.now() + toCustomer.durationSeconds * 1000);
         } else if (status === 'readyforpickup' && toKitchen && toCustomer) {
             estimatedDeliveryAt = new Date(Date.now() + (toKitchen.durationSeconds + toCustomer.durationSeconds) * 1000);
@@ -173,6 +189,8 @@ const trackLiveOrder = async (user, orderNumber) => {
         items: order.items,
         canEditDetails: status === 'confirmed' || status === 'preparing',
         canCancel: status === 'confirmed' && order.paymentStatus !== 'success',
+        // The code exists only after pickup, and is shown only while the order is out for delivery
+        deliveryOtp: status === 'outfordelivery' ? order.deliveryOtp || null : null,
     };
 };
 

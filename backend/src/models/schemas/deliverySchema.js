@@ -4,7 +4,7 @@ const { Schema } = mongoose;
 
 const deliverySchema = new Schema(
     {
-        orderId: { type: Schema.Types.ObjectId, ref: 'Orders', required: true },
+        orderId: { type: Schema.Types.ObjectId, ref: 'Order', required: true },
         riderId: { type: Schema.Types.ObjectId, ref: 'Rider', required: true },
         status: {
             type: String,
@@ -34,5 +34,6 @@ deliverySchema.index(
 );
 deliverySchema.index({ orderId: 1, createdAt: 1 });
 deliverySchema.index({ riderId: 1, createdAt: -1 });
+deliverySchema.index({ riderId: 1, deliveredAt: -1 });
 
 export const Delivery = mongoose.model('Delivery', deliverySchema, 'deliveries');
