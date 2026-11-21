@@ -42,6 +42,7 @@ export interface Order {
   paymentMethod: string;
   customerMealStatus: string;
   sponsoredMealsCount: number;
+  deliveryPhotoUrl?: string | null;
   canEditDetails?: boolean;
   canCancel?: boolean;
   statusTimestamps?: {

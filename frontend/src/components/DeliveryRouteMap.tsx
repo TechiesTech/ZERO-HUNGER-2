@@ -93,7 +93,8 @@ export const DeliveryRouteMap: React.FC<DeliveryRouteMapProps> = ({
     ? liveTracking.kitchen.location
     : null;
   const liveRouteDistance = useMemo(() => {
-    const route = liveTracking?.customerMealStatus === "outfordelivery"
+    const route = liveTracking?.customerMealStatus === "outfordelivery" ||
+      liveTracking?.customerMealStatus === "delivered"
       ? liveTracking.routes?.toCustomer
       : liveTracking?.routes?.toKitchen ?? liveTracking?.routes?.toCustomer;
     return route?.distanceMeters != null
