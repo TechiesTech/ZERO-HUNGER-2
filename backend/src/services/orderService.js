@@ -114,6 +114,7 @@ const trackLiveOrder = async (user, orderNumber) => {
     let rider = null;
     let toKitchen = null;
     let toCustomer = null;
+    let toCustomerIsFallback = false;
     let estimatedDeliveryAt = null;
 
     const riderInfo = order.delivery?.rider;
@@ -143,9 +144,14 @@ const trackLiveOrder = async (user, orderNumber) => {
         };
     }
 
-    // Completed orders retain their kitchen-to-customer route for the tracking map.
-    if (destination && status === 'outfordelivery' && riderPoint) {
-        toCustomer = await getCachedRoute(order.orderNumber, 'rider-to-customer', riderPoint, destination);
+    // Keep a kitchen-to-customer route visible while the rider's GPS is unavailable.
+    if (destination && status === 'outfordelivery') {
+        if (riderPoint) {
+            toCustomer = await getCachedRoute(order.orderNumber, 'rider-to-customer', riderPoint, destination);
+        } else if (kitchenPoint) {
+            toCustomer = await getCachedRoute(order.orderNumber, 'kitchen-to-customer', kitchenPoint, destination);
+            toCustomerIsFallback = Boolean(toCustomer);
+        }
     } else if (destination && status !== 'outfordelivery' && status !== 'cancelled' && kitchenPoint) {
         if (!isFinished && riderPoint) {
             toKitchen = await getCachedRoute(order.orderNumber, 'rider-to-kitchen', riderPoint, kitchenPoint);
@@ -155,7 +161,7 @@ const trackLiveOrder = async (user, orderNumber) => {
 
     if (!isFinished) {
         // Estimated delivery time
-        if (status === 'outfordelivery' && toCustomer) {
+        if (status === 'outfordelivery' && toCustomer && !toCustomerIsFallback) {
             estimatedDeliveryAt = new Date(Date.now() + toCustomer.durationSeconds * 1000);
         } else if (status === 'readyforpickup' && toKitchen && toCustomer) {
             estimatedDeliveryAt = new Date(Date.now() + (toKitchen.durationSeconds + toCustomer.durationSeconds) * 1000);
