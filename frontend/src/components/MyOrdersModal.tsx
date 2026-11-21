@@ -218,8 +218,16 @@ export const MyOrdersModal: React.FC<MyOrdersModalProps> = ({ open, onClose }) =
             )}
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#188D44]">Orders</p>
-              <h2 id="my-orders-title" className="mt-1 text-2xl font-black text-[#122023]">
+              <h2 id="my-orders-title" className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-2xl font-black text-[#122023]">
                 {selected ? selected.orderNumber : 'All Orders'}
+                {tracking?.customerMealStatus === 'outfordelivery' && tracking.deliveryOtp && (
+                  <span
+                    aria-label={`Delivery OTP: ${tracking.deliveryOtp}`}
+                    className="rounded-full bg-purple-50 px-3 py-1 text-sm font-bold tracking-wider text-purple-700"
+                  >
+                    OTP {tracking.deliveryOtp}
+                  </span>
+                )}
               </h2>
             </div>
           </div>
