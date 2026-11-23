@@ -145,12 +145,12 @@ export const DeliveryPhotoModal: React.FC<DeliveryPhotoModalProps> = ({
           disabled={!photoFile || otp.length !== 4 || isSubmitting}
           className={`w-full h-14 rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-lg transition-transform active:scale-98 ${
             photoFile && otp.length === 4 && !isSubmitting
-              ? 'bg-emerald-500 hover:bg-emerald-600 text-zinc-950 shadow-emerald-500/20'
+              ? 'bg-[#49E619] hover:bg-[#3ED016] text-zinc-950 shadow-[#49E619]/20'
               : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
           }`}
         >
           <Check className="w-5 h-5" />
-          <span>{isSubmitting ? 'UPLOADING & COMPLETING...' : 'CONFIRM & COMPLETE DELIVERY'}</span>
+          <span>{isSubmitting ? 'UPLOADING...' : 'CONFIRM DELIVERY'}</span>
         </button>
       </div>
     </div>

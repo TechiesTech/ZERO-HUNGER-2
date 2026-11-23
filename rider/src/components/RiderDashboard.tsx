@@ -227,7 +227,7 @@ export const RiderDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex flex-col max-w-md mx-auto relative select-none">
+    <div className="h-screen bg-zinc-950 text-white flex flex-col max-w-md mx-auto relative select-none overflow-hidden">
       <HeaderBar
         riderName={user?.name || ''}
         isOnline={isOnline}
@@ -242,15 +242,14 @@ export const RiderDashboard: React.FC = () => {
         <StatusBanner type={bannerMessage.type} message={bannerMessage.message} onDismiss={() => setBannerMessage(null)} />
       )}
 
-      {/* Sticky Map - Fixed position */}
-      <div className="sticky top-0 z-10">
+      {/* Fixed Map - doesn't scroll */}
+      <div className="shrink-0">
         <MapView
           riderCoords={lastCoords}
           gpsError={gpsError}
           kitchenCoords={getKitchenCoords()}
           customerCoords={getCustomerCoords()}
           statusText={getMapStatusText()}
-          eta={null}
         />
       </div>
 
