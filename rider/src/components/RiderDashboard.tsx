@@ -14,6 +14,7 @@ import { useOnlineToggle } from '../hooks/useOnlineToggle';
 import { useOrders } from '../hooks/useOrders';
 import { LogOut } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { getRoute } from '../services/routing';
 
 export const RiderDashboard: React.FC = () => {
   // State from context
@@ -41,6 +42,41 @@ export const RiderDashboard: React.FC = () => {
   const [photoSubmitting, setPhotoSubmitting] = React.useState(false);
   const [showMenu, setShowMenu] = React.useState(false);
   const [currentView, setCurrentView] = React.useState<'dashboard' | 'profile' | 'editProfile' | 'summary'>('dashboard');
+  const [estimatedEta, setEstimatedEta] = React.useState<number | null>(null);
+
+  // Calculate ETA when rider location changes
+  React.useEffect(() => {
+    if (!lastCoords || !activeDelivery) {
+      setEstimatedEta(null);
+      return;
+    }
+
+    const calculateEta = async () => {
+      const dest = activeDelivery.customerMealStatus === 'outfordelivery'
+        ? activeDelivery.deliveryAddress?.location
+        : activeDelivery.kitchen?.location;
+
+      if (!dest) return;
+
+      try {
+        const route = await getRoute(
+          lastCoords.longitude,
+          lastCoords.latitude,
+          dest.longitude,
+          dest.latitude
+        );
+        if (route) {
+          setEstimatedEta(route.etaMinutes);
+        }
+      } catch (error) {
+        console.error('Failed to calculate ETA:', error);
+      }
+    };
+
+    // Debounce to avoid too many API calls
+    const timeoutId = setTimeout(calculateEta, 2000);
+    return () => clearTimeout(timeoutId);
+  }, [lastCoords?.latitude, lastCoords?.longitude, activeDelivery?.customerMealStatus, activeDelivery?.deliveryAddress?.location, activeDelivery?.kitchen?.location]);
 
   // ============ Handlers ============
 
@@ -226,9 +262,10 @@ export const RiderDashboard: React.FC = () => {
           onReleaseOrder={handleReleaseOrder}
           onOpenDeliveryProof={() => setShowPhotoModal(true)}
           isLoading={isDeliveryLoading}
+          etaMinutes={estimatedEta}
         />
       ) : (
-        <div className="flex-1 overflow-y-auto scroll-smooth">
+        <div className="flex-1 overflow-y-auto scroll-smooth -mt-3 relative z-20 bg-zinc-950 rounded-t-3xl border-t-2 border-[#49E619] shadow-[0_-8px_25px_rgba(73,230,25,0.15),0_-2px_10px_rgba(0,0,0,0.5)]">
           {isOnline ? (
             <AvailableOrders
               orders={availableOrders}
