@@ -1,5 +1,5 @@
 import React from 'react';
-import { Phone, ExternalLink, MapPin, Store, CheckCircle, PackageCheck, Camera } from 'lucide-react';
+import { Phone, ExternalLink, MapPin, Store, PackageCheck, Camera } from 'lucide-react';
 import type { ActiveDelivery } from '../types/rider';
 
 interface ActiveDeliveryPanelProps {
@@ -8,6 +8,7 @@ interface ActiveDeliveryPanelProps {
   onReleaseOrder?: () => void;
   onOpenDeliveryProof: () => void;
   isLoading?: boolean;
+  etaMinutes?: number | null;
 }
 
 // Helper function to safely convert address to string
@@ -34,6 +35,7 @@ export const ActiveDeliveryPanel: React.FC<ActiveDeliveryPanelProps> = ({
   onReleaseOrder,
   onOpenDeliveryProof,
   isLoading,
+  etaMinutes,
 }) => {
   const isPickedUp = delivery.customerMealStatus === 'outfordelivery';
 
@@ -74,22 +76,47 @@ export const ActiveDeliveryPanel: React.FC<ActiveDeliveryPanelProps> = ({
     return delivery.kitchen?.phone;
   };
 
-  return (
-    <div className="fixed bottom-0 inset-x-0 z-30 bg-zinc-900 border-t border-zinc-800 rounded-t-3xl shadow-2xl p-4 pb-safe space-y-3 max-h-[75vh] overflow-y-auto">
-      {/* Drag handle pill */}
-      <div className="w-12 h-1.5 bg-zinc-700 rounded-full mx-auto" />
+  const isArrived = etaMinutes !== null && etaMinutes !== undefined && etaMinutes <= 0;
+  const displayEta = etaMinutes && etaMinutes > 0 ? etaMinutes : 4;
 
-      {/* Header Info - Compact */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-mono font-bold text-[#49E619] bg-[#49E619]/10 px-2 py-1 rounded-md">
-            #{delivery.orderNumber}
-          </span>
-          <span className="text-xs text-zinc-500">•</span>
-          <span className="text-xs text-zinc-400">{delivery.items?.length || delivery.sponsoredMealsCount || 1} items</span>
+  return (
+    <div className="fixed bottom-0 inset-x-0 z-30 pointer-events-none">
+      {/* Outer panel card with neon green top border matching the ETA circle */}
+      <div className="relative bg-zinc-900 border-t-2 border-[#49E619] rounded-t-3xl shadow-[0_-8px_25px_rgba(73,230,25,0.15),0_-2px_10px_rgba(0,0,0,0.5)] pointer-events-auto">
+        {/* Half inside, half outside circular ETA badge */}
+        <div className="absolute -top-9 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center pointer-events-none">
+          <div className="bg-white rounded-full w-[88px] h-[88px] border-4 border-[#49E619] shadow-[0_4px_22px_rgba(0,0,0,0.35),0_0_15px_rgba(73,230,25,0.45)] flex flex-col items-center justify-center p-1">
+            {isArrived ? (
+              <div className="flex flex-col items-center justify-center">
+                <div className="w-6 h-6 rounded-full bg-[#49E619]/20 flex items-center justify-center mb-0.5">
+                  <MapPin className="w-3.5 h-3.5 text-[#2cb606]" />
+                </div>
+                <span className="text-xs font-black text-zinc-950 uppercase tracking-tight">arrived</span>
+                <span className="text-[8px] font-bold text-zinc-500 leading-none mt-0.5">at location</span>
+              </div>
+            ) : (
+              <>
+                <span className="text-[10px] font-medium text-zinc-500 lowercase tracking-tight">arriving in</span>
+                <span className="text-3xl font-black text-zinc-900 leading-none my-0.5">{displayEta}</span>
+                <span className="text-xs font-bold text-zinc-700 leading-none">mins</span>
+              </>
+            )}
+          </div>
         </div>
-        <span className="text-base font-black text-white">₹{delivery.totalAmountInr}</span>
-      </div>
+
+        {/* Scrollable content container with top spacing for the floating badge */}
+        <div className="p-4 pt-12 pb-safe space-y-3 max-h-[75vh] overflow-y-auto">
+          {/* Header Info - Positioned cleanly below the circular timer */}
+          <div className="flex items-center justify-between min-h-[32px] pt-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono font-bold text-[#49E619] bg-[#49E619]/10 px-2.5 py-1 rounded-md">
+                #{delivery.orderNumber}
+              </span>
+              <span className="text-xs text-zinc-500">•</span>
+              <span className="text-xs text-zinc-400 font-medium">{delivery.items?.length || delivery.sponsoredMealsCount || 1} items</span>
+            </div>
+            <span className="text-base font-black text-white">₹{delivery.totalAmountInr}</span>
+          </div>
 
       {/* Target Address Card */}
       <div className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-3.5 space-y-2">
@@ -168,6 +195,8 @@ export const ActiveDeliveryPanel: React.FC<ActiveDeliveryPanelProps> = ({
           <span>{isLoading ? 'Processing...' : 'Mark Delivered'}</span>
         </button>
       )}
+        </div>
+      </div>
     </div>
   );
 };

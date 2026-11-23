@@ -69,7 +69,7 @@ export const AvailableOrders: React.FC<AvailableOrdersProps> = ({
           {orders.map((order) => (
             <div
               key={order.orderNumber}
-              className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 shadow-lg"
+              className="relative bg-zinc-900 border border-zinc-800 border-t-2 border-t-[#49E619] rounded-2xl p-4 shadow-[0_-4px_20px_rgba(73,230,25,0.12),0_4px_20px_rgba(0,0,0,0.4)]"
             >
               {/* Header - Order # and Amount */}
               <div className="flex items-center justify-between mb-3">

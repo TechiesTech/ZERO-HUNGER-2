@@ -22,7 +22,6 @@ interface MapViewProps {
   routePath?: [number, number][] | null;
   statusText?: string;
   gpsError?: string | null;
-  /** ETA string shown in the bottom pill, e.g. "12 min" */
   eta?: string | null;
 }
 
@@ -36,9 +35,8 @@ const DEFAULT_ZOOM = 13;
 const FOCUS_ZOOM = 15;
 const ROUTE_SOURCE = 'route-line';
 const ROUTE_LAYER = 'route-layer';
-const ROUTE_CASING_LAYER = 'route-casing-layer';
 
-// Esri World Light Gray Canvas - free, no API key required
+// Esri World Light Gray Canvas with static GeoJSON route layer
 const MAP_STYLE: StyleSpecification = {
   version: 8,
   sources: {
@@ -50,9 +48,93 @@ const MAP_STYLE: StyleSpecification = {
       maxzoom: 16,
       attribution: '© Esri, HERE, Garmin',
     },
+    'route-line': {
+      type: 'geojson',
+      data: {
+        type: 'FeatureCollection',
+        features: [],
+      },
+    },
   },
-  layers: [{ id: 'esri-tiles', type: 'raster', source: 'esri' }],
+  layers: [
+    { id: 'esri-tiles', type: 'raster', source: 'esri' },
+    {
+      id: 'route-layer',
+      type: 'line',
+      source: 'route-line',
+      layout: {
+        'line-join': 'round',
+        'line-cap': 'butt',
+      },
+      paint: {
+        'line-color': '#18181b',
+        'line-width': 3,
+        'line-dasharray': [2, 2],
+        'line-opacity': 0.95,
+      },
+    },
+  ],
 };
+
+// ─── Arched Curve Generator ──────────────────────────────────────────────────
+
+/**
+ * Generates an upward arched bezier curve between start and end coordinates.
+ * Gives the smooth curved dashed arc flight path look (like Swiggy / Zepto).
+ */
+function createArchCurve(
+  start: [number, number],
+  end: [number, number],
+  numPoints = 60
+): [number, number][] {
+  const lng1 = Number(start[0]);
+  const lat1 = Number(start[1]);
+  const lng2 = Number(end[0]);
+  const lat2 = Number(end[1]);
+
+  if (isNaN(lng1) || isNaN(lat1) || isNaN(lng2) || isNaN(lat2)) return [];
+
+  const dx = lng2 - lng1;
+  const dy = lat2 - lat1;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist === 0) return [[lng1, lat1], [lng2, lat2]];
+
+  const midX = (lng1 + lng2) / 2;
+  const midY = (lat1 + lat2) / 2;
+
+  // Perpendicular normal vector (-dy, dx)
+  let nx = -dy;
+  let ny = dx;
+  const len = Math.sqrt(nx * nx + ny * ny) || 1;
+  nx /= len;
+  ny /= len;
+
+  // Ensure arch always curves upward (northward on map: ny > 0)
+  if (ny < 0) {
+    nx = -nx;
+    ny = -ny;
+  }
+  // If line is nearly vertical, curve towards east
+  if (Math.abs(ny) < 0.25) {
+    nx = 0.866;
+    ny = 0.5;
+  }
+
+  // Curvature height proportional to distance between points
+  const archHeight = dist * 0.20;
+  const ctrlX = midX + nx * archHeight;
+  const ctrlY = midY + ny * archHeight;
+
+  const points: [number, number][] = [];
+  for (let i = 0; i <= numPoints; i++) {
+    const t = i / numPoints;
+    const u = 1 - t;
+    const lng = u * u * lng1 + 2 * u * t * ctrlX + t * t * lng2;
+    const lat = u * u * lat1 + 2 * u * t * ctrlY + t * t * lat2;
+    points.push([Number(lng.toFixed(6)), Number(lat.toFixed(6))]);
+  }
+  return points;
+}
 
 // ─── SVG Marker Factories ────────────────────────────────────────────────────
 
@@ -196,35 +278,39 @@ export const MapView: React.FC<MapViewProps> = ({
     const onLoad = () => {
       map.resize();
 
-      // Add the route GeoJSON source + two layers (casing + fill) upfront
-      map.addSource(ROUTE_SOURCE, {
-        type: 'geojson',
-        data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } },
-      });
+      if (!map.getSource(ROUTE_SOURCE)) {
+        map.addSource(ROUTE_SOURCE, {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+        });
+      }
 
-      // Light casing behind for visibility (light gray) - added first
-      map.addLayer({
-        id: ROUTE_CASING_LAYER,
-        type: 'line',
-        source: ROUTE_SOURCE,
-        layout: { 'line-join': 'round', 'line-cap': 'round', 'line-dasharray': [4, 4] } as any,
-        paint: { 'line-color': '#000000', 'line-width': 5, 'line-opacity': 0.2 },
-      });
-
-      // Dashed route line - main layer (green) - added on top
-      map.addLayer({
-        id: ROUTE_LAYER,
-        type: 'line',
-        source: ROUTE_SOURCE,
-        layout: { 'line-join': 'round', 'line-cap': 'round', 'line-dasharray': [4, 4] } as any,
-        paint: { 'line-color': '#49E619', 'line-width': 3, 'line-opacity': 1 },
-      });
+      if (!map.getLayer(ROUTE_LAYER)) {
+        map.addLayer({
+          id: ROUTE_LAYER,
+          type: 'line',
+          source: ROUTE_SOURCE,
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'butt',
+          },
+          paint: {
+            'line-color': '#18181b',
+            'line-width': 3,
+            'line-dasharray': [2, 2],
+            'line-opacity': 0.95,
+          },
+        });
+      }
 
       setIsMapReady(true);
     };
 
-    map.on('load', onLoad);
     mapRef.current = map;
+    map.on('load', onLoad);
+    if (map.isStyleLoaded()) {
+      onLoad();
+    }
 
     const ro = new ResizeObserver(() => map.resize());
     ro.observe(container);
@@ -246,35 +332,91 @@ export const MapView: React.FC<MapViewProps> = ({
     const map = mapRef.current;
     if (!map || !isMapReady) return;
 
-    const src = map.getSource(ROUTE_SOURCE) as GeoJSONSource | undefined;
+    let src = map.getSource(ROUTE_SOURCE) as GeoJSONSource | undefined;
+    if (!src && map.isStyleLoaded()) {
+      if (!map.getSource(ROUTE_SOURCE)) {
+        map.addSource(ROUTE_SOURCE, {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+        });
+      }
+      if (!map.getLayer(ROUTE_LAYER)) {
+        map.addLayer({
+          id: ROUTE_LAYER,
+          type: 'line',
+          source: ROUTE_SOURCE,
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'butt',
+          },
+          paint: {
+            'line-color': '#18181b',
+            'line-width': 3,
+            'line-dasharray': [2, 2],
+            'line-opacity': 0.95,
+          },
+        });
+      }
+      src = map.getSource(ROUTE_SOURCE) as GeoJSONSource | undefined;
+    }
     if (!src) return;
 
-    // Generate simple route between rider and destination
     let routeCoords: [number, number][] = [];
-    const riderPos: [number, number] | null = riderCoords ? [riderCoords.longitude, riderCoords.latitude] : null;
 
-    // Prioritize customer (after pickup), otherwise kitchen
+    const riderPos: [number, number] | null = riderCoords
+      ? [Number(riderCoords.longitude), Number(riderCoords.latitude)]
+      : null;
+
+    // Destination: customer after pickup, kitchen before pickup
     const destPos: [number, number] | null = customerCoords
-      ? [customerCoords.longitude, customerCoords.latitude]
+      ? [Number(customerCoords.longitude), Number(customerCoords.latitude)]
       : kitchenCoords
-        ? [kitchenCoords.longitude, kitchenCoords.latitude]
+        ? [Number(kitchenCoords.longitude), Number(kitchenCoords.latitude)]
         : null;
 
-    if (riderPos && destPos) {
-      routeCoords = [riderPos, destPos];
+    if (
+      riderPos &&
+      destPos &&
+      !isNaN(riderPos[0]) &&
+      !isNaN(riderPos[1]) &&
+      !isNaN(destPos[0]) &&
+      !isNaN(destPos[1])
+    ) {
+      // Arched curved dashed line from Rider to Kitchen (before pickup), or Rider to Customer (after pickup)
+      routeCoords = createArchCurve(riderPos, destPos, 60);
     } else if (routePath) {
       routeCoords = routePath;
     }
 
     src.setData({
-      type: 'Feature',
-      properties: {},
-      geometry: {
-        type: 'LineString',
-        coordinates: routeCoords,
-      },
+      type: 'FeatureCollection',
+      features:
+        routeCoords.length >= 2
+          ? [
+            {
+              type: 'Feature',
+              properties: {},
+              geometry: {
+                type: 'LineString',
+                coordinates: routeCoords,
+              },
+            },
+          ]
+          : [],
     });
-  }, [riderCoords, kitchenCoords, customerCoords, routePath, statusText, isMapReady]);
+
+    map.triggerRepaint();
+  }, [
+    riderCoords?.latitude,
+    riderCoords?.longitude,
+    kitchenCoords?.latitude,
+    kitchenCoords?.longitude,
+    customerCoords?.latitude,
+    customerCoords?.longitude,
+    routePath,
+    statusText,
+    isMapReady,
+  ]);
 
   // ── Update markers + re-frame ───────────────────────────────────────────────
   useEffect(() => {
@@ -365,9 +507,8 @@ export const MapView: React.FC<MapViewProps> = ({
       <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm
                       border border-zinc-200 rounded-full px-3 py-1.5 shadow-md pointer-events-none">
         {/* Green / amber live dot */}
-        <span className={`w-2 h-2 rounded-full shrink-0 ${
-          riderCoords ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'
-        }`} />
+        <span className={`w-2 h-2 rounded-full shrink-0 ${riderCoords ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'
+          }`} />
         <span className="text-[11px] font-semibold text-zinc-800 tracking-tight">{statusText}</span>
       </div>
 

@@ -26,7 +26,7 @@ export const EditProfilePage: React.FC<EditProfilePageProps> = ({ user, onBack, 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await onSave(formData);
+      await onSave(formData as Partial<RiderUser>);
     } finally {
       setIsSaving(false);
     }
