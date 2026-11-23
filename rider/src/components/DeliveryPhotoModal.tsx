@@ -5,7 +5,7 @@ interface DeliveryPhotoModalProps {
   orderNumber: string;
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (file: File) => void;
+  onSubmit: (file: File, otp: string) => void;
   isSubmitting?: boolean;
 }
 
@@ -18,6 +18,7 @@ export const DeliveryPhotoModal: React.FC<DeliveryPhotoModalProps> = ({
 }) => {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [otp, setOtp] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
@@ -37,14 +38,14 @@ export const DeliveryPhotoModal: React.FC<DeliveryPhotoModalProps> = ({
   };
 
   const handleConfirm = () => {
-    if (photoFile) {
-      onSubmit(photoFile);
+    if (photoFile && otp.length === 4) {
+      onSubmit(photoFile, otp);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 pb-safe">
-      <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl p-5 shadow-2xl space-y-4">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end justify-center pb-safe">
+      <div className="w-full bg-zinc-900 border-t border-zinc-800 rounded-t-3xl p-5 shadow-2xl space-y-4">
         <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
           <div>
             <h3 className="text-base font-black text-white">Delivery Proof Photo</h3>
@@ -97,12 +98,53 @@ export const DeliveryPhotoModal: React.FC<DeliveryPhotoModalProps> = ({
           </div>
         )}
 
+        {/* OTP Input - Box wise */}
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-zinc-300">Delivery OTP</label>
+          <div className="flex gap-2 justify-center">
+            {[0, 1, 2, 3].map((index) => (
+              <input
+                key={index}
+                type="text"
+                inputMode="numeric"
+                maxLength={1}
+                value={otp[index] || ''}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '');
+                  if (value) {
+                    const newOtp = otp.split('');
+                    newOtp[index] = value;
+                    setOtp(newOtp.join('').slice(0, 4));
+                    // Auto-focus next input
+                    if (index < 3) {
+                      const inputs = e.currentTarget.parentElement?.querySelectorAll('input');
+                      (inputs?.[index + 1] as HTMLInputElement)?.focus();
+                    }
+                  } else {
+                    const newOtp = otp.split('');
+                    newOtp[index] = '';
+                    setOtp(newOtp.join(''));
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Backspace' && !otp[index] && index > 0) {
+                    const inputs = e.currentTarget.parentElement?.querySelectorAll('input');
+                    (inputs?.[index - 1] as HTMLInputElement)?.focus();
+                  }
+                }}
+                className="w-16 h-14 bg-zinc-950 border-zinc-800 border focus:border-[#49E619] rounded-xl text-center text-2xl font-bold text-white outline-none transition-colors"
+              />
+            ))}
+          </div>
+          <p className="text-xs text-zinc-500 text-center mt-3">Ask customer for the 4-digit code</p>
+        </div>
+
         {/* Bottom Actions */}
         <button
           onClick={handleConfirm}
-          disabled={!photoFile || isSubmitting}
+          disabled={!photoFile || otp.length !== 4 || isSubmitting}
           className={`w-full h-14 rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-lg transition-transform active:scale-98 ${
-            photoFile && !isSubmitting
+            photoFile && otp.length === 4 && !isSubmitting
               ? 'bg-emerald-500 hover:bg-emerald-600 text-zinc-950 shadow-emerald-500/20'
               : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
           }`}

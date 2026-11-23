@@ -92,6 +92,7 @@ export interface TrackingData {
   customerName: string;
   customerMealStatus: string;
   paymentStatus: string;
+  deliveryOtp?: string | null;
   totalAmountInr: number;
   sponsoredMealsCount: number;
   placedAt: string;

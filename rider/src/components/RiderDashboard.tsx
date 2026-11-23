@@ -73,11 +73,11 @@ export const RiderDashboard: React.FC = () => {
     }
   };
 
-  const handleCompleteDelivery = async (photoFile: File) => {
+  const handleCompleteDelivery = async (photoFile: File, otp: string) => {
     setPhotoSubmitting(true);
     setBannerMessage(null);
     try {
-      await markDelivered(photoFile);
+      await markDelivered(photoFile, otp);
       setShowPhotoModal(false);
       setBannerMessage({ type: 'info', message: 'Delivery completed successfully! Great job.' });
     } catch (err: any) {
