@@ -5,7 +5,7 @@ const getSocketUrl = () => {
     return import.meta.env.VITE_API_URL.replace('/api', '');
   }
   // Always use localhost for development
-  return 'http://localhost:5000';
+  return window.location.protocol === 'https:' ? 'https://zero-hunger-2-kwfn.onrender.com' : 'http://localhost:5000';
 };
 
 let socket: Socket | null = null;

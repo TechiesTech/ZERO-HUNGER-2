@@ -1,4 +1,5 @@
 const getApiBase = () => {
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:') return 'https://zero-hunger-2-kwfn.onrender.com/api';
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
   if (typeof window !== 'undefined' && window.location.hostname) {
     return `http://${window.location.hostname}:5000/api`;
