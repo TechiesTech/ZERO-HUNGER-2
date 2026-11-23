@@ -1,5 +1,5 @@
 import React from 'react';
-import { Phone, ExternalLink, MapPin, Store, CheckCircle, PackageCheck, Camera, Clock } from 'lucide-react';
+import { Phone, ExternalLink, MapPin, Store, PackageCheck, Camera } from 'lucide-react';
 import type { ActiveDelivery } from '../types/rider';
 
 interface ActiveDeliveryPanelProps {

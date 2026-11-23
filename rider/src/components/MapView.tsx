@@ -9,9 +9,8 @@ import {
   GeoJSONSource,
 } from 'maplibre-gl';
 import type { Map as MapLibreMapType, StyleSpecification } from 'maplibre-gl';
-import { LocateFixed, Clock } from 'lucide-react';
+import { LocateFixed } from 'lucide-react';
 import type { Coordinates } from '../types/rider';
-import { getRoute, formatEta, calculateFallbackEta } from '../services/routing';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -23,7 +22,6 @@ interface MapViewProps {
   routePath?: [number, number][] | null;
   statusText?: string;
   gpsError?: string | null;
-  /** ETA string shown in the bottom pill, e.g. "12 min" */
   eta?: string | null;
 }
 
@@ -252,8 +250,6 @@ export const MapView: React.FC<MapViewProps> = ({
   const markersRef = useRef<Partial<Record<MarkerKey, InstanceType<typeof Marker>>>>({});
   const framedRef = useRef<string>('');
   const [isMapReady, setIsMapReady] = useState(false);
-  const [routeData, setRouteData] = useState<{ coordinates: [number, number][]; etaMinutes: number } | null>(null);
-  const [isLoadingRoute, setIsLoadingRoute] = useState(false);
 
   // ── Initialise map ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -331,65 +327,6 @@ export const MapView: React.FC<MapViewProps> = ({
     };
   }, []);
 
-  // ── Fetch route and ETA from OSRM ──────────────────────────────────────────
-  useEffect(() => {
-    const fetchRoute = async () => {
-      if (!riderCoords) return;
-
-      // Determine destination (customer after pickup, otherwise kitchen)
-      const dest = customerCoords || kitchenCoords;
-      if (!dest) return;
-
-      setIsLoadingRoute(true);
-      try {
-        const route = await getRoute(
-          riderCoords.longitude,
-          riderCoords.latitude,
-          dest.longitude,
-          dest.latitude
-        );
-
-        if (route) {
-          setRouteData({
-            coordinates: route.coordinates,
-            etaMinutes: route.etaMinutes,
-          });
-        } else {
-          // Fallback to straight-line calculation if OSRM fails
-          const fallback = calculateFallbackEta(
-            riderCoords.longitude,
-            riderCoords.latitude,
-            dest.longitude,
-            dest.latitude
-          );
-          setRouteData({
-            coordinates: fallback.coordinates,
-            etaMinutes: fallback.etaMinutes,
-          });
-        }
-      } catch (error) {
-        console.error('Failed to fetch route:', error);
-        // Always show fallback ETA even on error
-        const fallback = calculateFallbackEta(
-          riderCoords.longitude,
-          riderCoords.latitude,
-          dest.longitude,
-          dest.latitude
-        );
-        setRouteData({
-          coordinates: fallback.coordinates,
-          etaMinutes: fallback.etaMinutes,
-        });
-      } finally {
-        setIsLoadingRoute(false);
-      }
-    };
-
-    // Debounce route fetching to avoid too many API calls
-    const timeoutId = setTimeout(fetchRoute, 1000);
-    return () => clearTimeout(timeoutId);
-  }, [riderCoords?.latitude, riderCoords?.longitude, kitchenCoords?.latitude, kitchenCoords?.longitude, customerCoords?.latitude, customerCoords?.longitude]);
-
   // ── Update route line ───────────────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
@@ -447,8 +384,6 @@ export const MapView: React.FC<MapViewProps> = ({
     ) {
       // Arched curved dashed line from Rider to Kitchen (before pickup), or Rider to Customer (after pickup)
       routeCoords = createArchCurve(riderPos, destPos, 60);
-    } else if (routeData?.coordinates && routeData.coordinates.length > 1) {
-      routeCoords = routeData.coordinates;
     } else if (routePath) {
       routeCoords = routePath;
     }
@@ -458,15 +393,15 @@ export const MapView: React.FC<MapViewProps> = ({
       features:
         routeCoords.length >= 2
           ? [
-              {
-                type: 'Feature',
-                properties: {},
-                geometry: {
-                  type: 'LineString',
-                  coordinates: routeCoords,
-                },
+            {
+              type: 'Feature',
+              properties: {},
+              geometry: {
+                type: 'LineString',
+                coordinates: routeCoords,
               },
-            ]
+            },
+          ]
           : [],
     });
 
@@ -481,7 +416,6 @@ export const MapView: React.FC<MapViewProps> = ({
     routePath,
     statusText,
     isMapReady,
-    routeData,
   ]);
 
   // ── Update markers + re-frame ───────────────────────────────────────────────
