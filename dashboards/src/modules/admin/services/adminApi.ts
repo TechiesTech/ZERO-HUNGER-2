@@ -53,6 +53,41 @@ export interface CreateKitchenPayload {
   password: string;
 }
 
+export interface RiderStats {
+  totalRiders: number;
+  pending: number;
+  active: number;
+  live: number;
+  busy: number;
+  free: number;
+}
+
+export type RiderStatus = 'pending' | 'active' | 'rejected';
+export type RiderListFilter = 'pending' | 'active' | 'live' | 'busy' | 'free';
+
+export interface RiderListItem {
+  userId: string;
+  name: string;
+  email: string;
+  phone: string;
+  status: RiderStatus;
+  vehicleType: 'bike' | 'scooty';
+  vehicleNumber: string;
+  totalDeliveries: number;
+  lastLocationAt?: string | null;
+  isLive: boolean;
+  isBusy: boolean;
+  currentOrderNumber?: string;
+}
+
+export interface RiderListResponse {
+  success: boolean;
+  data: {
+    riders: RiderListItem[];
+    pagination: { page: number; limit: number; total: number; totalPages: number };
+  };
+}
+
 export function getActiveKitchens() {
   return api.get<{ success: boolean; data: KitchenSummary[] }>('/api/kitchen/getActiveKitchens');
 }
@@ -83,4 +118,19 @@ export function updateKitchenUserStatus(
 
 export function deleteKitchenUser(id: string) {
   return api.delete<{ success: boolean; message: string }>(`/api/users/deleteUserById/${id}`);
+}
+
+export function getRiderStats() {
+  return api.get<{ success: boolean; data: RiderStats }>('/api/riders/getRiderStats');
+}
+
+export function getRiders(query: URLSearchParams) {
+  return api.get<RiderListResponse>(`/api/riders/getAllRiders?${query}`);
+}
+
+export function reviewRider(userId: string, payload: { status: 'active' | 'rejected'; reason?: string }) {
+  return api.patch<{ success: boolean; data: { _id: string; name: string; email: string; status: RiderStatus } }>(
+    `/api/riders/reviewRider/${userId}`,
+    payload
+  );
 }

@@ -494,6 +494,11 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose, onRequest
                             <span className="font-mono-tabular text-sm font-bold text-[#188D44] block">
                               ₹{item.product.priceInr}
                             </span>
+                            {!item.product.isAvailable && (
+                              <span className="mt-1 inline-flex rounded bg-red-600 px-2 py-0.5 text-[10px] font-black tracking-wider text-white">
+                                SOLD OUT
+                              </span>
+                            )}
                           </div>
                           <button
                             type="button"
@@ -514,7 +519,8 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose, onRequest
                               type="button"
                               onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
                               aria-label="Decrease quantity"
-                              className="w-6 h-6 rounded-[4px] bg-white border border-[#122023]/20 flex items-center justify-center hover:bg-[#122023] hover:text-white cursor-pointer"
+                              disabled={!item.product.isAvailable}
+                              className="w-6 h-6 rounded-[4px] bg-white border border-[#122023]/20 flex items-center justify-center hover:bg-[#122023] hover:text-white cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
                             >
                               <Minus className="w-3 h-3" />
                             </button>
@@ -525,7 +531,8 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose, onRequest
                               type="button"
                               onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
                               aria-label="Increase quantity"
-                              className="w-6 h-6 rounded-[4px] bg-white border border-[#122023]/20 flex items-center justify-center hover:bg-[#122023] hover:text-white cursor-pointer"
+                              disabled={!item.product.isAvailable}
+                              className="w-6 h-6 rounded-[4px] bg-white border border-[#122023]/20 flex items-center justify-center hover:bg-[#122023] hover:text-white cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
                             >
                               <Plus className="w-3 h-3" />
                             </button>
@@ -728,10 +735,14 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose, onRequest
 
                       <button
                         type="submit"
-                        disabled={submitting || addressActionLoading || Boolean(editingAddressId) || !deliveryLocation}
+                        disabled={submitting || addressActionLoading || Boolean(editingAddressId) || !deliveryLocation || cart.some((item) => !item.product.isAvailable)}
                         className="w-full py-4 px-5 rounded-[10px] bg-[#49E619] hover:bg-[#3cd110] text-[#080808] font-mono-tabular text-xs font-bold uppercase tracking-widest inline-flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {submitting ? 'Processing...' : `PLACE ORDER ₹${cartTotalInr}`}
+                        {cart.some((item) => !item.product.isAvailable)
+                          ? 'SOLD OUT ITEM IN CART'
+                          : submitting
+                            ? 'Processing...'
+                            : `PLACE ORDER ₹${cartTotalInr}`}
                       </button>
                     </form>
                   )}

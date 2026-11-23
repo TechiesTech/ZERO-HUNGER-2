@@ -686,8 +686,15 @@ export const MealBox: React.FC = () => {
                 src={meal.image}
                 alt={meal.name}
                 className="w-full h-full"
-                imgClassName="group-hover:scale-105 transition-transform duration-700"
+                imgClassName={`${meal.isAvailable ? 'group-hover:scale-105 transition-transform duration-700' : 'grayscale opacity-60'}`}
               />
+              {!meal.isAvailable && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="rounded-md bg-black/80 px-4 py-2 text-xs font-black tracking-[0.2em] text-white shadow-lg">
+                    SOLD OUT
+                  </span>
+                </div>
+              )}
               <div className="absolute top-2 left-2 rounded-[5px] bg-[#080808]/90 backdrop-blur-xs text-[#49E619] px-2 py-0.5 text-[9px] font-mono-tabular font-bold uppercase tracking-wider">
                 {meal.categories.join(' · ')}
               </div>
@@ -699,7 +706,7 @@ export const MealBox: React.FC = () => {
             {/* Product Body (Tighter padding & smaller text) */}
             <div className="p-3.5">
               <div className="flex items-start justify-between gap-2">
-                <h3 className="font-display-sans uppercase text-base font-black text-white group-hover:text-[#49E619] transition-colors leading-tight">
+                <h3 className={`font-display-sans uppercase text-base font-black leading-tight ${meal.isAvailable ? 'text-white group-hover:text-[#49E619] transition-colors' : 'text-white/50'}`}>
                   {meal.name}
                 </h3>
                 <span className="font-mono-tabular text-base font-bold text-[#49E619] shrink-0">
@@ -713,7 +720,7 @@ export const MealBox: React.FC = () => {
               </p>
 
               {/* Short Description (Capped at 2 lines so card heights stay even) */}
-              <p className="mt-1.5 text-xs text-white/70 leading-snug line-clamp-2">
+              <p className={`mt-1.5 text-xs leading-snug line-clamp-2 ${meal.isAvailable ? 'text-white/70' : 'text-white/40'}`}>
                 {meal.shortDescription}
               </p>
 
@@ -737,7 +744,15 @@ export const MealBox: React.FC = () => {
 
           {/* Add to Cart Button */}
           <div className="px-3.5 pb-3.5">
-            {inCartItem ? (
+            {!meal.isAvailable ? (
+              <button
+                type="button"
+                disabled
+                className="w-full py-2.5 px-4 rounded-[8px] bg-white/10 border border-white/10 text-white/45 font-mono-tabular text-[11px] font-bold uppercase tracking-wider cursor-not-allowed"
+              >
+                SOLD OUT
+              </button>
+            ) : inCartItem ? (
               <div className="flex items-center justify-between rounded-[8px] bg-[#122023] border border-[#49E619]/40 px-3 py-1.5">
                 <span className="text-[11px] font-mono-tabular font-bold uppercase text-[#49E619]">
                   In Cart ({inCartItem.quantity})
@@ -976,13 +991,16 @@ export const MealBox: React.FC = () => {
                           Add any ₹150 meal box from the menu to nourish yourself
                           and sponsor a linked hot meal for a child.
                         </p>
-                        {backendMeals.length > 0 && (
+                        {backendMeals.length > 0 && backendMeals.find((meal) => meal.isAvailable) && (
                           <button
                             type="button"
-                            onClick={() => addToCart(backendMeals[0])}
+                            onClick={() => {
+                              const availableMeal = backendMeals.find((meal) => meal.isAvailable);
+                              if (availableMeal) addToCart(availableMeal);
+                            }}
                             className="mt-5 px-5 py-3 rounded-[10px] bg-[#49E619] hover:bg-[#B9FF2C] text-[#080808] font-mono-tabular text-[11px] font-bold uppercase tracking-widest transition-colors cursor-pointer"
                           >
-                            + Quick Add {backendMeals[0].name} (₹{backendMeals[0].priceInr})
+                            + Quick Add {backendMeals.find((meal) => meal.isAvailable)?.name} (₹{backendMeals.find((meal) => meal.isAvailable)?.priceInr})
                           </button>
                         )}
                       </div>
@@ -1000,6 +1018,11 @@ export const MealBox: React.FC = () => {
                                   <span className="font-mono-tabular text-sm font-bold text-[#188D44] block">
                                     ₹{item.product.priceInr}
                                   </span>
+                                  {!item.product.isAvailable && (
+                                    <span className="mt-1 inline-flex rounded bg-red-600 px-2 py-0.5 text-[10px] font-black tracking-wider text-white">
+                                      SOLD OUT
+                                    </span>
+                                  )}
                                 </div>
                                 <button
                                   type="button"
@@ -1025,7 +1048,8 @@ export const MealBox: React.FC = () => {
                                       )
                                     }
                                     aria-label="Decrease quantity"
-                                    className="w-6 h-6 rounded-[4px] bg-white border border-[#122023]/20 flex items-center justify-center hover:bg-[#122023] hover:text-white cursor-pointer"
+                                    disabled={!item.product.isAvailable}
+                                    className="w-6 h-6 rounded-[4px] bg-white border border-[#122023]/20 flex items-center justify-center hover:bg-[#122023] hover:text-white cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
                                   >
                                     <Minus className="w-3 h-3" />
                                   </button>
@@ -1041,7 +1065,8 @@ export const MealBox: React.FC = () => {
                                       )
                                     }
                                     aria-label="Increase quantity"
-                                    className="w-6 h-6 rounded-[4px] bg-white border border-[#122023]/20 flex items-center justify-center hover:bg-[#122023] hover:text-white cursor-pointer"
+                                    disabled={!item.product.isAvailable}
+                                    className="w-6 h-6 rounded-[4px] bg-white border border-[#122023]/20 flex items-center justify-center hover:bg-[#122023] hover:text-white cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
                                   >
                                     <Plus className="w-3 h-3" />
                                   </button>
@@ -1307,11 +1332,17 @@ export const MealBox: React.FC = () => {
 
                 <button
                   type="submit"
-                  disabled={submitting || addressActionLoading || Boolean(editingAddressId) || !deliveryLocation}
+                  disabled={submitting || addressActionLoading || Boolean(editingAddressId) || !deliveryLocation || cart.some((item) => !item.product.isAvailable)}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-[10px] bg-[#49E619] px-5 py-4 text-xs font-mono-tabular font-bold uppercase tracking-widest text-[#080808] transition-colors hover:bg-[#3cd110] cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <ShieldCheck className="h-4 w-4" />
-                  <span>{submitting ? 'PLACING ORDER…' : `PLACE ORDER · ₹${cartTotalInr}`}</span>
+                  <span>
+                    {cart.some((item) => !item.product.isAvailable)
+                      ? 'SOLD OUT ITEM IN CART'
+                      : submitting
+                        ? 'PLACING ORDER…'
+                        : `PLACE ORDER · ₹${cartTotalInr}`}
+                  </span>
                 </button>
               </form>
             </motion.div>

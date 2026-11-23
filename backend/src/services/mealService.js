@@ -1,5 +1,6 @@
 import * as mealRepository from '../repositories/mealRepository.js';
 import AppError from '../utils/appError.js';
+import { notifyMealAvailability } from '../socket.js';
 
 const createMeal = async (payload, kitchenId) => {
     const mealSlug =
@@ -35,6 +36,9 @@ const updateMeal = async (mealId, payload, kitchenId) => {
     try {
         const updatedMeal = await mealRepository.updateMeal(mealId, kitchenId, updateData);
         if (!updatedMeal) throw new AppError('Meal not found', 404);
+        if (Object.prototype.hasOwnProperty.call(payload, 'isAvailable')) {
+            notifyMealAvailability(updatedMeal);
+        }
         return updatedMeal;
     } catch (error) {
         if (error.code === 11000) throw new AppError('This kitchen already has a meal with this slug', 409);

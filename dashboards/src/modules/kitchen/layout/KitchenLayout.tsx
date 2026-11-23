@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -18,6 +18,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { useAuth } from '@core/auth/useAuth';
+import { getKitchenSocket } from '../services/kitchenSocket';
 
 interface NavItem {
   to: string;
@@ -48,6 +49,39 @@ export function KitchenLayout(): React.ReactElement {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [socketStatus, setSocketStatus] = useState<'connecting' | 'live' | 'disconnected'>('connecting');
+  const [newOrderCount, setNewOrderCount] = useState(0);
+  const seenNewOrderIds = useRef(new Set<string>());
+
+  useEffect(() => {
+    const socket = getKitchenSocket();
+    const handleConnect = () => setSocketStatus('live');
+    const handleDisconnect = () => setSocketStatus('disconnected');
+    const handleConnectError = () => setSocketStatus('disconnected');
+    const handleNewOrder = (event: { orderId: string }) => {
+      if (!event.orderId || seenNewOrderIds.current.has(event.orderId)) return;
+      seenNewOrderIds.current.add(event.orderId);
+      setNewOrderCount((count) => count + 1);
+    };
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('connect_error', handleConnectError);
+    socket.on('new-order', handleNewOrder);
+    socket.connect();
+
+    return () => {
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('connect_error', handleConnectError);
+      socket.off('new-order', handleNewOrder);
+      socket.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (pathname.startsWith('/kitchen/orders')) setNewOrderCount(0);
+  }, [pathname]);
 
   const currentPage = KITCHEN_NAV_ITEMS.find((n) => pathname.startsWith(n.to))?.label ?? 'Dashboard';
 
@@ -102,15 +136,17 @@ export function KitchenLayout(): React.ReactElement {
   };
 
   return (
-    <div className="min-h-screen bg-[#080808] flex text-white font-sans antialiased">
+    <div className="h-screen overflow-hidden bg-[#080808] flex text-white font-sans antialiased">
       {/* ── DESKTOP SIDEBAR ── */}
-      <aside className="hidden lg:flex w-64 bg-[#0D1719] border-r border-white/8 flex-col shrink-0 select-none">
+      <aside className="hidden lg:sticky lg:top-0 lg:flex lg:h-screen w-64 bg-[#0D1719] border-r border-white/8 flex-col shrink-0 select-none">
         {/* Brand header */}
         <div className="p-6 border-b border-white/8">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#49E619]/10 border border-[#49E619]/20 flex items-center justify-center text-[#49E619]">
-              <ChefHat size={20} />
-            </div>
+          <div className="flex items-center gap-3">
+            <img
+              src="/image/Logo.png"
+              alt="Zero Hunger"
+              className="h-11 w-11 shrink-0 object-contain"
+            />
             <div>
               <span className="font-bold text-base tracking-wider uppercase text-white block">
                 Zero<span className="text-[#49E619]">Hunger</span>
@@ -183,9 +219,11 @@ export function KitchenLayout(): React.ReactElement {
           <div className="relative w-64 max-w-[80vw] bg-[#0D1719] border-r border-white/10 flex flex-col z-10">
             <div className="p-5 border-b border-white/8 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#49E619]/10 border border-[#49E619]/20 flex items-center justify-center text-[#49E619]">
-                  <ChefHat size={18} />
-                </div>
+                <img
+                  src="/image/Logo.png"
+                  alt="Zero Hunger"
+                  className="h-9 w-9 shrink-0 object-contain"
+                />
                 <span className="font-bold text-sm tracking-wider uppercase text-white">
                   Zero<span className="text-[#49E619]">Hunger</span>
                 </span>
@@ -242,9 +280,9 @@ export function KitchenLayout(): React.ReactElement {
       )}
 
       {/* ── MAIN CONTENT AREA ── */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {/* Top Navbar */}
-        <header className="h-16 px-6 bg-[#0D1719]/60 backdrop-blur border-b border-white/8 flex items-center justify-between sticky top-0 z-30">
+        <header className="h-16 shrink-0 px-6 bg-[#0D1719]/60 backdrop-blur border-b border-white/8 flex items-center justify-between sticky top-0 z-30">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileMenuOpen(true)}
@@ -258,6 +296,24 @@ export function KitchenLayout(): React.ReactElement {
           </div>
 
           <div className="flex items-center gap-3">
+            {newOrderCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#49E619]/25 bg-[#49E619]/10 px-2.5 py-1 text-[11px] font-semibold text-[#49E619]" role="status" aria-live="polite">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#49E619]" />
+                {newOrderCount === 1 ? 'New order' : `${newOrderCount} new orders`}
+              </span>
+            )}
+            <span
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-medium ${
+                socketStatus === 'live'
+                  ? 'bg-[#49E619]/10 border-[#49E619]/20 text-[#49E619]'
+                  : 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+              }`}
+              role="status"
+              aria-live="polite"
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${socketStatus === 'live' ? 'bg-[#49E619]' : 'bg-amber-300'}`} />
+              {socketStatus === 'live' ? 'Live' : socketStatus === 'connecting' ? 'Connecting' : 'Disconnected'}
+            </span>
             <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#49E619]/10 border border-[#49E619]/20 text-[11px] font-medium text-[#49E619]">
               <ChefHat size={12} />
               Kitchen Operational
@@ -266,7 +322,7 @@ export function KitchenLayout(): React.ReactElement {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-6 md:p-8 max-w-7xl w-full mx-auto">
+        <main className="min-h-0 flex-1 overflow-y-auto px-6 pt-5 pb-6 md:px-8 md:pt-6 md:pb-8 max-w-7xl w-full mx-auto">
           <Outlet />
         </main>
       </div>

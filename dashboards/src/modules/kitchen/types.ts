@@ -65,6 +65,26 @@ export interface KitchenOrder {
   updatedAt: string;
 }
 
+export function isKitchenOrderStatus(status: string): status is KitchenOrder['customerMealStatus'] {
+  switch (status) {
+    case 'confirmed':
+    case 'preparing':
+    case 'readyforpickup':
+    case 'outfordelivery':
+    case 'delivered':
+    case 'cancelled':
+      return true;
+    default:
+      return false;
+  }
+}
+
+export function isActiveKitchenOrderStatus(
+  status: KitchenOrder['customerMealStatus']
+): status is 'confirmed' | 'preparing' | 'readyforpickup' {
+  return status === 'confirmed' || status === 'preparing' || status === 'readyforpickup';
+}
+
 /* ── Kitchen Profile Types (Step 5, 6) ── */
 export interface KitchenProfile {
   _id?: string;

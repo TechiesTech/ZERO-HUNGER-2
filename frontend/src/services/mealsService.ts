@@ -49,6 +49,8 @@ export function toMealProduct(meal: Meal) {
     proteinGrams: meal.proteinInGrams,
     calories: meal.caloriesKcal,
     image: meal.imageUrl,
+    isAvailable: meal.isAvailable,
+    unavailableReason: meal.unavailableReason,
     isEligibleBuyOneGiveOne: true,
   };
 }

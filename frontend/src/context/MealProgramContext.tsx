@@ -9,6 +9,7 @@ import {
   Payment,
 } from '../data/mealProgram';
 import { createOrder, type DeliveryAddress } from '../services/orderService';
+import { getAvailabilitySocket } from '../services/availabilitySocket';
 
 export interface CartItem {
   product: MealProduct;
@@ -131,7 +132,34 @@ export const MealProgramProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [notifications]);
 
+  useEffect(() => {
+    const socket = getAvailabilitySocket();
+    const handleAvailability = (event: { mealId: string; isAvailable: boolean; unavailableReason: string }) => {
+      setCart((previous) =>
+        previous.map((item) =>
+          item.product.id === event.mealId
+            ? {
+                ...item,
+                product: {
+                  ...item.product,
+                  isAvailable: event.isAvailable,
+                  unavailableReason: event.unavailableReason,
+                },
+              }
+            : item
+        )
+      );
+    };
+
+    socket.on('meal-availability', handleAvailability);
+    socket.connect();
+    return () => {
+      socket.off('meal-availability', handleAvailability);
+    };
+  }, []);
+
   const addToCart = (product: MealProduct) => {
+    if (!product.isAvailable) return;
     setCart((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
       if (existing) {
@@ -152,7 +180,9 @@ export const MealProgramProvider: React.FC<{ children: React.ReactNode }> = ({
     }
     setCart((prev) =>
       prev.map((item) =>
-        item.product.id === productId ? { ...item, quantity } : item
+        item.product.id === productId && item.product.isAvailable
+          ? { ...item, quantity }
+          : item
       )
     );
   };
@@ -173,6 +203,10 @@ export const MealProgramProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const placeOrder = async (input: PlaceOrderInput): Promise<PlaceOrderResult> => {
     if (cart.length === 0) throw new Error('Add at least one meal before placing your order.');
+    const unavailable = cart.find((item) => !item.product.isAvailable);
+    if (unavailable) {
+      throw new Error(`${unavailable.product.name} is now sold out. Remove it before placing your order.`);
+    }
     if (cart.some((item) => !/^[0-9a-f]{24}$/i.test(item.product.id))) {
       throw new Error('A selected meal is missing a valid database ID. Refresh the menu and try again.');
     }
