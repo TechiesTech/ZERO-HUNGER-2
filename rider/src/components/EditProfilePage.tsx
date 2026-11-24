@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Save } from 'lucide-react';
-import type { RiderUser } from '../types/rider';
+import type { RiderUser, VehicleType } from '../types/rider';
 
 interface EditProfilePageProps {
   user: RiderUser | null;
@@ -9,17 +9,23 @@ interface EditProfilePageProps {
 }
 
 export const EditProfilePage: React.FC<EditProfilePageProps> = ({ user, onBack, onSave }) => {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    phone: string;
+    email: string;
+    vehicleType: VehicleType;
+    vehicleNumber: string;
+  }>({
     name: user?.name || '',
     phone: user?.phone || '',
     email: user?.email || '',
-    vehicleType: user?.vehicleType || '',
+    vehicleType: user?.vehicleType || 'bike',
     vehicleNumber: user?.vehicleNumber || '',
   });
 
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleChange = (field: string, value: string) => {
+  const handleChange = <K extends keyof typeof formData>(field: K, value: typeof formData[K]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -97,7 +103,7 @@ export const EditProfilePage: React.FC<EditProfilePageProps> = ({ user, onBack, 
           <label className="block text-xs font-semibold text-zinc-400 mb-2">Vehicle Type</label>
           <select
             value={formData.vehicleType}
-            onChange={(e) => handleChange('vehicleType', e.target.value)}
+            onChange={(e) => handleChange('vehicleType', e.target.value as VehicleType)}
             className="w-full px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-white text-sm focus:border-[#49E619] focus:outline-none transition-all"
           >
             <option value="bike">Bike</option>
