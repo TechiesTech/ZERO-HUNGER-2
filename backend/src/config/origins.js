@@ -1,5 +1,6 @@
 const allowedOrigins = [
     'https://zero-hunger-2-wgmf.vercel.app',
+    'https://zero-hunger-2-v7oy.vercel.app',
     process.env.CLIENT_URL,
     process.env.ADMIN_URL,
 ]
