@@ -428,18 +428,37 @@ export const CelebrateAndGive: React.FC = () => {
 
               {/* Recent occasions as row cards */}
               <div className={panel}>
-                <h2 className="font-display-sans uppercase text-lg font-black">Recently celebrated with us</h2>
-                <div className="mt-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#49E619]">Shared moments</p>
+                    <h2 className="mt-1 font-display-sans text-lg font-black leading-tight">Recently celebrated with us</h2>
+                    <p className="mt-1 text-xs text-white/50">Every celebration brings warm meals to someone.</p>
+                  </div>
+                  <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold text-white/65">
+                    {RECENT_OCCASIONS.length} stories
+                  </span>
+                </div>
+                <div className="mt-5 space-y-3">
                   {RECENT_OCCASIONS.map((item) => (
-                    <article key={item.id} className="flex gap-3.5 p-3 rounded-xl bg-[#080808] border border-white/10">
-                      <div className="w-20 h-20 shrink-0 rounded-lg overflow-hidden bg-white/10">
+                    <article
+                      key={item.id}
+                      className="group flex gap-3 p-2.5 rounded-2xl bg-gradient-to-br from-white/[0.045] to-white/[0.015] border border-white/[0.08] hover:border-[#49E619]/30 transition-colors"
+                    >
+                      <div className="w-[68px] h-[84px] shrink-0 rounded-xl overflow-hidden bg-white/10">
                         <EditorialImage src={item.image} alt={item.occasionType} className="w-full h-full" />
                       </div>
-                      <div className="min-w-0">
-                        <h3 className="font-display-sans uppercase text-sm font-black leading-snug">{item.occasionType}</h3>
-                        <p className="mt-0.5 text-xs font-semibold text-[#49E619]">By {item.sponsorName} · {item.mealsServed} meals</p>
-                        <p className="mt-1.5 text-xs text-white/65 italic font-serif-editorial leading-relaxed line-clamp-2">
-                          “{item.beneficiaryQuote}”
+                      <div className="flex min-w-0 flex-1 flex-col justify-center">
+                        <h3 className="font-display-sans text-sm font-bold leading-snug text-white line-clamp-2">
+                          {item.occasionType}
+                        </h3>
+                        <div className="mt-1.5 flex min-w-0 items-center justify-between gap-2">
+                          <p className="min-w-0 truncate text-[11px] font-medium text-white/60">By {item.sponsorName}</p>
+                          <span className="shrink-0 rounded-full bg-[#49E619]/10 px-2 py-0.5 text-[10px] font-bold text-[#49E619]">
+                            {item.mealsServed} meals
+                          </span>
+                        </div>
+                        <p className="mt-2 border-l border-[#49E619]/40 pl-2 text-[11px] italic leading-relaxed text-white/55 line-clamp-2">
+                          {item.beneficiaryQuote}
                         </p>
                       </div>
                     </article>

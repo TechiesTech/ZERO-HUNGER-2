@@ -134,7 +134,7 @@ export const SupportModal: React.FC<SupportModalProps> = ({
     <AnimatePresence>
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
           role="dialog"
           aria-modal="true"
           aria-labelledby="support-modal-title"
@@ -153,26 +153,32 @@ export const SupportModal: React.FC<SupportModalProps> = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.98 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="relative z-10 w-full max-w-2xl rounded-[18px] bg-white border border-[#122023]/15 shadow-2xl overflow-hidden my-8"
+            className="relative z-10 my-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#F7F9F7] shadow-2xl"
           >
             {/* Top Bar */}
-            <div className="flex items-center justify-between px-6 sm:px-8 py-5 bg-[#122023] text-white border-b border-white/10">
-              <div>
-                <span className="text-[11px] font-mono-tabular font-bold uppercase tracking-[0.2em] text-[#49E619] block">
-                  ZERO HUNGER INITIATIVE
-                </span>
-                <h2
-                  id="support-modal-title"
-                  className="font-display-sans uppercase text-xl sm:text-2xl font-black text-white mt-0.5"
-                >
-                  Support the Mission
-                </h2>
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b border-white/10 bg-[#122023] px-5 py-4 text-white sm:px-7 sm:py-5">
+              <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                <div className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#49E619]/20 bg-[#49E619]/10 text-[#49E619] sm:flex">
+                  <HeartHandshake className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <span className="block text-[11px] font-mono-tabular font-bold uppercase tracking-[0.2em] text-[#49E619]">
+                    ZERO HUNGER INITIATIVE
+                  </span>
+                  <h2
+                    id="support-modal-title"
+                    className="mt-0.5 font-display-sans text-xl font-black text-white sm:text-2xl"
+                  >
+                    Support the Mission
+                  </h2>
+                  <p className="mt-1 hidden text-xs text-white/55 sm:block">Help provide nourishing meals to our communities.</p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={handleResetAndClose}
                 aria-label="Close support dialog"
-                className="w-10 h-10 rounded-[8px] flex items-center justify-center text-white/70 hover:text-[#080808] hover:bg-[#49E619] transition-colors cursor-pointer"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white/60 transition-colors hover:bg-white/10 hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -180,35 +186,35 @@ export const SupportModal: React.FC<SupportModalProps> = ({
 
             {/* Interactive Mode Switcher */}
             {!submitted && (
-              <div className="grid grid-cols-2 border-b border-[#122023]/10 bg-[#F2F4F3]">
+              <div className="grid shrink-0 grid-cols-2 gap-2 border-b border-[#122023]/10 bg-white px-4 py-3 sm:px-6">
                 <button
                   type="button"
                   onClick={() => setActiveTab('donate')}
-                  className={`py-3.5 px-4 text-xs sm:text-sm font-bold tracking-wide flex items-center justify-center gap-2 transition-colors cursor-pointer ${
+                  className={`flex min-h-12 items-center justify-center gap-2 rounded-xl px-2 py-3 text-center text-xs font-bold transition-colors cursor-pointer sm:px-4 sm:text-sm ${
                     activeTab === 'donate'
-                      ? 'bg-white text-[#080808] border-b-2 border-[#49E619]'
-                      : 'text-[#6F6F6F] hover:text-[#080808]'
+                      ? 'bg-[#122023] text-white shadow-sm'
+                      : 'bg-[#F2F4F3] text-[#6F6F6F] hover:bg-[#E9EEEA] hover:text-[#080808]'
                   }`}
                 >
-                  <HeartHandshake className="w-4 h-4 text-[#188D44]" />
+                  <HeartHandshake className={`h-4 w-4 shrink-0 ${activeTab === 'donate' ? 'text-[#49E619]' : 'text-[#188D44]'}`} />
                   <span>Sponsor Nutritious Meals</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveTab('volunteer')}
-                  className={`py-3.5 px-4 text-xs sm:text-sm font-bold tracking-wide flex items-center justify-center gap-2 transition-colors cursor-pointer ${
+                  className={`flex min-h-12 items-center justify-center gap-2 rounded-xl px-2 py-3 text-center text-xs font-bold transition-colors cursor-pointer sm:px-4 sm:text-sm ${
                     activeTab === 'volunteer'
-                      ? 'bg-white text-[#080808] border-b-2 border-[#49E619]'
-                      : 'text-[#6F6F6F] hover:text-[#080808]'
+                      ? 'bg-[#122023] text-white shadow-sm'
+                      : 'bg-[#F2F4F3] text-[#6F6F6F] hover:bg-[#E9EEEA] hover:text-[#080808]'
                   }`}
                 >
-                  <Users className="w-4 h-4 text-[#188D44]" />
+                  <Users className={`h-4 w-4 shrink-0 ${activeTab === 'volunteer' ? 'text-[#49E619]' : 'text-[#188D44]'}`} />
                   <span>Join as Field Volunteer</span>
                 </button>
               </div>
             )}
 
-            <div className="p-6 sm:p-8">
+            <div className="min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-6 lg:p-8">
               {submitted ? (
                 <div className="py-6 text-center">
                   <div className="w-12 h-12 rounded-full mx-auto mb-4 flex items-center justify-center bg-[#49E619] text-[#122023]">
@@ -245,14 +251,14 @@ export const SupportModal: React.FC<SupportModalProps> = ({
                       <label className="block text-xs font-semibold uppercase tracking-wider text-[#6F6F6F] mb-2">
                         Contribution Frequency
                       </label>
-                      <div className="grid grid-cols-2 p-1 rounded-[10px] bg-[#F2F4F3] border border-[#122023]/10">
+                      <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-[#EDF1EE] border border-[#122023]/10">
                         <button
                           type="button"
                           onClick={() => setFrequency('once')}
-                          className={`py-2 rounded-[8px] text-xs font-bold transition-colors cursor-pointer ${
+                          className={`py-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
                             frequency === 'once'
-                              ? 'bg-[#122023] text-white'
-                              : 'text-[#080808] hover:bg-white'
+                              ? 'bg-[#122023] text-white shadow-sm'
+                              : 'text-[#080808]/70 hover:bg-white'
                           }`}
                         >
                           One-Time
@@ -260,10 +266,10 @@ export const SupportModal: React.FC<SupportModalProps> = ({
                         <button
                           type="button"
                           onClick={() => setFrequency('monthly')}
-                          className={`py-2 rounded-[8px] text-xs font-bold transition-colors cursor-pointer ${
+                          className={`py-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
                             frequency === 'monthly'
-                              ? 'bg-[#49E619] text-[#080808]'
-                              : 'text-[#080808] hover:bg-white'
+                              ? 'bg-[#122023] text-white shadow-sm'
+                              : 'text-[#080808]/70 hover:bg-white'
                           }`}
                         >
                           Monthly Impact
@@ -310,16 +316,16 @@ export const SupportModal: React.FC<SupportModalProps> = ({
                               setAmount(preset.value);
                               setCustomAmount('');
                             }}
-                            className={`p-3 rounded-[10px] text-left border transition-all cursor-pointer ${
+                            className={`flex min-h-[88px] flex-col justify-center rounded-xl border p-3 text-left transition-all cursor-pointer ${
                               isSelected
-                                ? 'border-[#122023] bg-[#B9FF2C]'
-                                : 'border-[#122023]/15 hover:border-[#122023]/40 bg-white'
+                                ? 'border-[#188D44]/60 bg-[#E8F5E7] shadow-sm ring-1 ring-[#188D44]/10'
+                                : 'border-[#122023]/10 bg-white hover:border-[#188D44]/40 hover:bg-[#FAFCF9]'
                             }`}
                           >
-                            <div className="font-mono-tabular text-base font-bold text-[#080808]">
+                            <div className="font-mono-tabular text-base font-bold text-[#122023]">
                               ₹{preset.value.toLocaleString('en-IN')}
                             </div>
-                            <div className="text-[11px] font-medium text-[#122023]/80 mt-0.5">
+                            <div className="mt-1 text-[11px] font-medium leading-snug text-[#122023]/65">
                               {preset.label}
                             </div>
                           </button>
@@ -329,7 +335,7 @@ export const SupportModal: React.FC<SupportModalProps> = ({
                   </div>
 
                   {/* Custom Amount + Impact Callout */}
-                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center p-4 rounded-[12px] bg-[#F2F4F3] border border-[#122023]/10">
+                  <div className="grid grid-cols-1 items-center gap-4 rounded-2xl border border-[#122023]/10 bg-white p-4 sm:grid-cols-12 sm:p-5">
                     <div className="sm:col-span-5">
                       <label
                         htmlFor="custom-amount"
@@ -344,10 +350,10 @@ export const SupportModal: React.FC<SupportModalProps> = ({
                         placeholder="e.g. 2500"
                         value={customAmount}
                         onChange={(e) => setCustomAmount(e.target.value)}
-                        className="w-full px-3 py-2 rounded-[8px] bg-white border border-[#122023]/20 text-sm font-mono-tabular text-[#080808] focus:outline-none focus:border-[#122023]"
+                        className="w-full rounded-lg border border-[#122023]/15 bg-[#F7F9F7] px-3 py-2.5 text-sm font-mono-tabular text-[#080808] focus:outline-none focus:border-[#188D44]"
                       />
                     </div>
-                    <div className="sm:col-span-7 sm:pl-4 sm:border-l border-[#122023]/10">
+                    <div className="rounded-xl bg-[#F0F5EF] p-3 sm:col-span-7 sm:border-l sm:border-[#122023]/10 sm:bg-transparent sm:py-1 sm:pl-5 sm:pr-0">
                       <div className="text-xs uppercase tracking-wider text-[#6F6F6F]">
                         Direct Nutritional Equivalent
                       </div>
@@ -362,66 +368,77 @@ export const SupportModal: React.FC<SupportModalProps> = ({
                   </div>
 
                   {/* Donor Details */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label
-                        htmlFor="donor-name"
-                        className="block text-xs font-semibold uppercase tracking-wider text-[#6F6F6F] mb-1.5"
-                      >
-                        Full Name *
-                      </label>
-                      <input
-                        id="donor-name"
-                        type="text"
-                        required
-                        value={donorName}
-                        onChange={(e) => setDonorName(e.target.value)}
-                        placeholder="Ananya Sharma"
-                        className="w-full px-3.5 py-2.5 rounded-[8px] bg-white border border-[#122023]/20 text-sm text-[#080808] focus:outline-none focus:border-[#122023]"
-                      />
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between border-b border-[#122023]/10 pb-2">
+                      <h3 className="text-sm font-bold text-[#122023]">Your details</h3>
+                      <span className="text-[11px] text-[#6F6F6F]">For your 80G receipt</span>
                     </div>
-                    <div>
-                      <label
-                        htmlFor="donor-email"
-                        className="block text-xs font-semibold uppercase tracking-wider text-[#6F6F6F] mb-1.5"
-                      >
-                        Email Address (for Receipt) *
-                      </label>
-                      <input
-                        id="donor-email"
-                        type="email"
-                        required
-                        value={donorEmail}
-                        onChange={(e) => setDonorEmail(e.target.value)}
-                        placeholder="ananya@example.com"
-                        className="w-full px-3.5 py-2.5 rounded-[8px] bg-white border border-[#122023]/20 text-sm text-[#080808] focus:outline-none focus:border-[#122023]"
-                      />
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div>
+                        <label
+                          htmlFor="donor-name"
+                          className="block text-xs font-semibold uppercase tracking-wider text-[#6F6F6F] mb-1.5"
+                        >
+                          Full Name *
+                        </label>
+                        <input
+                          id="donor-name"
+                          type="text"
+                          required
+                          value={donorName}
+                          onChange={(e) => setDonorName(e.target.value)}
+                          placeholder="Ananya Sharma"
+                          className="w-full px-3.5 py-2.5 rounded-[8px] bg-white border border-[#122023]/20 text-sm text-[#080808] focus:outline-none focus:border-[#122023]"
+                        />
+                      </div>
+                      <div>
+                        <label
+                          htmlFor="donor-email"
+                          className="block text-xs font-semibold uppercase tracking-wider text-[#6F6F6F] mb-1.5"
+                        >
+                          Email Address (for Receipt) *
+                        </label>
+                        <input
+                          id="donor-email"
+                          type="email"
+                          required
+                          value={donorEmail}
+                          onChange={(e) => setDonorEmail(e.target.value)}
+                          placeholder="ananya@example.com"
+                          className="w-full px-3.5 py-2.5 rounded-[8px] bg-white border border-[#122023]/20 text-sm text-[#080808] focus:outline-none focus:border-[#122023]"
+                        />
+                      </div>
                     </div>
                   </div>
 
                   {/* 80G Tax PAN & Dedication options */}
-                  <div className="p-3.5 rounded-[10px] bg-[#B9FF2C]/30 border border-[#122023]/15 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                    <div>
-                      <span className="font-bold text-[#080808] block">Celebrating a Birthday, Anniversary or Memorial?</span>
-                      <span className="text-[#6F6F6F]">Have beneficiaries hold a personalized placard with your message.</span>
+                  <div className="flex flex-col gap-3 rounded-2xl border border-[#188D44]/15 bg-[#EFF7EC] p-4 text-xs sm:flex-row sm:items-center sm:justify-between sm:p-4">
+                    <div className="flex items-start gap-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#188D44]">
+                        <Heart className="h-4 w-4" />
+                      </span>
+                      <div>
+                        <span className="block font-bold text-[#080808]">Celebrating a Birthday, Anniversary or Memorial?</span>
+                        <span className="mt-1 block leading-relaxed text-[#6F6F6F]">Have beneficiaries hold a personalized placard with your message.</span>
+                      </div>
                     </div>
                     <Link
                       to="/celebrate-and-give"
                       onClick={() => handleResetAndClose()}
-                      className="px-3.5 py-1.5 rounded-[6px] bg-[#122023] text-white font-bold text-[11px] whitespace-nowrap hover:bg-[#080808] text-center"
+                      className="rounded-lg bg-[#122023] px-4 py-2.5 text-center text-[11px] font-bold text-white transition-colors hover:bg-[#080808] sm:shrink-0"
                     >
                       Personalize Placard →
                     </Link>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
-                    <div className="flex items-center gap-2 text-xs text-[#6F6F6F]">
+                  <div className="flex flex-col gap-4 border-t border-[#122023]/10 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-2 text-xs leading-relaxed text-[#6F6F6F] sm:max-w-[48%]">
                       <ShieldCheck className="w-4 h-4 text-[#188D44] shrink-0" />
                       <span>50% 80G Tax Exemption · Form 10BE & MCA CSR-1 Compliant</span>
                     </div>
                     <button
                       type="submit"
-                      className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-[10px] bg-[#49E619] text-[#080808] text-sm font-bold hover:bg-[#B9FF2C] transition-colors cursor-pointer whitespace-nowrap"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#49E619] px-6 py-3.5 text-sm font-bold text-[#080808] transition-colors hover:bg-[#B9FF2C] cursor-pointer sm:w-auto sm:whitespace-nowrap"
                     >
                       <span>
                         Complete ₹{effectiveAmount.toLocaleString('en-IN')}{' '}
