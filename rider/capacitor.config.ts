@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.zerohunger.rider',
-  appName: 'Zero Hunger Rider',
+  appName: 'ZH Rider',
   webDir: 'dist',
   server: { androidScheme: 'https' },
   android: { useLegacyBridge: true },

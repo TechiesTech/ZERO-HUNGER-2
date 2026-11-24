@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Zero Hunger Rider</string>
-    <string name="title_activity_main">Zero Hunger Rider</string>
+    <string name="app_name">ZH Rider</string>
+    <string name="title_activity_main">ZH Rider</string>
     <string name="package_name">com.zerohunger.rider</string>
     <string name="custom_url_scheme">com.zerohunger.rider</string>
 </resources>
