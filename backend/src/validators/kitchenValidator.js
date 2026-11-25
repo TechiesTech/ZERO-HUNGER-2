@@ -13,7 +13,6 @@ const kitchenDetailsSchema = Joi.object({
         latitude: Joi.number().min(-90).max(90).required(),
         longitude: Joi.number().min(-180).max(180).required(),
     }).required(),
-    serviceRadiusKm: Joi.number().min(0.5).max(50),
     isOpen: Joi.boolean(),
 });
 
@@ -24,4 +23,12 @@ const getAllKitchensSchema = Joi.object({
     limit: Joi.number().integer().min(1).max(100).default(10),
 });
 
-export { kitchenDetailsSchema, getAllKitchensSchema };
+const kitchenIdParamSchema = Joi.object({
+    kitchenId: Joi.string().trim().lowercase().hex().length(24).required(),
+});
+
+const setServiceRadiusSchema = Joi.object({
+    serviceRadiusKm: Joi.number().min(0.5).max(50).required(),
+});
+
+export { kitchenDetailsSchema, getAllKitchensSchema, kitchenIdParamSchema, setServiceRadiusSchema };

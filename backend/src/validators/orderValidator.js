@@ -16,6 +16,10 @@ const createOrderSchema = Joi.object({
         .required(),
 });
 
+const checkoutDetailsSchema = Joi.object({
+    kitchenId: Joi.string().trim().lowercase().hex().length(24),
+});
+
 const getMyOrdersSchema = Joi.object({
     page: Joi.number().integer().min(1).default(1),
     limit: Joi.number().integer().min(1).max(50).default(10),
@@ -54,6 +58,7 @@ const reverseGeocodeSchema = Joi.object({
 
 export {
     createOrderSchema,
+    checkoutDetailsSchema,
     getMyOrdersSchema,
     orderNumberParamSchema,
     updateDeliveryDetailsSchema,

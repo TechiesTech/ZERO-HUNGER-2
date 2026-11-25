@@ -2,6 +2,8 @@ import crypto from 'crypto';
 import AppError from '../utils/appError.js';
 import * as orderRepository from '../repositories/orderRepository.js';
 import * as addressRepository from '../repositories/addressRepository.js';
+import * as kitchenRepository from '../repositories/kitchenRepository.js';
+import { checkServiceArea } from '../utils/serviceArea.js';
 import * as geocoder from '../utils/geocoder.js';
 import { getCachedRoute } from '../utils/roadRoute.js';
 import { getPhotoUrl } from '../config/cloudinary.js';
@@ -36,6 +38,20 @@ const createOrder = async (user, body) => {
         throw new AppError('All meals in one order must be from the same kitchen', 400);
     }
 
+    // 4. Phase one: only addresses inside the kitchen's delivery radius can order
+    const kitchen = await kitchenRepository.getMyKitchen(kitchenId);
+    if (!kitchen || kitchen.location?.latitude == null) {
+        throw new AppError('This kitchen is not ready to take orders yet', 400);
+    }
+
+    const area = checkServiceArea(kitchen, address);
+    if (!area.deliverable) {
+        throw new AppError(
+            `Sorry, we do not deliver to this address yet. We currently deliver within ${area.radiusKm} km of our kitchen`,
+            422
+        );
+    }
+
     // The delivery OTP is not created here. It is created when the rider marks the order picked up
     const orderData = {
         customerId: user._id,
@@ -47,7 +63,7 @@ const createOrder = async (user, body) => {
         sponsoredMealsCount: orderItems.reduce((sum, item) => sum + item.sponsoredChildMeals, 0),
     };
 
-    // 4. Random order number, try again if it already exists
+    // 5. Random order number, try again if it already exists
     for (let attempt = 1; attempt <= 3; attempt += 1) {
         const orderNumber = `ZH-ORD-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
         try {
@@ -57,7 +73,7 @@ const createOrder = async (user, body) => {
             const { deliveryOtp, deliveryOtpAttempts, ...safeOrder } = order;
             const created = { ...safeOrder, items };
 
-            // 5. Tell this order's kitchen (and admins) at once. Runs only after the order and items are saved
+            // 6. Tell this order's kitchen (and admins) at once. Runs only after the order and items are saved
             notifyNewOrder(created);
 
             return created;
@@ -68,12 +84,22 @@ const createOrder = async (user, body) => {
     throw new AppError('Could not create the order, please try again', 409);
 };
 
-const getCheckoutDetails = async (user) => {
-    const addresses = await addressRepository.getMyAddresses(user._id);
+const getCheckoutDetails = async (user, { kitchenId } = {}) => {
+    const saved = await addressRepository.getMyAddresses(user._id);
+
+    // With a kitchen id, every address says whether that kitchen delivers to it
+    const kitchen = kitchenId ? await kitchenRepository.getMyKitchen(kitchenId) : null;
+    const addresses = saved.map((address) => {
+        if (!kitchen) return address;
+        const { deliverable, distanceKm } = checkServiceArea(kitchen, address);
+        return { ...address, isDeliverable: deliverable, distanceKm };
+    });
+
     return {
         customer: { name: user.name, email: user.email || null, phone: user.phone || '' },
         addresses,
         defaultAddress: addresses.find((address) => address.isDefault) || addresses[0] || null,
+        serviceRadiusKm: kitchen ? (kitchen.serviceRadiusKm ?? 5) : null,
     };
 };
 
@@ -204,6 +230,23 @@ const cancelOrder = async (user, orderNumber) => {
 const updateDeliveryDetails = async (user, orderNumber, { addressId }) => {
     const address = await addressRepository.getAddress(user._id, addressId);
     if (!address) throw new AppError('Address not found', 404);
+
+    // The new address must also be inside the kitchen's delivery radius
+    const current = await orderRepository.getOrderKitchenId(orderNumber, user._id);
+    if (!current) throw new AppError('Order not found or can no longer be changed', 404);
+
+    const kitchen = await kitchenRepository.getMyKitchen(current.kitchenId);
+    if (!kitchen || kitchen.location?.latitude == null) {
+        throw new AppError('This kitchen is not ready to take orders yet', 400);
+    }
+
+    const area = checkServiceArea(kitchen, address);
+    if (!area.deliverable) {
+        throw new AppError(
+            `Sorry, we do not deliver to this address yet. We currently deliver within ${area.radiusKm} km of our kitchen`,
+            422
+        );
+    }
 
     const order = await orderRepository.updateDeliveryDetails(orderNumber, user._id, address._id);
     if (!order) throw new AppError('Order not found or can no longer be changed', 404);

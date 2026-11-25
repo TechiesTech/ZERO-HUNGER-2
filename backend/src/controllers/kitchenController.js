@@ -18,6 +18,15 @@ const saveMyKitchen = async (req, res, next) => {
     }
 };
 
+const setServiceRadius = async (req, res, next) => {
+    try {
+        const data = await kitchenService.setServiceRadius(req.params.kitchenId, req.body);
+        return res.status(200).json({ success: true, message: 'Delivery radius updated', data });
+    } catch (error) {
+        return next(error);
+    }
+};
+
 const getAllKitchens = async (req, res, next) => {
     try {
         const data = await kitchenService.getAllKitchens(req.validatedQuery);
@@ -63,4 +72,4 @@ const markReady = async (req, res, next) => {
     }
 };
 
-export { getMyKitchen, saveMyKitchen, getAllKitchens, getActiveKitchens, getPaidOrders, startPreparing, markReady };
+export { getMyKitchen, saveMyKitchen, setServiceRadius, getAllKitchens, getActiveKitchens, getPaidOrders, startPreparing, markReady };

@@ -9,6 +9,12 @@ const getMyKitchen = async (kitchenId) => {
     return kitchen ? { ...kitchen, detailsComplete: true } : { detailsComplete: false };
 };
 
+const setServiceRadius = async (kitchenId, { serviceRadiusKm }) => {
+    const kitchen = await kitchenRepository.setServiceRadius(kitchenId, serviceRadiusKm);
+    if (!kitchen) throw new AppError('Kitchen not found, or it has not saved its details yet', 404);
+    return kitchen;
+};
+
 const getAllKitchens = async ({ search, isActive, page, limit }) => {
     const { kitchens, total } = await kitchenRepository.getAllKitchens({ search, isActive, page, limit });
     return {
@@ -48,4 +54,4 @@ const markReady = async (orderId, kitchenId) => {
     return order;
 };
 
-export { saveMyKitchen, getMyKitchen, getAllKitchens, getActiveKitchens, getPaidOrders, startPreparing, markReady };
+export { saveMyKitchen, setServiceRadius, getMyKitchen, getAllKitchens, getActiveKitchens, getPaidOrders, startPreparing, markReady };

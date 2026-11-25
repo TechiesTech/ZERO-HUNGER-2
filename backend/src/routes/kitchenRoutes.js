@@ -3,10 +3,11 @@ import authenticate from '../middleware/authenticate.js';
 import requireRoles from '../middleware/requireRoles.js';
 import validate from '../middleware/validate.js';
 import { orderIdParamSchema } from '../validators/orderValidator.js';
-import { kitchenDetailsSchema, getAllKitchensSchema } from '../validators/kitchenValidator.js';
+import { kitchenDetailsSchema, getAllKitchensSchema, kitchenIdParamSchema, setServiceRadiusSchema } from '../validators/kitchenValidator.js';
 import {
     getMyKitchen,
     saveMyKitchen,
+    setServiceRadius,
     getPaidOrders,
     startPreparing,
     markReady,
@@ -18,6 +19,7 @@ const router = Router();
 
 // Admin only
 router.get('/getAllKitchens', authenticate, requireRoles('admin'), validate(getAllKitchensSchema, 'query'), getAllKitchens);
+router.patch('/setServiceRadius/:kitchenId', authenticate, requireRoles('admin'), validate(kitchenIdParamSchema, 'params'), validate(setServiceRadiusSchema), setServiceRadius);
 
 // Public
 router.get('/getActiveKitchens', getActiveKitchens);

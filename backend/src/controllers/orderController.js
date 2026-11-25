@@ -11,7 +11,7 @@ const createOrder = async (req, res, next) => {
 
 const getCheckoutDetails = async (req, res, next) => {
     try {
-        const data = await orderService.getCheckoutDetails(req.user);
+                const data = await orderService.getCheckoutDetails(req.user, req.validatedQuery);
         return res.status(200).json({ success: true, data });
     } catch (error) {
         return next(error);

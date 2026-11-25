@@ -13,6 +13,16 @@ const saveMyKitchen = (kitchenId, data) =>
         { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
     ).lean();
 
+// Admin only: change how far this kitchen delivers. Returns null if the kitchen has not saved its details yet
+const setServiceRadius = (kitchenId, serviceRadiusKm) =>
+    Kitchen.findOneAndUpdate(
+        { _id: kitchenId },
+        { $set: { serviceRadiusKm } },
+        { new: true, runValidators: true }
+    )
+        .select('serviceRadiusKm')
+        .lean();
+
 const getAllKitchens = async ({ search, isActive, page, limit }) => {
     const match = { roles: 'kitchen' };
     if (isActive !== undefined) match.status = isActive ? 'active' : { $ne: 'active' };
@@ -125,4 +135,4 @@ const moveOrderStatus = (orderId, kitchenId, from, to, stampField) =>
         { new: true, runValidators: true }
     ).select('-deliveryOtp -deliveryOtpAttempts').lean();
 
-export { getMyKitchen, saveMyKitchen, getAllKitchens, getActiveKitchens, getPaidOrders, moveOrderStatus };
+export { getMyKitchen, saveMyKitchen, setServiceRadius, getAllKitchens, getActiveKitchens, getPaidOrders, moveOrderStatus };

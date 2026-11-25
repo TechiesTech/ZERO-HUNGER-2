@@ -13,6 +13,7 @@ import {
 } from '../controllers/orderController.js';
 import {
     createOrderSchema,
+    checkoutDetailsSchema,
     getMyOrdersSchema,
     orderNumberParamSchema,
     updateDeliveryDetailsSchema,
@@ -33,7 +34,7 @@ import {
 const router = Router();
 
 // Customer endpoints (login required, the customer is read from the login cookie)
-router.get('/checkoutDetails', authenticate, requireRoles('customer'), getCheckoutDetails);
+router.get('/checkoutDetails', authenticate, requireRoles('customer'), validate(checkoutDetailsSchema, 'query'), getCheckoutDetails);
 router.post('/createOrder', createOrderLimiter, authenticate, requireRoles('customer'), validate(createOrderSchema), createOrder);
 router.get('/getMyOrders', authenticate, requireRoles('customer'), validate(getMyOrdersSchema, 'query'), getMyOrders);
 router.get('/trackLiveOrder/:orderNumber', trackLiveOrderLimiter, authenticate, requireRoles('customer'), validate(orderNumberParamSchema, 'params'), trackLiveOrder);

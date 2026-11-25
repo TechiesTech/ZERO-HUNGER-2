@@ -271,6 +271,11 @@ const updateDeliveryDetails = async (orderNumber, customerId, addressId) => {
         .lean();
 };
 
+// The kitchen of one of this customer's orders (used to check a new delivery address)
+const getOrderKitchenId = async (orderNumber, customerId) => {
+    return Order.findOne({ orderNumber, customerId, isDeleted: false }).select('kitchenId').lean();
+};
+
 // Admin list with customer name, phone and delivery address
 const getAllOrders = async (filter, skip, limit) => {
     const [result] = await Order.aggregate([
@@ -360,6 +365,7 @@ export {
     trackLiveOrder,
     cancelOrder,
     updateDeliveryDetails,
+    getOrderKitchenId,
     getAllOrders,
     getOrderById,
     getOrderStats,
