@@ -71,6 +71,7 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose, onRequest
   const [confirmedOrder, setConfirmedOrder] = useState<any>(null);
   const [confirmedTokens, setConfirmedTokens] = useState<any[]>([]);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const isPaymentSuccessful = confirmedOrder?.paymentStatus?.toLowerCase() === 'success';
 
   useEffect(() => {
     if (isOpen && !kitchensLoaded && !kitchensLoading) {
@@ -401,13 +402,15 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose, onRequest
                     <CheckCircle2 className="w-6 h-6" />
                   </div>
                   <span className="text-xs font-mono-tabular font-bold uppercase tracking-[0.2em] text-[#188D44]">
-                    ORDER SUBMITTED
+                    {isPaymentSuccessful ? 'ORDER CONFIRMED' : 'ORDER SUBMITTED'}
                   </span>
                   <h3 className="font-display-sans uppercase text-2xl font-black text-[#122023] mt-2">
-                    Your order request has been submitted.
+                    {isPaymentSuccessful ? 'Your order has been confirmed.' : 'Your order request has been submitted.'}
                   </h3>
                   <p className="mt-2 text-sm text-[#122023]/75">
-                    Order <strong>{confirmedOrder.orderNumber}</strong> is awaiting payment.
+                    {isPaymentSuccessful
+                      ? <>Payment for order <strong>{confirmedOrder.orderNumber}</strong> was successful.</>
+                      : <>Order <strong>{confirmedOrder.orderNumber}</strong> is awaiting payment.</>}
                   </p>
                   <button
                     type="button"
