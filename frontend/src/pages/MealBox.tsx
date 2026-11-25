@@ -118,6 +118,7 @@ export const MealBox: React.FC = () => {
   const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null);
   const [confirmedTokens, setConfirmedTokens] = useState<CharityToken[]>([]);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const isPaymentSuccessful = confirmedOrder?.paymentStatus?.toLowerCase() === 'success';
 
   useEffect(() => {
     if (!isCartOpen && checkoutStep !== 'CHECKOUT') return;
@@ -835,14 +836,16 @@ export const MealBox: React.FC = () => {
                   <div>
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-[6px] bg-[#49E619] text-[#122023] text-xs font-mono-tabular font-bold uppercase tracking-widest mb-4">
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>ORDER SUBMITTED</span>
+                      <span>{isPaymentSuccessful ? 'ORDER CONFIRMED' : 'ORDER SUBMITTED'}</span>
                     </div>
 
                     <h3 id="cart-dialog-title" className="font-display-sans uppercase text-2xl font-black text-[#122023]">
-                      Your order request has been submitted.
+                      {isPaymentSuccessful ? 'Your order has been confirmed.' : 'Your order request has been submitted.'}
                     </h3>
                     <p className="mt-2 text-sm text-[#122023]/75">
-                      Order <strong>{confirmedOrder.orderNumber}</strong> is awaiting payment. No payment has been processed.
+                      {isPaymentSuccessful
+                        ? <>Payment for order <strong>{confirmedOrder.orderNumber}</strong> was successful.</>
+                        : <>Order <strong>{confirmedOrder.orderNumber}</strong> is awaiting payment. No payment has been processed.</>}
                     </p>
                     <Link
                       to={`/track-order?orderNumber=${encodeURIComponent(confirmedOrder.orderNumber || '')}`}
@@ -910,7 +913,9 @@ export const MealBox: React.FC = () => {
                           for a child
                         </div>
                         <span className="mt-1 inline-block text-[11px] text-[#122023]/85">
-                          Sponsorship allocation is pending payment confirmation.
+                          {isPaymentSuccessful
+                            ? 'Payment confirmed. Sponsorship allocation is being processed.'
+                            : 'Sponsorship allocation is pending payment confirmation.'}
                         </span>
                       </div>
                     </div>
